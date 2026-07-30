@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 80" width="320" height="80">
+  <defs>
+    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#F3E5AB" />
+      <stop offset="35%" stop-color="#D0A96B" />
+      <stop offset="70%" stop-color="#B8860B" />
+      <stop offset="100%" stop-color="#E5C158" />
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="1.5" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+
+  <!-- Background container transparent -->
+  <g transform="translate(10, 8)">
+    <!-- Monogram / Crown Emblem -->
+    <path d="M24 6 L36 26 L12 26 Z M14 26 L34 26 L24 42 Z" fill="url(#goldGrad)" filter="url(#glow)"/>
+    <circle cx="24" cy="4" r="3" fill="url(#goldGrad)" />
+    <circle cx="6" cy="18" r="2.5" fill="url(#goldGrad)" />
+    <circle cx="42" cy="18" r="2.5" fill="url(#goldGrad)" />
+    
+    <!-- Text "ELOHIM" -->
+    <text x="60" y="32" font-family="'Cinzel', 'Playfair Display', 'Times New Roman', serif" font-size="28" font-weight="900" fill="url(#goldGrad)" letter-spacing="3">
+      ELOHIM
+    </text>
+    
+    <!-- Subtitle "IMPORT ERP" -->
+    <text x="62" y="52" font-family="'Plus Jakarta Sans', 'Inter', sans-serif" font-size="11" font-weight="800" fill="#E5C158" letter-spacing="6">
+      IMPORT ERP
+    </text>
+    
+    <!-- Decorative Gold Accent Line -->
+    <line x1="60" y1="58" x2="260" y2="58" stroke="url(#goldGrad)" stroke-width="1.5" opacity="0.8"/>
+  </g>
+</svg>
