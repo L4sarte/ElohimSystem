@@ -14,6 +14,9 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 
+import { InTransitDashboard } from '@/components/supply-chain/InTransitDashboard';
+import { POBuilder } from '@/components/supply-chain/POBuilder';
+
 export default function ComprasDashboardPage() {
   const { role } = useUserStore();
   const { refresh: refreshRate } = useExchangeRate();
@@ -24,7 +27,7 @@ export default function ComprasDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [activeTab, setActiveTab] = useState<'purchases' | 'payables'>('purchases');
+  const [activeTab, setActiveTab] = useState<'in_transit' | 'po_builder' | 'purchases' | 'payables'>('in_transit');
 
   const fetchDashboardData = async () => {
     if (role !== 'admin') return;
@@ -186,7 +189,29 @@ export default function ComprasDashboardPage() {
         </div>
 
         {/* PESTAÑAS SELECCIÓN */}
-        <div className="flex border-b border-slate-200 dark:border-[#1B362A] mb-6">
+        <div className="flex flex-wrap border-b border-slate-200 dark:border-[#1B362A] mb-6 gap-2">
+          <button
+            onClick={() => setActiveTab('in_transit')}
+            className={`pb-3 px-4 font-bold text-xs transition-colors border-b-2 cursor-pointer flex items-center gap-2 ${
+              activeTab === 'in_transit'
+                ? 'border-emerald-600 text-emerald-600 dark:border-emerald-400 dark:text-emerald-400'
+                : 'border-transparent text-slate-500 hover:text-slate-900 dark:hover:text-white'
+            }`}
+          >
+            <Truck className="h-4 w-4" /> Mercadería en Camino
+          </button>
+
+          <button
+            onClick={() => setActiveTab('po_builder')}
+            className={`pb-3 px-4 font-bold text-xs transition-colors border-b-2 cursor-pointer flex items-center gap-2 ${
+              activeTab === 'po_builder'
+                ? 'border-emerald-600 text-emerald-600 dark:border-emerald-400 dark:text-emerald-400'
+                : 'border-transparent text-slate-500 hover:text-slate-900 dark:hover:text-white'
+            }`}
+          >
+            <Plus className="h-4 w-4" /> Creador PO Builder
+          </button>
+
           <button
             onClick={() => setActiveTab('purchases')}
             className={`pb-3 px-4 font-bold text-xs transition-colors border-b-2 cursor-pointer ${
@@ -211,14 +236,19 @@ export default function ComprasDashboardPage() {
         </div>
 
         {/* CONTENIDO PESTAÑAS */}
-        <Card className="border-slate-200 dark:border-[#1B362A]">
-          <CardContent className="p-0 overflow-x-auto">
-            {loading ? (
-              <div className="flex flex-col items-center justify-center py-20 gap-3">
-                <RefreshCw className="h-8 w-8 animate-spin text-indigo-600" />
-                <span className="text-sm font-medium text-slate-500 dark:text-zinc-400">Cargando datos de compras...</span>
-              </div>
-            ) : activeTab === 'purchases' ? (
+        {activeTab === 'in_transit' ? (
+          <InTransitDashboard />
+        ) : activeTab === 'po_builder' ? (
+          <POBuilder onSuccess={() => setActiveTab('in_transit')} />
+        ) : (
+          <Card className="border-slate-200 dark:border-[#1B362A]">
+            <CardContent className="p-0 overflow-x-auto">
+              {loading ? (
+                <div className="flex flex-col items-center justify-center py-20 gap-3">
+                  <RefreshCw className="h-8 w-8 animate-spin text-indigo-600" />
+                  <span className="text-sm font-medium text-slate-500 dark:text-zinc-400">Cargando datos de compras...</span>
+                </div>
+              ) : activeTab === 'purchases' ? (
               
               /* TABLA DE COMPRAS */
               purchases.length === 0 ? (
@@ -352,6 +382,7 @@ export default function ComprasDashboardPage() {
             )}
           </CardContent>
         </Card>
+        )}
 
       </main>
 
