@@ -22,6 +22,8 @@ import {
   CreditCard, Check, X, Percent, Layers, Power, DollarSign, Sparkles, Trash2, ArrowRight
 } from 'lucide-react';
 import Link from 'next/link';
+import { toast } from 'sonner';
+import { ConfirmModal } from '@/components/ui/ConfirmModal';
 
 export default function ComisionesConfigPage() {
   const { role } = useUserStore();
@@ -34,7 +36,7 @@ export default function ComisionesConfigPage() {
   // Modal Form
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<PaymentMethodConfig | null>(null);
-
+  const [confirmDeleteMethod, setConfirmDeleteMethod] = useState<PaymentMethodConfig | null>(null);
   const [formMethodName, setFormMethodName] = useState('');
   const [formFeePercentage, setFormFeePercentage] = useState<number>(0);
   const [formFixedFeeArs, setFormFixedFeeArs] = useState<number>(0);
@@ -82,21 +84,27 @@ export default function ComisionesConfigPage() {
     const newStatus = !item.is_active;
     const res = await togglePaymentMethodStatus(role, item.id, newStatus);
     if (res.success) {
+      toast.success(`Estado actualizado para "${item.method_name || item.name}"`);
       fetchConfigs();
     } else {
-      alert(res.error || 'Error al cambiar estado');
+      toast.error(res.error || 'Error al cambiar estado');
     }
   };
 
-  const handleDeleteItem = async (item: PaymentMethodConfig) => {
-    if (confirm(`¿Eliminar la regla de pasarela "${item.method_name || item.name}"?`)) {
-      const res = await deletePaymentMethodConfig(role, item.id);
-      if (res.success) {
-        fetchConfigs();
-      } else {
-        alert(res.error || 'Error al eliminar');
-      }
+  const handleDeleteItem = (item: PaymentMethodConfig) => {
+    setConfirmDeleteMethod(item);
+  };
+
+  const executeDelete = async () => {
+    if (!confirmDeleteMethod) return;
+    const res = await deletePaymentMethodConfig(role, confirmDeleteMethod.id);
+    if (res.success) {
+      toast.success(`Regla "${confirmDeleteMethod.method_name || confirmDeleteMethod.name}" eliminada con éxito`);
+      fetchConfigs();
+    } else {
+      toast.error(res.error || 'Error al eliminar');
     }
+    setConfirmDeleteMethod(null);
   };
 
   const handleSubmitForm = async (e: React.FormEvent) => {
@@ -505,6 +513,18 @@ export default function ComisionesConfigPage() {
           </div>
         </div>
       )}
+
+      {/* MODAL DE CONFIRMACIÓN DE ELIMINACIÓN */}
+      <ConfirmModal
+        isOpen={Boolean(confirmDeleteMethod)}
+        title="Eliminar Método de Pago"
+        description={`¿Estás seguro de que deseas eliminar la regla de pasarela "${confirmDeleteMethod?.method_name || confirmDeleteMethod?.name}"? Esta acción no se puede deshacer.`}
+        confirmText="Eliminar Regla"
+        cancelText="Cancelar"
+        variant="danger"
+        onConfirm={executeDelete}
+        onCancel={() => setConfirmDeleteMethod(null)}
+      />
 
     </div>
   );

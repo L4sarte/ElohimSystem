@@ -6,8 +6,9 @@ import { revalidatePath } from 'next/cache';
 
 export interface ExchangeRateResult {
   value_ars: number;
-  type: 'blue_venta' | 'manual';
+  type: 'blue_venta' | 'manual' | 'fallback';
   is_active: boolean;
+  is_fallback?: boolean;
   created_at?: string;
 }
 
@@ -15,6 +16,7 @@ export interface ExchangeRateResult {
  * Obtiene la cotización del dólar blue activa.
  * Primero busca si hay una tasa manual de administrador activa en la base de datos.
  * Si no la hay, consume la API externa de dolarapi.com en tiempo real.
+ * Si la API falla, activa un fallback seguro recuperando el último valor en DB o variable de entorno.
  */
 export async function getCurrentRate(): Promise<{ success: boolean; data?: ExchangeRateResult; error?: string }> {
   try {
@@ -65,13 +67,29 @@ export async function getCurrentRate(): Promise<{ success: boolean; data?: Excha
         }
       };
     } catch (apiError: any) {
-      console.error('Error al consultar dolarapi.com:', apiError);
-      // Fallback estricto si todo lo demás falla (ej. si no hay internet o la API está caída)
+      console.warn('Fallo en la API cambiaria externa (dolarapi.com), activando cotización de respaldo:', apiError.message);
+
+      // 3. Fallback: Recuperar la última cotización conocida en Supabase o variable de entorno
+      let fallbackValue = process.env.NEXT_PUBLIC_FALLBACK_USD_RATE 
+        ? parseFloat(process.env.NEXT_PUBLIC_FALLBACK_USD_RATE) 
+        : 1250;
+
+      const { data: lastRate } = await supabase
+        .from('exchange_rates')
+        .select('value_ars')
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      if (lastRate && lastRate.length > 0 && lastRate[0].value_ars) {
+        fallbackValue = Number(lastRate[0].value_ars);
+      }
+
       return {
         success: true,
         data: {
-          value_ars: 1250, // Cotización de respaldo segura para no romper la app
-          type: 'blue_venta',
+          value_ars: fallbackValue,
+          type: 'fallback',
+          is_fallback: true,
           is_active: false,
           created_at: new Date().toISOString()
         }

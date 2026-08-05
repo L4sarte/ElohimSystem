@@ -22,6 +22,9 @@ import {
 import { MonthlyGoalsWidget } from '@/components/goals/MonthlyGoalsWidget';
 import { ExchangeRatesWidget } from '@/components/rates/ExchangeRatesWidget';
 
+import { toast } from 'sonner';
+import { exportElementToPDF } from '@/utils/pdfExport';
+
 const COLORS = ['#e11d48', '#8b5cf6', '#3b82f6', '#10b981', '#f59e0b', '#64748b'];
 
 export default function ReportesPage() {
@@ -54,70 +57,21 @@ export default function ReportesPage() {
   }, [role, timeRange]);
 
   const exportDashboardToPDF = async () => {
-    const input = document.getElementById('pdf-export-area');
-    if (!input) {
-      alert('No se encontró el área de reporte para exportar.');
-      return;
-    }
+    const labelRange = timeRange === 'current_month' ? 'Mes Actual' : timeRange === 'previous_month' ? 'Mes Anterior' : timeRange === 'last_30_days' ? 'Últimos 30 días' : 'Año en Curso';
+    const fileName = `Elohim_Import_Reporte_Financiero_${timeRange}_${new Date().toISOString().split('T')[0]}.pdf`;
 
     setExportingPdf(true);
     try {
-      const html2canvas = (await import('html2canvas')).default;
-      const { jsPDF } = await import('jspdf');
-
-      // Captura WYSIWYG de alta calidad respetando la estética Dark Mode Premium (zinc-950)
-      const canvas = await html2canvas(input, {
-        scale: 2,
-        backgroundColor: '#09090b',
-        useCORS: true,
-        logging: false,
-        windowWidth: input.scrollWidth,
-        windowHeight: input.scrollHeight
-      });
-
-      const imgData = canvas.toDataURL('image/png');
-      const pdf = new jsPDF({
-        orientation: 'portrait',
-        unit: 'mm',
-        format: 'a4'
-      });
-
-      const imgWidth = 190; // Ancho A4 en mm con márgenes (210 - 20)
-      const pageHeight = 295;
-      const imgHeight = (canvas.height * imgWidth) / canvas.width;
-      let heightLeft = imgHeight;
-      let position = 20;
-
-      // Fondo oscuro para la portada/hoja del PDF
-      pdf.setFillColor(9, 9, 11);
-      pdf.rect(0, 0, 210, 297, 'F');
-
-      // Título nativo de documento
-      pdf.setTextColor(255, 255, 255);
-      pdf.setFontSize(14);
-      pdf.text('Elohim Import ERP - Reporte Financiero & Analítica', 10, 10);
-
-      pdf.setFontSize(8);
-      pdf.setTextColor(161, 161, 170);
-      const labelRange = timeRange === 'current_month' ? 'Mes Actual' : timeRange === 'previous_month' ? 'Mes Anterior' : timeRange === 'last_30_days' ? 'Últimos 30 días' : 'Año en Curso';
-      pdf.text(`Fecha de Exportación: ${new Date().toLocaleDateString('es-AR')} | Rango: ${labelRange}`, 10, 15);
-
-      pdf.addImage(imgData, 'PNG', 10, position, imgWidth, imgHeight);
-      heightLeft -= (pageHeight - 20);
-
-      while (heightLeft >= 0) {
-        position = heightLeft - imgHeight + 10;
-        pdf.addPage();
-        pdf.setFillColor(9, 9, 11);
-        pdf.rect(0, 0, 210, 297, 'F');
-        pdf.addImage(imgData, 'PNG', 10, position, imgWidth, imgHeight);
-        heightLeft -= pageHeight;
-      }
-
-      pdf.save(`Elohim Import_Reporte_Financiero_${timeRange}_${new Date().toISOString().split('T')[0]}.pdf`);
+      await exportElementToPDF(
+        'pdf-export-area',
+        fileName,
+        'Elohim Import ERP - Reporte Financiero & Analítica',
+        `Rango: ${labelRange}`
+      );
+      toast.success('Reporte PDF exportado con éxito');
     } catch (err: any) {
       console.error('Error al exportar reporte PDF:', err);
-      alert('Ocurrió un error al generar la exportación PDF: ' + (err.message || 'Error desconocido'));
+      toast.error('Ocurrió un error al generar la exportación PDF: ' + (err.message || 'Error desconocido'));
     } finally {
       setExportingPdf(false);
     }

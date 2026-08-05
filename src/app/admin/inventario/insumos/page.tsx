@@ -17,6 +17,9 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 
+import { toast } from 'sonner';
+import { ConfirmModal } from '@/components/ui/ConfirmModal';
+
 export default function InsumosPage() {
   const { role } = useUserStore();
   const { rate: exchangeRate, refresh: refreshRate } = useExchangeRate();
@@ -29,6 +32,7 @@ export default function InsumosPage() {
   // Estados para Modal de Formulario (Alta / Edición)
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [deleteSupplyInfo, setDeleteSupplyInfo] = useState<{ id: string; name: string } | null>(null);
 
   const fetchSuppliesData = async () => {
     setLoading(true);
@@ -51,20 +55,24 @@ export default function InsumosPage() {
     setIsModalOpen(true);
   };
 
-  const handleDelete = async (id: string, name: string) => {
+  const handleDelete = (id: string, name: string) => {
     if (role !== 'admin') {
-      alert('Solo los administradores pueden eliminar insumos.');
+      toast.error('Solo los administradores pueden eliminar insumos.');
       return;
     }
+    setDeleteSupplyInfo({ id, name });
+  };
 
-    if (confirm(`¿Estás seguro de eliminar el insumo "${name}"?`)) {
-      const res = await deleteProduct(role, id);
-      if (res.success) {
-        fetchSuppliesData();
-      } else {
-        alert(res.error || 'Error al eliminar el insumo.');
-      }
+  const executeDeleteSupply = async () => {
+    if (!deleteSupplyInfo) return;
+    const res = await deleteProduct(role, deleteSupplyInfo.id);
+    if (res.success) {
+      toast.success(`Insumo "${deleteSupplyInfo.name}" eliminado correctamente.`);
+      fetchSuppliesData();
+    } else {
+      toast.error(res.error || 'Error al eliminar el insumo.');
     }
+    setDeleteSupplyInfo(null);
   };
 
   const filteredSupplies = supplies.filter(item =>
@@ -280,6 +288,18 @@ export default function InsumosPage() {
           initialType="supply"
         />
       )}
+
+      {/* MODAL DE CONFIRMACIÓN DE ELIMINACIÓN */}
+      <ConfirmModal
+        isOpen={Boolean(deleteSupplyInfo)}
+        title="Eliminar Insumo de Packaging"
+        description={`¿Estás seguro de que deseas eliminar el insumo "${deleteSupplyInfo?.name}"? Se removerá del catálogo de envases de ensamble JIT.`}
+        confirmText="Eliminar Insumo"
+        cancelText="Cancelar"
+        variant="danger"
+        onConfirm={executeDeleteSupply}
+        onCancel={() => setDeleteSupplyInfo(null)}
+      />
 
     </div>
   );

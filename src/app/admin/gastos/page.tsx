@@ -22,6 +22,8 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { getTreasuryAccounts, TreasuryAccount } from '@/app/actions/treasury';
+import { toast } from 'sonner';
+import { ConfirmModal } from '@/components/ui/ConfirmModal';
 
 const CATEGORIES = ['Marketing', 'Alquiler', 'Servicios', 'Logística', 'Honorarios', 'Varios'];
 
@@ -38,13 +40,13 @@ export default function GastosPage() {
   // Modal Form State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<OperatingExpense | null>(null);
+  const [deleteExpenseId, setDeleteExpenseId] = useState<string | null>(null);
 
   const [category, setCategory] = useState<string>('Varios');
   const [amountArs, setAmountArs] = useState<string>('');
   const [amountUsd, setAmountUsd] = useState<string>('');
   const [description, setDescription] = useState<string>('');
   const [expenseDate, setExpenseDate] = useState<string>(new Date().toISOString().split('T')[0]);
-
   const [submitting, setSubmitting] = useState(false);
 
   const fetchExpensesList = async () => {
@@ -95,14 +97,20 @@ export default function GastosPage() {
     setIsModalOpen(true);
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('¿Estás seguro de eliminar este gasto operativo?')) return;
-    const res = await deleteExpense(role, id);
+  const handleDelete = (id: string) => {
+    setDeleteExpenseId(id);
+  };
+
+  const executeDeleteExpense = async () => {
+    if (!deleteExpenseId) return;
+    const res = await deleteExpense(role, deleteExpenseId);
     if (res.success) {
+      toast.success('Gasto operativo eliminado con éxito.');
       fetchExpensesList();
     } else {
-      alert(res.error || 'Error al eliminar el gasto');
+      toast.error(res.error || 'Error al eliminar el gasto');
     }
+    setDeleteExpenseId(null);
   };
 
   const handleSubmitForm = async (e: React.FormEvent) => {
@@ -476,6 +484,18 @@ export default function GastosPage() {
           </div>
         </div>
       )}
+
+      {/* MODAL DE CONFIRMACIÓN DE ELIMINACIÓN */}
+      <ConfirmModal
+        isOpen={Boolean(deleteExpenseId)}
+        title="Eliminar Gasto Operativo"
+        description="¿Estás seguro de que deseas eliminar este gasto operativo de los registros? Esta acción no se puede deshacer."
+        confirmText="Eliminar Gasto"
+        cancelText="Cancelar"
+        variant="danger"
+        onConfirm={executeDeleteExpense}
+        onCancel={() => setDeleteExpenseId(null)}
+      />
 
     </div>
   );

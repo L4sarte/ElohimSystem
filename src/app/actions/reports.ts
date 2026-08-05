@@ -196,3 +196,110 @@ export async function getDashboardData(role: UserRole): Promise<{ success: boole
     return { success: false, error: error.message || 'Error al compilar datos del dashboard' };
   }
 }
+
+export interface BestSellerProduct {
+  product_id: string;
+  name: string;
+  brand: string;
+  sku: string;
+  units_sold: number;
+  total_revenue_ars: number;
+}
+
+export interface RetailKPIsData {
+  totalSalesCount: number;
+  totalRevenueArs: number;
+  averageOrderValueArs: number;
+  topBestSellers: BestSellerProduct[];
+}
+
+/**
+ * Obtiene los KPIs de Retail del mes en curso: Ticket Promedio (AOV) y Top 3 Best Sellers.
+ */
+export async function getRetailKPIs(role: UserRole): Promise<{ success: boolean; data?: RetailKPIsData; error?: string }> {
+  try {
+    if (role !== 'admin') {
+      throw new Error('Operación no autorizada. Se requiere rol de Administrador.');
+    }
+
+    const supabase = getServiceSupabase();
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+
+    // 1. Consultar ventas completadas del mes actual
+    const { data: monthSales, error: salesError } = await supabase
+      .from('sales')
+      .select('id, total_ars')
+      .neq('status', 'voided')
+      .gte('created_at', startOfMonth);
+
+    if (salesError) throw salesError;
+
+    const totalSalesCount = (monthSales || []).length;
+    const totalRevenueArs = (monthSales || []).reduce((sum, s) => sum + Number(s.total_ars || 0), 0);
+    const averageOrderValueArs = totalSalesCount > 0 ? Math.round(totalRevenueArs / totalSalesCount) : 0;
+
+    const monthSaleIds = (monthSales || []).map(s => s.id);
+    let topBestSellers: BestSellerProduct[] = [];
+
+    if (monthSaleIds.length > 0) {
+      // 2. Consultar ítems vendidos en el mes
+      const { data: items, error: itemsError } = await supabase
+        .from('sale_items')
+        .select(`
+          product_id,
+          quantity,
+          price_ars_at_moment,
+          products (
+            id,
+            name,
+            brand,
+            sku
+          )
+        `)
+        .in('sale_id', monthSaleIds);
+
+      if (itemsError) throw itemsError;
+
+      const productGroupMap: Record<string, BestSellerProduct> = {};
+
+      (items || []).forEach((item: any) => {
+        const pId = item.product_id;
+        const qty = Number(item.quantity || 0);
+        const revenue = qty * Number(item.price_ars_at_moment || 0);
+        const pInfo = item.products;
+
+        if (!productGroupMap[pId]) {
+          productGroupMap[pId] = {
+            product_id: pId,
+            name: pInfo?.name || 'Producto Desconocido',
+            brand: pInfo?.brand || 'Elohim',
+            sku: pInfo?.sku || 'SKU-N/A',
+            units_sold: 0,
+            total_revenue_ars: 0
+          };
+        }
+
+        productGroupMap[pId].units_sold += qty;
+        productGroupMap[pId].total_revenue_ars += revenue;
+      });
+
+      topBestSellers = Object.values(productGroupMap)
+        .sort((a, b) => b.units_sold - a.units_sold)
+        .slice(0, 3);
+    }
+
+    return {
+      success: true,
+      data: {
+        totalSalesCount,
+        totalRevenueArs,
+        averageOrderValueArs,
+        topBestSellers
+      }
+    };
+  } catch (error: any) {
+    console.error('Error al calcular KPIs de Retail:', error);
+    return { success: false, error: error.message || 'Error al obtener KPIs de Retail' };
+  }
+}

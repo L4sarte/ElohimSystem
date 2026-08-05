@@ -11,7 +11,7 @@ import { ReceiptTicket } from '@/components/pos/ReceiptTicket';
 import { CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { X, DollarSign, CreditCard, Landmark, CheckCircle, RefreshCw, AlertCircle, Sparkles, Percent, Printer, ShoppingBag, ShieldCheck } from 'lucide-react';
+import { X, DollarSign, CreditCard, Landmark, CheckCircle, RefreshCw, AlertCircle, Sparkles, Percent, Printer, ShoppingBag, ShieldCheck, MessageSquare } from 'lucide-react';
 
 interface CheckoutModalProps {
   isOpen: boolean;
@@ -353,6 +353,27 @@ export function CheckoutModal({
 
   const handlePrintTicket = () => {
     window.print();
+  };
+
+  const handleSendWhatsApp = () => {
+    if (!completedSaleData) return;
+
+    const itemsSummary = completedSaleData.items
+      .map((it: any) => `${it.quantity}x ${it.name}`)
+      .join(', ');
+
+    const rawMessage = `¡Hola! Gracias por tu compra en Elohim. Tu resumen: ${itemsSummary}. Total pagado: $${completedSaleData.totalArs.toLocaleString('es-AR')} ARS. ¡Que lo disfrutes!`;
+
+    const encodedText = encodeURIComponent(rawMessage);
+    const clientPhoneClean = selectedClient?.contact_whatsapp 
+      ? selectedClient.contact_whatsapp.replace(/\D/g, '')
+      : '';
+
+    const whatsappUrl = clientPhoneClean 
+      ? `https://wa.me/${clientPhoneClean}?text=${encodedText}`
+      : `https://wa.me/?text=${encodedText}`;
+
+    window.open(whatsappUrl, '_blank');
   };
 
   const handleFinishNewSale = () => {
@@ -753,13 +774,20 @@ export function CheckoutModal({
               </div>
             )}
 
-            <div className="flex justify-center gap-3 pt-2">
+            <div className="flex flex-wrap justify-center gap-3 pt-2">
               <Button
                 onClick={handlePrintTicket}
                 variant="outline"
                 className="cursor-pointer border-[#1B362A] bg-[#08130E] font-bold text-zinc-300"
               >
                 <Printer className="mr-2 h-4 w-4 text-[#D0A96B]" /> Imprimir Ticket
+              </Button>
+
+              <Button
+                onClick={handleSendWhatsApp}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs shadow-md shadow-emerald-600/20 cursor-pointer"
+              >
+                <MessageSquare className="mr-2 h-4 w-4" /> Enviar por WhatsApp
               </Button>
 
               <Button

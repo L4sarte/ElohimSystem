@@ -14,6 +14,9 @@ import {
   Tag, Info, RefreshCw, AlertCircle, ShoppingBag, Droplet, Archive, Globe 
 } from 'lucide-react';
 
+import { toast } from 'sonner';
+import { ConfirmModal } from '@/components/ui/ConfirmModal';
+
 interface ProductListProps {
   role: UserRole;
   excludeSupplies?: boolean;
@@ -34,6 +37,7 @@ export function ProductList({ role, excludeSupplies = true }: ProductListProps) 
   // Estados para el Modal
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [deleteProductInfo, setDeleteProductInfo] = useState<{ id: string; name: string } | null>(null);
 
   // Estados para el Modal de Fraccionamiento
   const [isFracModalOpen, setIsFracModalOpen] = useState(false);
@@ -61,17 +65,22 @@ export function ProductList({ role, excludeSupplies = true }: ProductListProps) 
     fetchProductsList();
   }, [role]);
 
-  const handleDelete = async (id: string, name: string) => {
-    if (confirm(`¿Estás seguro de que deseas eliminar el producto "${name}"?`)) {
-      setLoading(true);
-      const res = await deleteProduct(role, id);
-      if (res.success) {
-        await fetchProductsList();
-      } else {
-        alert(res.error || 'Error al eliminar producto');
-        setLoading(false);
-      }
+  const handleDelete = (id: string, name: string) => {
+    setDeleteProductInfo({ id, name });
+  };
+
+  const executeDeleteProduct = async () => {
+    if (!deleteProductInfo) return;
+    setLoading(true);
+    const res = await deleteProduct(role, deleteProductInfo.id);
+    if (res.success) {
+      toast.success(`Producto "${deleteProductInfo.name}" eliminado con éxito.`);
+      await fetchProductsList();
+    } else {
+      toast.error(res.error || 'Error al eliminar producto');
+      setLoading(false);
     }
+    setDeleteProductInfo(null);
   };
 
   const handleToggleVisibility = async (productId: string, currentPublic: boolean) => {
@@ -82,7 +91,9 @@ export function ProductList({ role, excludeSupplies = true }: ProductListProps) 
     if (!res.success) {
       // Revertir en caso de falla
       setProducts(prev => prev.map(p => p.id === productId ? { ...p, is_public: currentPublic } : p));
-      alert(res.error || 'Error al cambiar visibilidad pública');
+      toast.error(res.error || 'Error al cambiar visibilidad pública');
+    } else {
+      toast.success(`Visibilidad actualizada a ${nextState ? 'Público' : 'Oculto'}`);
     }
   };
 
@@ -431,6 +442,17 @@ export function ProductList({ role, excludeSupplies = true }: ProductListProps) 
         onSuccess={fetchProductsList}
         bottle={selectedBottle}
         role={role}
+      />
+      {/* MODAL DE CONFIRMACIÓN DE ELIMINACIÓN DE PRODUCTO */}
+      <ConfirmModal
+        isOpen={Boolean(deleteProductInfo)}
+        title="Eliminar Producto"
+        description={`¿Estás seguro de que deseas eliminar el producto "${deleteProductInfo?.name}"? Esta acción se removerá del inventario.`}
+        confirmText="Eliminar Producto"
+        cancelText="Cancelar"
+        variant="danger"
+        onConfirm={executeDeleteProduct}
+        onCancel={() => setDeleteProductInfo(null)}
       />
     </div>
   );

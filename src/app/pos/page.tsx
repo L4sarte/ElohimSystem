@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useUserStore } from '@/hooks/use-user-store';
 import { useExchangeRate } from '@/hooks/use-exchange-rate';
 import { usePosStore, CartItem } from '@/hooks/use-pos-store';
+import { useBarcodeScanner } from '@/hooks/useBarcodeScanner';
 import { getProducts } from '@/app/actions/products';
 import { Product, ProductType } from '@/types';
 import { RoleSelector } from '@/components/products/RoleSelector';
@@ -17,6 +18,7 @@ import {
   Plus, Minus, RefreshCw, AlertCircle, ShoppingCart, Check, Sparkles 
 } from 'lucide-react';
 import Link from 'next/link';
+import { toast } from 'sonner';
 
 export default function PosPage() {
   const { role } = useUserStore();
@@ -100,7 +102,7 @@ export default function PosPage() {
   const handleAddDecantToCart = (product: Product) => {
     const config = decantConfig[product.id];
     if (!config || !config.supplyId) {
-      alert('Debes seleccionar un frasco de insumo para envasar el decant.');
+      toast.error('Debes seleccionar un frasco de insumo para envasar el decant.');
       return;
     }
 
@@ -113,6 +115,32 @@ export default function PosPage() {
       price: supplyProduct.base_price_ars
     });
   };
+
+  // Callback para escaneo automático de código de barras
+  const handleBarcodeScan = useCallback((code: string) => {
+    const cleanCode = code.trim().toLowerCase();
+    const matchedProduct = products.find(p => 
+      p.sku.toLowerCase() === cleanCode || 
+      p.id.toLowerCase() === cleanCode ||
+      (p.batch_code && p.batch_code.toLowerCase() === cleanCode)
+    );
+
+    if (matchedProduct) {
+      if (matchedProduct.type === 'bottle') {
+        addItem(matchedProduct);
+        toast.success(`⚡ Producto escaneado: ${matchedProduct.name}`);
+      } else if (matchedProduct.type === 'decant_liquid') {
+        handleAddDecantToCart(matchedProduct);
+        toast.success(`⚡ Decant escaneado: ${matchedProduct.name}`);
+      } else {
+        toast.info(`Insumo detectado (${matchedProduct.name}). Se requiere envasado JIT.`);
+      }
+    } else {
+      toast.error(`Código de barras no reconocido: "${code}"`);
+    }
+  }, [products, addItem, emptyBottles, decantConfig]);
+
+  useBarcodeScanner(handleBarcodeScan);
 
   // Calcular totales del carrito
   const calculateItemTotal = (item: CartItem) => {
@@ -482,7 +510,7 @@ export default function PosPage() {
         onClose={() => setIsCheckoutOpen(false)}
         onSuccess={() => {
           clearCart();
-          alert('¡Venta registrada con éxito y stocks actualizados!');
+          toast.success('¡Venta registrada con éxito y stocks actualizados!');
         }}
         role={role}
         totalArs={cartTotalArs}

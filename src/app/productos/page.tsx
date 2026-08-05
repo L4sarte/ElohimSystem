@@ -6,13 +6,14 @@ import { useExchangeRate } from '@/hooks/use-exchange-rate';
 import { RoleSelector } from '@/components/products/RoleSelector';
 import { ExchangeRateWidget } from '@/components/rates/ExchangeRateWidget';
 import { ProductList } from '@/components/products/ProductList';
+import { BundleManager } from '@/components/products/BundleManager';
 import Link from 'next/link';
-import { ArrowLeft, Package, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Package, RefreshCw, Layers } from 'lucide-react';
 
 export default function ProductosPage() {
   const { role } = useUserStore();
   const { rate, loading: loadingRate, error: rateError } = useExchangeRate();
-  const [activeTab, setActiveTab] = React.useState<'perfumes' | 'insumos'>('perfumes');
+  const [activeTab, setActiveTab] = React.useState<'perfumes' | 'combos' | 'insumos'>('perfumes');
 
   return (
     <div className="flex flex-col min-h-screen bg-slate-50 text-slate-900 dark:bg-[#08130E] dark:text-zinc-50 transition-colors duration-300">
@@ -81,7 +82,7 @@ export default function ProductosPage() {
 
         {/* NAVEGACIÓN POR PESTAÑAS (TABS) */}
         <div className="flex items-center justify-between border-b border-[#1B362A] pb-4 mb-6">
-          <div className="flex items-center gap-2 bg-[#13261E] p-1 rounded-xl border border-[#1B362A]">
+          <div className="flex flex-wrap items-center gap-2 bg-[#13261E] p-1 rounded-xl border border-[#1B362A]">
             <button
               onClick={() => setActiveTab('perfumes')}
               className={`px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
@@ -91,6 +92,16 @@ export default function ProductosPage() {
               }`}
             >
               🌸 Perfumes y Decants
+            </button>
+            <button
+              onClick={() => setActiveTab('combos')}
+              className={`px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                activeTab === 'combos'
+                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20'
+                  : 'text-zinc-400 hover:text-white'
+              }`}
+            >
+              🎁 Combos Promocionales
             </button>
             <button
               onClick={() => setActiveTab('insumos')}
@@ -117,6 +128,8 @@ export default function ProductosPage() {
         {/* CONTENIDO SEGÚN LA PESTAÑA SELECCIONADA */}
         {activeTab === 'perfumes' ? (
           <ProductList role={role} excludeSupplies={true} />
+        ) : activeTab === 'combos' ? (
+          <BundleManager />
         ) : (
           <div className="space-y-4">
             <div className="p-6 rounded-2xl bg-[#13261E]/90 border border-[#1B362A] text-center space-y-3">

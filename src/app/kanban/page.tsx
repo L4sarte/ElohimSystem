@@ -14,6 +14,8 @@ import {
   Clock, Package, CheckCircle2, Truck, Trash2, ArrowRight, ArrowLeft as ArrowLeftIcon, X, Sparkles, Phone
 } from 'lucide-react';
 import Link from 'next/link';
+import { toast } from 'sonner';
+import { ConfirmModal } from '@/components/ui/ConfirmModal';
 
 const COLUMNS = [
   { id: 'pending', label: 'Por Cobrar / Confirmar', icon: Clock, color: 'text-[#D0A96B]', bg: 'bg-[#D0A96B]/10', border: 'border-[#D0A96B]/30' },
@@ -39,6 +41,9 @@ export default function KanbanPage() {
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  
+  // Estado para ConfirmModal de Eliminación
+  const [deleteOrderInfo, setDeleteOrderInfo] = useState<{ id: string; name: string } | null>(null);
 
   const fetchOrders = async () => {
     setLoading(true);
@@ -96,19 +101,26 @@ export default function KanbanPage() {
     const res = await updateOrderStatus(role, orderId, newStatus);
     if (!res.success) {
       fetchOrders();
-      alert(res.error || 'Error al mover el pedido.');
+      toast.error(res.error || 'Error al mover el pedido.');
+    } else {
+      toast.success('Estado del pedido actualizado.');
     }
   };
 
-  const handleDeleteOrder = async (orderId: string, name: string) => {
-    if (confirm(`¿Eliminar el pedido de "${name}"?`)) {
-      const res = await deleteKanbanOrder(role, orderId);
-      if (res.success) {
-        fetchOrders();
-      } else {
-        alert(res.error || 'Error al eliminar pedido.');
-      }
+  const handleDeleteOrder = (orderId: string, name: string) => {
+    setDeleteOrderInfo({ id: orderId, name });
+  };
+
+  const executeDeleteOrder = async () => {
+    if (!deleteOrderInfo) return;
+    const res = await deleteKanbanOrder(role, deleteOrderInfo.id);
+    if (res.success) {
+      toast.success(`Pedido de "${deleteOrderInfo.name}" eliminado.`);
+      fetchOrders();
+    } else {
+      toast.error(res.error || 'Error al eliminar pedido.');
     }
+    setDeleteOrderInfo(null);
   };
 
   return (
@@ -404,6 +416,18 @@ export default function KanbanPage() {
           </div>
         </div>
       )}
+
+      {/* MODAL DE CONFIRMACIÓN DE ELIMINACIÓN */}
+      <ConfirmModal
+        isOpen={Boolean(deleteOrderInfo)}
+        title="Eliminar Pedido Kanban"
+        description={`¿Estás seguro de que deseas eliminar la tarjeta de pedido de "${deleteOrderInfo?.name}"? Esta acción se removerá del tablero.`}
+        confirmText="Eliminar Pedido"
+        cancelText="Cancelar"
+        variant="danger"
+        onConfirm={executeDeleteOrder}
+        onCancel={() => setDeleteOrderInfo(null)}
+      />
 
     </div>
   );

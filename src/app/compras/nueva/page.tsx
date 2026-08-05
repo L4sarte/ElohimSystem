@@ -16,6 +16,7 @@ import {
   Calendar, Check, RefreshCw, AlertCircle, ShieldAlert, ShoppingBag, X, CheckCircle2, Clock 
 } from 'lucide-react';
 import Link from 'next/link';
+import { toast } from 'sonner';
 
 interface CartItem extends PurchaseItemInput {
   product_name: string;
@@ -132,11 +133,11 @@ export default function NuevaCompraPage() {
 
   const handleOpenConfirm = () => {
     if (!selectedSupplierId) {
-      alert('Por favor selecciona un proveedor.');
+      toast.error('Por favor selecciona un proveedor.');
       return;
     }
     if (cart.length === 0) {
-      alert('Agrega al menos un producto al carrito de compras.');
+      toast.error('Agrega al menos un producto al carrito de compras.');
       return;
     }
     setIsConfirmOpen(true);

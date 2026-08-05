@@ -16,6 +16,7 @@ const playfair = Playfair_Display({
 
 import { Omnibar } from "@/components/navigation/Omnibar";
 import { Sidebar } from "@/components/navigation/Sidebar";
+import { Toaster } from "sonner";
 
 export const metadata: Metadata = {
   title: "Elohim Import ERP | Perfumería & Decants Bimonetario",
@@ -33,6 +34,7 @@ export default function RootLayout({
       className={`dark ${plusJakarta.variable} ${playfair.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col md:flex-row bg-[#08130E] text-zinc-50 selection:bg-[#D0A96B]/30 selection:text-[#D0A96B]">
+        <Toaster position="top-right" theme="dark" richColors closeButton />
         <Sidebar />
         <div className="flex-1 flex flex-col min-w-0 min-h-screen">
           {children}

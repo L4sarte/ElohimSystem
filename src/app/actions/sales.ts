@@ -445,4 +445,48 @@ export async function voidSale(
   }
 }
 
+export interface ShippingUpdateInput {
+  shipping_provider: string;
+  tracking_number: string;
+  shipping_status: 'pending' | 'shipped' | 'delivered';
+}
+
+/**
+ * Actualizar información logística de envío y número de seguimiento para una venta.
+ */
+export async function updateSaleShipping(
+  role: UserRole,
+  saleId: string,
+  shippingData: ShippingUpdateInput
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    if (!saleId) {
+      throw new Error('ID de venta no proporcionado.');
+    }
+
+    const serviceClient = getServiceSupabase();
+
+    const { error } = await serviceClient
+      .from('sales')
+      .update({
+        shipping_provider: shippingData.shipping_provider || 'Ninguno',
+        tracking_number: shippingData.tracking_number?.trim() || null,
+        shipping_status: shippingData.shipping_status || 'pending'
+      })
+      .eq('id', saleId);
+
+    if (error) {
+      throw error;
+    }
+
+    revalidatePath('/auditoria/ventas');
+    revalidatePath('/kanban');
+    revalidatePath('/');
+    return { success: true };
+  } catch (error: any) {
+    console.error('Error al actualizar datos de envío:', error);
+    return { success: false, error: error.message || 'Error al actualizar información logística' };
+  }
+}
+
 

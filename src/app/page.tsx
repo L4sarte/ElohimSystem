@@ -19,6 +19,7 @@ import { ShiftStatusBadge } from '@/components/cash/ShiftStatusBadge';
 import { getDashboardData } from '@/app/actions/reports';
 import { StockAlertWidget } from '@/components/products/StockAlertWidget';
 import { MonthlyGoalsWidget } from '@/components/goals/MonthlyGoalsWidget';
+import { RetailKPIsWidget } from '@/components/dashboard/RetailKPIsWidget';
 import { ExchangeRatesWidget } from '@/components/rates/ExchangeRatesWidget';
 import { QuickActions } from '@/components/dashboard/QuickActions';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
@@ -180,6 +181,13 @@ export default function DashboardPage() {
                     </CardHeader>
                   </Card>
                 </div>
+
+                {/* WIDGET DE KPIS RETAIL: TICKET PROMEDIO (AOV) & TOP 3 BEST SELLERS */}
+                {role === 'admin' && (
+                  <div>
+                    <RetailKPIsWidget />
+                  </div>
+                )}
 
                 {/* WIDGET DE METAS MENSUALES Y RUN RATE */}
                 {role === 'admin' && (
