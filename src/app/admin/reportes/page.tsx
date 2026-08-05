@@ -27,23 +27,38 @@ import { exportElementToPDF } from '@/utils/pdfExport';
 
 const COLORS = ['#e11d48', '#8b5cf6', '#3b82f6', '#10b981', '#f59e0b', '#64748b'];
 
+const getFirstDayOfMonth = () => {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-01`;
+};
+
+const getTodayDate = () => {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+};
+
 export default function ReportesPage() {
   const { role } = useUserStore();
   const { refresh: refreshRate } = useExchangeRate();
 
-  const [timeRange, setTimeRange] = useState<'current_month' | 'previous_month' | 'last_30_days' | 'current_year'>('current_month');
+  const [timeRange, setTimeRange] = useState<'current_month' | 'previous_month' | 'last_30_days' | 'current_year' | 'custom'>('current_month');
+  const [startDate, setStartDate] = useState<string>(getFirstDayOfMonth());
+  const [endDate, setEndDate] = useState<string>(getTodayDate());
   const [report, setReport] = useState<FinancialReportData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  // Estado para exportación a PDF
-  const [exportingPdf, setExportingPdf] = useState(false);
 
   const fetchReport = async () => {
     if (role !== 'admin') return;
     setLoading(true);
     setError(null);
-    const res = await getFinancialReport(role, timeRange);
+    let res;
+    if (timeRange === 'custom') {
+      res = await getFinancialReport(role, 'custom', startDate, endDate);
+    } else {
+      res = await getFinancialReport(role, timeRange, startDate, endDate);
+    }
+
     if (res.success && res.data) {
       setReport(res.data);
     } else {
@@ -56,25 +71,36 @@ export default function ReportesPage() {
     fetchReport();
   }, [role, timeRange]);
 
-  const exportDashboardToPDF = async () => {
-    const labelRange = timeRange === 'current_month' ? 'Mes Actual' : timeRange === 'previous_month' ? 'Mes Anterior' : timeRange === 'last_30_days' ? 'Últimos 30 días' : 'Año en Curso';
-    const fileName = `Elohim_Import_Reporte_Financiero_${timeRange}_${new Date().toISOString().split('T')[0]}.pdf`;
+  const handlePresetChange = (preset: 'current_month' | 'previous_month' | 'last_30_days' | 'current_year') => {
+    const now = new Date();
+    let s = '';
+    let e = getTodayDate();
 
-    setExportingPdf(true);
-    try {
-      await exportElementToPDF(
-        'pdf-export-area',
-        fileName,
-        'Elohim Import ERP - Reporte Financiero & Analítica',
-        `Rango: ${labelRange}`
-      );
-      toast.success('Reporte PDF exportado con éxito');
-    } catch (err: any) {
-      console.error('Error al exportar reporte PDF:', err);
-      toast.error('Ocurrió un error al generar la exportación PDF: ' + (err.message || 'Error desconocido'));
-    } finally {
-      setExportingPdf(false);
+    if (preset === 'current_month') {
+      s = getFirstDayOfMonth();
+    } else if (preset === 'previous_month') {
+      const prevMonthLast = new Date(now.getFullYear(), now.getMonth(), 0);
+      const prevMonthYear = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
+      const prevMonth = now.getMonth() === 0 ? 12 : now.getMonth();
+      s = `${prevMonthYear}-${String(prevMonth).padStart(2, '0')}-01`;
+      e = `${prevMonthYear}-${String(prevMonth).padStart(2, '0')}-${String(prevMonthLast.getDate()).padStart(2, '0')}`;
+    } else if (preset === 'last_30_days') {
+      const past30 = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      s = `${past30.getFullYear()}-${String(past30.getMonth() + 1).padStart(2, '0')}-${String(past30.getDate()).padStart(2, '0')}`;
+    } else if (preset === 'current_year') {
+      s = `${now.getFullYear()}-01-01`;
     }
+
+    setStartDate(s);
+    setEndDate(e);
+    setTimeRange(preset);
+  };
+
+  const exportDashboardToPDF = () => {
+    toast.info('Abriendo diálogo de impresión nativo (Guardar como PDF)...');
+    setTimeout(() => {
+      window.print();
+    }, 200);
   };
 
   // Acceso restringido para vendedores
@@ -121,8 +147,35 @@ export default function ReportesPage() {
   return (
     <div className="flex flex-col min-h-screen bg-slate-50 text-slate-900 dark:bg-[#08130E] dark:text-zinc-50 transition-colors duration-300">
       
+      {/* ESTILOS GLOBALES DE IMPRESIÓN / EXPORTACIÓN NATIVA PDF */}
+      <style>{`
+        @media print {
+          body {
+            background-color: #ffffff !important;
+            color: #000000 !important;
+          }
+          .print\\:hidden, header, nav, aside, button {
+            display: none !important;
+          }
+          #pdf-export-area {
+            background-color: #ffffff !important;
+            color: #000000 !important;
+            border: none !important;
+            box-shadow: none !important;
+            padding: 0 !important;
+            margin: 0 !important;
+          }
+          .border, [class*="border-"] {
+            border-color: #e4e4e7 !important;
+          }
+          .text-white, .text-zinc-200, .text-zinc-300, .text-zinc-400 {
+            color: #18181b !important;
+          }
+        }
+      `}</style>
+
       {/* NAVBAR */}
-      <header className="sticky top-0 z-40 w-full border-b border-slate-200/80 bg-white/80 backdrop-blur-md dark:border-[#1B362A] dark:bg-[#08130E]/80">
+      <header className="sticky top-0 z-40 w-full border-b border-slate-200/80 bg-white/80 backdrop-blur-md dark:border-[#1B362A] dark:bg-[#08130E]/80 print:hidden">
         <div className="container mx-auto flex h-16 items-center justify-between px-4 sm:px-6 max-w-6xl">
           <div className="flex items-center gap-4">
             <Link 
@@ -154,7 +207,7 @@ export default function ReportesPage() {
       <main className="flex-1 container mx-auto px-4 py-8 sm:px-6 max-w-6xl space-y-6">
         
         {/* Cabecera y Filtros */}
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 print:hidden">
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
               Analítica Financiera y Flujo de Caja
@@ -167,7 +220,7 @@ export default function ReportesPage() {
           {/* Acciones de Cabecera: Exportar PDF y Selector de Fechas */}
           <div className="flex flex-wrap items-center gap-3 self-start md:self-auto">
             
-            {/* BOTÓN EXPORTAR REPORTE PDF */}
+            {/* BOTÓN EXPORTAR REPORTE PDF / IMPRIMIR NATIVO */}
             <Link href="/admin/reportes/mensual">
               <Button
                 variant="outline"
@@ -181,26 +234,17 @@ export default function ReportesPage() {
             <Button
               variant="outline"
               onClick={exportDashboardToPDF}
-              disabled={exportingPdf || loading}
+              disabled={loading}
               className="border-[#D0A96B]/40 text-[#E5C158] hover:bg-violet-950/40 hover:text-white cursor-pointer font-bold text-xs flex items-center gap-1.5 h-9 bg-[#13261E] shadow-md shadow-violet-600/10"
             >
-              {exportingPdf ? (
-                <>
-                  <RefreshCw className="h-3.5 w-3.5 animate-spin text-[#D0A96B]" />
-                  <span>Generando PDF...</span>
-                </>
-              ) : (
-                <>
-                  <Download className="h-3.5 w-3.5 text-[#D0A96B]" />
-                  <span>Exportar Reporte PDF</span>
-                </>
-              )}
+              <Download className="h-3.5 w-3.5 text-[#D0A96B]" />
+              <span>Exportar Reporte PDF</span>
             </Button>
 
-            {/* Selector de Rango de Fechas */}
+            {/* PRESETS DE RANGO DE FECHAS */}
             <div className="flex items-center gap-1.5 bg-slate-200/70 dark:bg-[#13261E] p-1 rounded-xl border border-slate-300/60 dark:border-[#1B362A] text-xs font-bold">
               <button
-                onClick={() => setTimeRange('current_month')}
+                onClick={() => handlePresetChange('current_month')}
                 className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer ${
                   timeRange === 'current_month'
                     ? 'bg-white dark:bg-zinc-800 text-slate-950 dark:text-white shadow-sm'
@@ -210,7 +254,7 @@ export default function ReportesPage() {
                 Mes Actual
               </button>
               <button
-                onClick={() => setTimeRange('previous_month')}
+                onClick={() => handlePresetChange('previous_month')}
                 className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer ${
                   timeRange === 'previous_month'
                     ? 'bg-white dark:bg-zinc-800 text-slate-950 dark:text-white shadow-sm'
@@ -220,7 +264,7 @@ export default function ReportesPage() {
                 Mes Anterior
               </button>
               <button
-                onClick={() => setTimeRange('last_30_days')}
+                onClick={() => handlePresetChange('last_30_days')}
                 className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer ${
                   timeRange === 'last_30_days'
                     ? 'bg-white dark:bg-zinc-800 text-slate-950 dark:text-white shadow-sm'
@@ -230,7 +274,7 @@ export default function ReportesPage() {
                 Últimos 30 días
               </button>
               <button
-                onClick={() => setTimeRange('current_year')}
+                onClick={() => handlePresetChange('current_year')}
                 className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer ${
                   timeRange === 'current_year'
                     ? 'bg-white dark:bg-zinc-800 text-slate-950 dark:text-white shadow-sm'
@@ -239,6 +283,43 @@ export default function ReportesPage() {
               >
                 Año en Curso
               </button>
+            </div>
+
+            {/* INPUTS DE RANGO PERSONALIZADO (DESDE / HASTA) */}
+            <div className="flex items-center gap-2 bg-[#13261E] p-1.5 rounded-xl border border-[#1B362A]">
+              <div className="flex items-center gap-1">
+                <span className="text-[10px] uppercase font-bold text-zinc-400">Desde:</span>
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => {
+                    setStartDate(e.target.value);
+                    setTimeRange('custom');
+                  }}
+                  className="bg-[#08130E] border border-[#1B362A] rounded-lg px-2 py-1 text-xs text-white font-mono"
+                />
+              </div>
+
+              <div className="flex items-center gap-1">
+                <span className="text-[10px] uppercase font-bold text-zinc-400">Hasta:</span>
+                <input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => {
+                    setEndDate(e.target.value);
+                    setTimeRange('custom');
+                  }}
+                  className="bg-[#08130E] border border-[#1B362A] rounded-lg px-2 py-1 text-xs text-white font-mono"
+                />
+              </div>
+
+              <Button
+                size="sm"
+                onClick={fetchReport}
+                className="bg-[#D0A96B] hover:bg-[#E5C158] text-[#08130E] font-bold text-xs h-7 px-3 cursor-pointer"
+              >
+                Filtrar
+              </Button>
             </div>
 
           </div>
@@ -257,7 +338,11 @@ export default function ReportesPage() {
               </div>
             </div>
             <div className="text-right text-[11px] font-mono text-zinc-400">
-              <div>Rango: <span className="text-[#D0A96B] font-bold">{timeRange === 'current_month' ? 'Mes Actual' : timeRange === 'previous_month' ? 'Mes Anterior' : timeRange === 'last_30_days' ? 'Últimos 30 días' : 'Año en Curso'}</span></div>
+              <div>Rango: <span className="text-[#D0A96B] font-bold">
+                {timeRange === 'custom' 
+                  ? `Desde ${startDate} hasta ${endDate}`
+                  : timeRange === 'current_month' ? 'Mes Actual' : timeRange === 'previous_month' ? 'Mes Anterior' : timeRange === 'last_30_days' ? 'Últimos 30 días' : 'Año en Curso'}
+              </span></div>
               <div>Generado: {new Date().toLocaleDateString('es-AR')}</div>
             </div>
           </div>

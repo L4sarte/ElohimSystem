@@ -29,7 +29,9 @@ export interface FinancialReportData {
  */
 export async function getFinancialReport(
   role: UserRole,
-  range: 'current_month' | 'previous_month' | 'last_30_days' | 'current_year' = 'current_month'
+  range: 'current_month' | 'previous_month' | 'last_30_days' | 'current_year' | 'custom' = 'current_month',
+  customStartDate?: string,
+  customEndDate?: string
 ): Promise<{ success: boolean; data?: FinancialReportData; error?: string }> {
   try {
     if (role !== 'admin') {
@@ -42,7 +44,12 @@ export async function getFinancialReport(
     let startDate = new Date();
     let endDate = new Date();
 
-    if (range === 'current_month') {
+    if (customStartDate && customEndDate) {
+      const [sYear, sMonth, sDay] = customStartDate.split('-').map(Number);
+      const [eYear, eMonth, eDay] = customEndDate.split('-').map(Number);
+      startDate = new Date(sYear, sMonth - 1, sDay, 0, 0, 0);
+      endDate = new Date(eYear, eMonth - 1, eDay, 23, 59, 59);
+    } else if (range === 'current_month') {
       startDate = new Date(now.getFullYear(), now.getMonth(), 1);
       endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
     } else if (range === 'previous_month') {
