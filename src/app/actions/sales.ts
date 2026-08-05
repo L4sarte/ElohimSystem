@@ -41,6 +41,11 @@ interface DecantJitInput {
   supply_id: string;
 }
 
+export interface PackagingUsedInput {
+  packaging_id: string;
+  quantity_used: number;
+}
+
 interface SaleInput {
   client_id: string | null;
   seller_id: string | null;
@@ -59,6 +64,7 @@ interface SaleInput {
   };
   items: SaleItemInput[];
   decants: DecantJitInput[];
+  packaging_supplies?: PackagingUsedInput[];
 }
 
 /**
@@ -288,6 +294,43 @@ export async function createSaleTransaction(
             reason: `Puntos ganados por compra #${saleId.split('-')[0].toUpperCase()}`,
             sale_id: saleId
           });
+      }
+    }
+
+    // REGISTRAR TRAZABILIDAD Y DESCUENTO DE STOCK DE INSUMOS DE PACKAGING (Bolsas, Frascos, Cajas)
+    if (saleId && saleData.packaging_supplies && saleData.packaging_supplies.length > 0) {
+      for (const packItem of saleData.packaging_supplies) {
+        if (!packItem.packaging_id || !packItem.quantity_used || packItem.quantity_used <= 0) continue;
+
+        const qtyUsed = Number(packItem.quantity_used);
+
+        // 1. Insertar trazabilidad en la tabla relacional sale_packaging
+        const { error: packInsertError } = await serviceClient
+          .from('sale_packaging')
+          .insert({
+            sale_id: saleId,
+            packaging_id: packItem.packaging_id,
+            quantity_used: qtyUsed
+          });
+
+        if (packInsertError) {
+          console.warn('Advertencia al asociar insumo de packaging a la venta:', packInsertError);
+        }
+
+        // 2. Descontar stock del insumo de packaging en la tabla products
+        const { data: supplyProd } = await serviceClient
+          .from('products')
+          .select('stock_quantity')
+          .eq('id', packItem.packaging_id)
+          .single();
+
+        const currentStock = Number(supplyProd?.stock_quantity || 0);
+        const newStock = Math.max(0, currentStock - qtyUsed);
+
+        await serviceClient
+          .from('products')
+          .update({ stock_quantity: newStock })
+          .eq('id', packItem.packaging_id);
       }
     }
 

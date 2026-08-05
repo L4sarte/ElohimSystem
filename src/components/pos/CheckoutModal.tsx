@@ -5,13 +5,14 @@ import { UserRole } from '@/types';
 import { CartItem } from '@/hooks/use-pos-store';
 import { getClients, createSaleTransaction } from '@/app/actions/sales';
 import { getTreasuryAccounts, TreasuryAccount } from '@/app/actions/treasury';
+import { getSupplies } from '@/app/actions/products';
 import { useFeesStore } from '@/hooks/use-fees-store';
 import { PaymentMethodConfig } from '@/app/actions/fees';
 import { ReceiptTicket } from '@/components/pos/ReceiptTicket';
 import { CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { X, DollarSign, CreditCard, Landmark, CheckCircle, RefreshCw, AlertCircle, Sparkles, Percent, Printer, ShoppingBag, ShieldCheck, MessageSquare } from 'lucide-react';
+import { X, DollarSign, CreditCard, Landmark, CheckCircle, RefreshCw, AlertCircle, Sparkles, Percent, Printer, ShoppingBag, ShieldCheck, MessageSquare, Package, ChevronDown, ChevronUp, Plus, Trash2 } from 'lucide-react';
 
 interface CheckoutModalProps {
   isOpen: boolean;
@@ -57,6 +58,12 @@ export function CheckoutModal({
   const [amountPaidTodayInput, setAmountPaidTodayInput] = useState<string>('');
   const [useVibePoints, setUseVibePoints] = useState(false);
 
+  // Insumos de Packaging Utilizados en la Venta
+  const [availableSupplies, setAvailableSupplies] = useState<any[]>([]);
+  const [selectedPackaging, setSelectedPackaging] = useState<Array<{ packaging_id: string; name: string; quantity_used: number; available_stock: number }>>([]);
+  const [isPackagingOpen, setIsPackagingOpen] = useState(false);
+  const [selectedSupplyToAdd, setSelectedSupplyToAdd] = useState<string>('');
+
   // Venta completada para impresión de ticket
   const [completedSaleData, setCompletedSaleData] = useState<any | null>(null);
 
@@ -68,9 +75,10 @@ export function CheckoutModal({
       setLoadingClients(true);
       setError(null);
 
-      const [resClients, resAcc] = await Promise.all([
+      const [resClients, resAcc, resSupplies] = await Promise.all([
         getClients(role),
         getTreasuryAccounts(),
+        getSupplies(role),
         fetchActiveMethods()
       ]);
 
@@ -88,6 +96,10 @@ export function CheckoutModal({
           setSelectedTreasuryAccountId(resAcc.data[0].id);
         }
       }
+
+      if (resSupplies.success && resSupplies.data) {
+        setAvailableSupplies(resSupplies.data);
+      }
     }
 
     loadData();
@@ -100,6 +112,9 @@ export function CheckoutModal({
     setSelectedMethodId('');
     setAmountPaidTodayInput('');
     setUseVibePoints(false);
+    setSelectedPackaging([]);
+    setIsPackagingOpen(false);
+    setSelectedSupplyToAdd('');
     setCompletedSaleData(null);
   }, [isOpen, role]);
 
@@ -177,6 +192,43 @@ export function CheckoutModal({
 
   const totalUsd = effectiveTotalArsToPay / exchangeRate;
 
+  // Funciones auxiliares para la gestión de Insumos de Packaging
+  const handleAddPackagingItem = () => {
+    if (!selectedSupplyToAdd) return;
+    const supply = availableSupplies.find(s => s.id === selectedSupplyToAdd);
+    if (!supply) return;
+
+    const existingIndex = selectedPackaging.findIndex(p => p.packaging_id === supply.id);
+    if (existingIndex >= 0) {
+      const updated = [...selectedPackaging];
+      updated[existingIndex].quantity_used += 1;
+      setSelectedPackaging(updated);
+    } else {
+      setSelectedPackaging(prev => [
+        ...prev,
+        {
+          packaging_id: supply.id,
+          name: supply.name,
+          quantity_used: 1,
+          available_stock: supply.stock_quantity || 0
+        }
+      ]);
+    }
+    setSelectedSupplyToAdd('');
+  };
+
+  const handleUpdatePackagingQty = (packaging_id: string, qty: number) => {
+    if (qty <= 0) {
+      handleRemovePackagingItem(packaging_id);
+      return;
+    }
+    setSelectedPackaging(prev => prev.map(p => p.packaging_id === packaging_id ? { ...p, quantity_used: qty } : p));
+  };
+
+  const handleRemovePackagingItem = (packaging_id: string) => {
+    setSelectedPackaging(prev => prev.filter(p => p.packaging_id !== packaging_id));
+  };
+
   const handleCheckout = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -210,19 +262,22 @@ export function CheckoutModal({
         };
       });
 
-      // 2. Mapear decants JIT
+      // 2. Extraer decants para consumo JIT
       const decants = cartItems
-        .filter(item => item.product.type === 'decant_liquid')
+        .filter(item => item.product.type === 'decant_liquid' && item.decantMl && item.selectedSupplyId)
         .map(item => {
-          if (!item.decantMl || !item.selectedSupplyId) {
-            throw new Error(`Configuración de decant incompleta para ${item.product.name}`);
-          }
           return {
             decant_liquid_id: item.product.id,
-            ml_quantity: item.decantMl * item.quantity,
-            supply_id: item.selectedSupplyId
+            ml_quantity: (item.decantMl || 0) * item.quantity,
+            supply_id: item.selectedSupplyId!
           };
         });
+
+      // Mapear insumos de packaging seleccionados
+      const packaging_supplies = selectedPackaging.map(p => ({
+        packaging_id: p.packaging_id,
+        quantity_used: p.quantity_used
+      }));
 
       // 3. Estructurar metadata JSONB de métodos de pago y desgloses
       const methodName = selectedMethod ? (selectedMethod.method_name || selectedMethod.name || 'Digital') : 'Efectivo / Directo';
@@ -289,7 +344,7 @@ export function CheckoutModal({
         breakdown
       };
 
-      // 4. Enviar transacción con el TOTAL FINAL, abonado hoy y saldo pendiente
+      // 4. Enviar transacción con el TOTAL FINAL, abonado hoy, saldo pendiente y packaging
       const res = await createSaleTransaction(role, {
         client_id: clientId === 'default' ? null : clientId,
         seller_id: null,
@@ -301,7 +356,8 @@ export function CheckoutModal({
         payment_status: paymentStatus,
         payment_methods: paymentMethodsPayload,
         items,
-        decants
+        decants,
+        packaging_supplies
       });
 
       if (!res.success) {
@@ -521,6 +577,103 @@ export function CheckoutModal({
                     );
                   })}
                 </select>
+              </div>
+
+              {/* SECCIÓN DE INSUMOS DE PACKAGING UTILIZADOS (OPCIONAL) */}
+              <div className="border border-[#1B362A] rounded-xl bg-[#08130E] overflow-hidden transition-all pt-1">
+                <button
+                  type="button"
+                  onClick={() => setIsPackagingOpen(!isPackagingOpen)}
+                  className="w-full flex items-center justify-between p-3 text-left hover:bg-[#13261E]/50 transition-colors cursor-pointer"
+                >
+                  <div className="flex items-center gap-2">
+                    <Package className="h-4 w-4 text-[#D0A96B]" />
+                    <span className="text-xs font-bold text-white">📦 Insumos de Packaging Utilizados</span>
+                    <span className="text-[10px] text-zinc-400 font-mono">(Opcional)</span>
+                    {selectedPackaging.length > 0 && (
+                      <span className="ml-2 bg-[#D0A96B] text-[#08130E] px-2 py-0.5 rounded-full text-[10px] font-extrabold font-mono">
+                        {selectedPackaging.reduce((sum, item) => sum + item.quantity_used, 0)} insumos
+                      </span>
+                    )}
+                  </div>
+                  {isPackagingOpen ? (
+                    <ChevronUp className="h-4 w-4 text-zinc-400" />
+                  ) : (
+                    <ChevronDown className="h-4 w-4 text-zinc-400" />
+                  )}
+                </button>
+
+                {isPackagingOpen && (
+                  <div className="p-3 border-t border-[#1B362A] bg-[#13261E]/40 space-y-3">
+                    <div className="flex items-center gap-2">
+                      <select
+                        value={selectedSupplyToAdd}
+                        onChange={(e) => setSelectedSupplyToAdd(e.target.value)}
+                        className="flex-1 h-8 rounded-lg border border-[#1B362A] bg-[#08130E] px-2 text-xs font-bold text-white focus:outline-none focus:ring-1 focus:ring-[#D0A96B]"
+                      >
+                        <option value="">-- Seleccionar Insumo (Bolsa, Cajas, Frascos) --</option>
+                        {availableSupplies.map(sup => (
+                          <option key={sup.id} value={sup.id}>
+                            {sup.name} (Stock disp: {sup.stock_quantity || 0})
+                          </option>
+                        ))}
+                      </select>
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={handleAddPackagingItem}
+                        disabled={!selectedSupplyToAdd}
+                        className="h-8 bg-[#D0A96B] hover:bg-[#E5C158] text-[#08130E] font-bold text-xs px-3 cursor-pointer"
+                      >
+                        <Plus className="h-3.5 w-3.5 mr-1" /> Agregar
+                      </Button>
+                    </div>
+
+                    {selectedPackaging.length > 0 ? (
+                      <div className="space-y-1.5 pt-1">
+                        {selectedPackaging.map(item => (
+                          <div key={item.packaging_id} className="flex items-center justify-between p-2 rounded-lg bg-[#08130E] border border-[#1B362A] text-xs">
+                            <div className="flex flex-col">
+                              <span className="font-bold text-zinc-200">{item.name}</span>
+                              <span className="text-[10px] text-zinc-500 font-mono">Stock disponible: {item.available_stock}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <div className="flex items-center border border-[#1B362A] rounded-md bg-[#13261E]">
+                                <button
+                                  type="button"
+                                  onClick={() => handleUpdatePackagingQty(item.packaging_id, item.quantity_used - 1)}
+                                  className="px-2 py-0.5 text-zinc-400 hover:text-white text-xs font-bold cursor-pointer"
+                                >
+                                  -
+                                </button>
+                                <span className="px-2 font-mono font-bold text-white text-xs">{item.quantity_used}</span>
+                                <button
+                                  type="button"
+                                  onClick={() => handleUpdatePackagingQty(item.packaging_id, item.quantity_used + 1)}
+                                  className="px-2 py-0.5 text-zinc-400 hover:text-white text-xs font-bold cursor-pointer"
+                                >
+                                  +
+                                </button>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => handleRemovePackagingItem(item.packaging_id)}
+                                className="text-rose-400 hover:text-rose-300 p-1 cursor-pointer"
+                                title="Eliminar insumo"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-[11px] text-zinc-500 italic text-center py-1">
+                        No has añadido insumos de packaging adicionales a esta venta.
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* RESUMEN DE LA ORDEN CON SIMULADOR EN TIEMPO REAL */}

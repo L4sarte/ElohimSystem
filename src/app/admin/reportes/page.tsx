@@ -348,7 +348,7 @@ export default function ReportesPage() {
           </div>
 
           {/* WIDGET DE METAS MENSUALES Y RUN RATE */}
-          <MonthlyGoalsWidget />
+          <MonthlyGoalsWidget startDate={startDate} endDate={endDate} />
 
           {/* MONITOR DE COTIZACIONES EN VIVO */}
           <ExchangeRatesWidget />

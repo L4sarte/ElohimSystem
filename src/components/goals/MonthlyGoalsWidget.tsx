@@ -8,10 +8,16 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { 
   Target, RefreshCw, TrendingUp, Flame, Calendar, DollarSign, 
-  CheckCircle, AlertTriangle, Settings, X, Sparkles 
+  CheckCircle, AlertTriangle, Settings, X, Sparkles, Lock 
 } from 'lucide-react';
+import { toast } from 'sonner';
 
-export function MonthlyGoalsWidget() {
+export interface MonthlyGoalsWidgetProps {
+  startDate?: string;
+  endDate?: string;
+}
+
+export function MonthlyGoalsWidget({ startDate, endDate }: MonthlyGoalsWidgetProps) {
   const { role } = useUserStore();
   const [projection, setProjection] = useState<MonthlyProjectionData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -27,11 +33,11 @@ export function MonthlyGoalsWidget() {
   const fetchProjection = async () => {
     setLoading(true);
     setError(null);
-    const res = await getMonthlyProjection(role);
+    const res = await getMonthlyProjection(role, startDate, endDate);
     if (res.success && res.data) {
       setProjection(res.data);
     } else {
-      setError(res.error || 'Error al cargar proyecciones del mes');
+      setError(res.error || 'Error al cargar proyecciones del periodo');
     }
     setLoading(false);
   };
@@ -40,7 +46,7 @@ export function MonthlyGoalsWidget() {
     if (role === 'admin') {
       fetchProjection();
     }
-  }, [role]);
+  }, [role, startDate, endDate]);
 
   const handleOpenModal = () => {
     if (projection) {
@@ -73,6 +79,7 @@ export function MonthlyGoalsWidget() {
     setSavingGoal(false);
 
     if (res.success) {
+      toast.success(`Meta guardada para ${projection.monthName}`);
       setIsConfigModalOpen(false);
       fetchProjection();
     } else {
@@ -95,10 +102,10 @@ export function MonthlyGoalsWidget() {
               </div>
               <div>
                 <CardTitle className="text-base font-bold text-white font-serif flex items-center gap-2">
-                  Metas Mensuales & Run Rate Proyectado
+                  Metas Mensuales {projection ? `• ${projection.monthName}` : ''}
                 </CardTitle>
                 <CardDescription className="text-xs text-zinc-400">
-                  Monitoreo predictivo de facturación y margen neto con cálculo diario en tiempo real.
+                  Monitoreo comercial y cumplimiento de objetivos de facturación y utilidad.
                 </CardDescription>
               </div>
             </div>
@@ -117,7 +124,7 @@ export function MonthlyGoalsWidget() {
                 size="icon-sm"
                 onClick={fetchProjection}
                 className="text-zinc-400 hover:text-white cursor-pointer"
-                title="Actualizar Run Rate"
+                title="Actualizar Datos"
               >
                 <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin text-[#D0A96B]' : ''}`} />
               </Button>
@@ -129,7 +136,7 @@ export function MonthlyGoalsWidget() {
           {loading ? (
             <div className="flex items-center justify-center py-10 text-xs text-zinc-400 gap-2">
               <RefreshCw className="h-4 w-4 animate-spin text-[#D0A96B]" />
-              Calculando proyecciones y avance de metas...
+              Calculando avance de metas del periodo...
             </div>
           ) : error || !projection ? (
             <div className="text-xs text-rose-400 p-3 rounded-xl bg-rose-500/10 border border-rose-500/20">
@@ -143,7 +150,7 @@ export function MonthlyGoalsWidget() {
                 {/* Meta de Facturación */}
                 <div className="space-y-2">
                   <div className="flex items-center justify-between text-xs">
-                    <span className="font-bold text-zinc-300">Facturación Actual vs Meta</span>
+                    <span className="font-bold text-zinc-300">Facturación Obtenida vs Meta</span>
                     <span className="font-mono font-bold text-emerald-400">
                       ${projection.currentRevenueArs.toLocaleString('es-AR')} / ${projection.revenueGoalArs.toLocaleString('es-AR')} ARS
                     </span>
@@ -165,7 +172,7 @@ export function MonthlyGoalsWidget() {
                 {/* Meta de Ganancia Neta */}
                 <div className="space-y-2">
                   <div className="flex items-center justify-between text-xs">
-                    <span className="font-bold text-zinc-300">Ganancia Neta vs Meta</span>
+                    <span className="font-bold text-zinc-300">Ganancia Neta Obtenida vs Meta</span>
                     <span className="font-mono font-bold text-[#D0A96B]">
                       ${projection.currentNetProfitArs.toLocaleString('es-AR')} / ${projection.netProfitGoalArs.toLocaleString('es-AR')} ARS
                     </span>
@@ -186,41 +193,60 @@ export function MonthlyGoalsWidget() {
 
               </div>
 
-              {/* CARD DE RUN RATE PREDICTIVO Y STATUS */}
-              <div className="p-4 rounded-xl bg-[#08130E] border border-[#1B362A] space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold text-white uppercase tracking-wider font-serif">
-                      Proyección Run Rate (Día {projection.currentDay} de {projection.totalDaysInMonth})
+              {/* CARD CONDICIONAL DE RUN RATE O PERIODO CERRADO */}
+              {projection.isClosed ? (
+                /* MES PASADO (CERRADO): Bloque Neutral de Periodo Cerrado */
+                <div className="p-4 rounded-xl bg-[#08130E] border border-[#1B362A] space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-[#D0A96B] uppercase tracking-wider font-serif flex items-center gap-1.5">
+                      <Lock className="h-4 w-4 text-[#D0A96B]" />
+                      Periodo Cerrado ({projection.monthName})
+                    </span>
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-zinc-800 text-zinc-300 border border-zinc-700">
+                      Cierre Definitivo
                     </span>
                   </div>
-
-                  {projection.status === 'on_track' && (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
-                      <CheckCircle className="h-3 w-3" /> Ritmo Óptimo ({projection.runRatePercent}%)
-                    </span>
-                  )}
-                  {projection.status === 'warning' && (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-500/10 text-amber-400 border border-amber-500/30">
-                      <AlertTriangle className="h-3 w-3" /> En Riesgo ({projection.runRatePercent}%)
-                    </span>
-                  )}
-                  {projection.status === 'behind' && (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-rose-500/10 text-rose-400 border border-rose-500/30">
-                      <Flame className="h-3 w-3" /> Retrasado ({projection.runRatePercent}%)
-                    </span>
-                  )}
+                  <p className="text-xs text-zinc-300 leading-snug">
+                    Facturación final obtenida: <strong className="text-emerald-400 font-mono">${projection.currentRevenueArs.toLocaleString('es-AR')} ARS</strong> ({projection.revenueProgressPercent}% de la meta de ${projection.revenueGoalArs.toLocaleString('es-AR')} ARS).
+                  </p>
                 </div>
+              ) : (
+                /* MES ACTUAL: Run Rate Proyectado */
+                <div className="p-4 rounded-xl bg-[#08130E] border border-[#1B362A] space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-white uppercase tracking-wider font-serif">
+                        Proyección Run Rate (Día {projection.currentDay} de {projection.totalDaysInMonth})
+                      </span>
+                    </div>
 
-                <p className="text-xs text-zinc-300 leading-relaxed font-sans">
-                  A este ritmo comercial, cerrarás el mes con una facturación estimada de <strong className="text-emerald-400 font-mono">${projection.runRateRevenueArs.toLocaleString('es-AR')} ARS</strong> ({projection.runRatePercent}% de tu meta).
-                  {projection.remainingDays > 0 && projection.dailyRevenueNeeded > 0 ? (
-                    <> Para alcanzar el 100%, necesitás facturar en promedio <strong className="text-amber-400 font-mono">${projection.dailyRevenueNeeded.toLocaleString('es-AR')} ARS diarios</strong> durante los últimos {projection.remainingDays} días del mes.</>
-                  ) : (
-                    <> ¡Felicidades! Has superado la meta del mes en curso.</>
-                  )}
-                </p>
-              </div>
+                    {projection.status === 'on_track' && (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+                        <CheckCircle className="h-3 w-3" /> Ritmo Óptimo ({projection.runRatePercent}%)
+                      </span>
+                    )}
+                    {projection.status === 'warning' && (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-500/10 text-amber-400 border border-amber-500/30">
+                        <AlertTriangle className="h-3 w-3" /> En Riesgo ({projection.runRatePercent}%)
+                      </span>
+                    )}
+                    {projection.status === 'behind' && (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-rose-500/10 text-rose-400 border border-rose-500/30">
+                        <Flame className="h-3 w-3" /> Retrasado ({projection.runRatePercent}%)
+                      </span>
+                    )}
+                  </div>
+
+                  <p className="text-xs text-zinc-300 leading-relaxed font-sans">
+                    A este ritmo comercial, cerrarás el mes con una facturación estimada de <strong className="text-emerald-400 font-mono">${projection.runRateRevenueArs.toLocaleString('es-AR')} ARS</strong> ({projection.runRatePercent}% de tu meta).
+                    {projection.remainingDays > 0 && projection.dailyRevenueNeeded > 0 ? (
+                      <> Para alcanzar el 100%, necesitás facturar en promedio <strong className="text-amber-400 font-mono">${projection.dailyRevenueNeeded.toLocaleString('es-AR')} ARS diarios</strong> durante los últimos {projection.remainingDays} días del mes.</>
+                    ) : (
+                      <> ¡Felicidades! Has alcanzado la meta fijada para este período.</>
+                    )}
+                  </p>
+                </div>
+              )}
 
             </>
           )}
@@ -228,17 +254,17 @@ export function MonthlyGoalsWidget() {
 
       </Card>
 
-      {/* MODAL CONFIGURACIÓN DE META DEL MES */}
-      {isConfigModalOpen && (
+      {/* MODAL CONFIGURACIÓN DE META DEL MES ESPECÍFICO */}
+      {isConfigModalOpen && projection && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="w-full max-w-md bg-[#08130E] border border-[#1B362A] rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
             <form onSubmit={handleSaveGoal}>
               
               <CardHeader className="border-b border-[#1B362A] pb-4">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-lg font-bold text-white font-serif flex items-center gap-2">
+                  <CardTitle className="text-base font-bold text-white font-serif flex items-center gap-2">
                     <Target className="h-5 w-5 text-[#D0A96B]" />
-                    Configurar Meta del Mes
+                    Configurar Meta para {projection.monthName}
                   </CardTitle>
                   <button
                     type="button"
@@ -249,7 +275,7 @@ export function MonthlyGoalsWidget() {
                   </button>
                 </div>
                 <CardDescription className="mt-1 text-xs text-zinc-400">
-                  Ajusta los objetivos comerciales en ARS para el período {projection?.periodMonth}.
+                  Ajusta los objetivos comerciales en ARS específicos para <strong>{projection.monthName}</strong>.
                 </CardDescription>
               </CardHeader>
 
@@ -305,14 +331,14 @@ export function MonthlyGoalsWidget() {
                 <Button
                   type="submit"
                   disabled={savingGoal}
-                  className="bg-[#D0A96B] hover:bg-[#E5C158] text-[#08130E] font-extrabold shadow-md shadow-[#D0A96B]/20 text-white font-bold text-xs shadow-md shadow-violet-600/20"
+                  className="bg-[#D0A96B] hover:bg-[#E5C158] text-[#08130E] font-extrabold text-xs shadow-md shadow-[#D0A96B]/20"
                 >
                   {savingGoal ? (
                     <>
-                      <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> Guardando Meta...
+                      <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> Guardando...
                     </>
                   ) : (
-                    'Guardar Meta del Mes'
+                    `Guardar Meta ${projection.monthName}`
                   )}
                 </Button>
               </CardFooter>
