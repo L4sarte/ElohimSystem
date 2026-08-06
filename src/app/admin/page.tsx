@@ -19,6 +19,7 @@ import { MonthlyGoalsWidget } from '@/components/goals/MonthlyGoalsWidget';
 import { RetailKPIsWidget } from '@/components/dashboard/RetailKPIsWidget';
 import { InventoryValuationWidget } from '@/components/inventory/InventoryValuationWidget';
 import { QuickActions } from '@/components/dashboard/QuickActions';
+import { QuickAccessPills } from '@/components/dashboard/QuickAccessPills';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 const CustomTooltip = ({ active, payload, label }: any) => {
@@ -288,6 +289,9 @@ export default function AdminDashboardPage() {
           </div>
 
         </div>
+
+        {/* BARRA INFERIOR DE ACCESOS RÁPIDOS MÓDULOS */}
+        <QuickAccessPills />
 
       </main>
 

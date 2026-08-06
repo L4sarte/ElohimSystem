@@ -107,6 +107,9 @@ export default function ReportesPage() {
       setGeneratingPdf(true);
       toast.info('Generando archivo PDF...');
 
+      // Safeguard delay para asegurar que fuentes y canvas de Recharts estén totalmente listos
+      await new Promise((resolve) => setTimeout(resolve, 300));
+
       // Importación dinámica para prevenir errores de SSR en Next.js App Router
       const html2pdf = (await import('html2pdf.js')).default;
 
@@ -114,14 +117,14 @@ export default function ReportesPage() {
         margin: 0.5,
         filename: `reporte-financiero-${new Date().toISOString().slice(0, 10)}.pdf`,
         image: { type: 'jpeg' as const, quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true },
+        html2canvas: { scale: 2, useCORS: true, allowTaint: true },
         jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' as const }
       };
 
       await html2pdf().set(opt).from(reportRef.current).save();
       toast.success('Reporte PDF descargado exitosamente');
     } catch (err: any) {
-      console.error('Error al generar el archivo PDF:', err);
+      console.error('[CANVAS_ERROR]:', err);
       toast.error('Ocurrió un error al generar el archivo PDF');
     } finally {
       setGeneratingPdf(false);
@@ -360,7 +363,7 @@ export default function ReportesPage() {
           {/* LOGO EN CABECERA DEL REPORTE DE EXPORTACIÓN */}
           <div className="flex items-center justify-between pb-4 border-b border-[#1B362A]">
             <div className="flex items-center gap-3">
-              <img src="/logo-elohim.png" alt="Elohim Import ERP" className="h-10 w-auto object-contain" />
+              <img src="/logo-elohim.png" alt="Elohim Import ERP" className="h-10 w-auto object-contain" crossOrigin="anonymous" />
               <div>
                 <h2 className="text-base font-bold text-white font-serif tracking-wider">ELOHIM IMPORT ERP</h2>
                 <p className="text-[10px] text-[#D0A96B] font-mono uppercase tracking-widest">Reporte Financiero Oficial</p>

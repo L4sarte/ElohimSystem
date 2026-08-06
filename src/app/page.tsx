@@ -23,6 +23,7 @@ import { RetailKPIsWidget } from '@/components/dashboard/RetailKPIsWidget';
 import { InventoryValuationWidget } from '@/components/inventory/InventoryValuationWidget';
 import { ExchangeRatesWidget } from '@/components/rates/ExchangeRatesWidget';
 import { QuickActions } from '@/components/dashboard/QuickActions';
+import { QuickAccessPills } from '@/components/dashboard/QuickAccessPills';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 // Componente Tooltip personalizado para el gráfico de Recharts
@@ -443,6 +444,9 @@ export default function DashboardPage() {
 
           </div>
         )}
+
+        {/* BARRA INFERIOR DE ACCESOS RÁPIDOS MÓDULOS */}
+        <QuickAccessPills />
 
       </main>
 

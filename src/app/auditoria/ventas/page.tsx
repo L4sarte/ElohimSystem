@@ -49,8 +49,13 @@ export default function HistorialVentasPage() {
     if (!ticketRef.current || !selectedSale) return;
     try {
       setIsDownloading(true);
+      
+      // Delay safeguard para permitir renderizado completo de la imagen y fuentes
+      await new Promise((resolve) => setTimeout(resolve, 300));
+
       const canvas = await html2canvas(ticketRef.current, {
         useCORS: true,
+        allowTaint: true,
         scale: 2,
         backgroundColor: '#FFFFFF',
         logging: false
@@ -65,7 +70,7 @@ export default function HistorialVentasPage() {
       document.body.removeChild(link);
       toast.success('Imagen del ticket descargada exitosamente');
     } catch (err) {
-      console.error('Error al generar la imagen del ticket:', err);
+      console.error('[CANVAS_ERROR]:', err);
       toast.error('No se pudo generar la imagen del comprobante');
     } finally {
       setIsDownloading(false);
