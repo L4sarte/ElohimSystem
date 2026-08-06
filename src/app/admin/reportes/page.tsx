@@ -100,7 +100,7 @@ export default function ReportesPage() {
     toast.info('Abriendo diálogo de impresión nativo (Guardar como PDF)...');
     setTimeout(() => {
       window.print();
-    }, 200);
+    }, 300);
   };
 
   // Acceso restringido para vendedores

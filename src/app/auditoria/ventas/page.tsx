@@ -90,7 +90,9 @@ export default function HistorialVentasPage() {
   };
 
   const handlePrint = () => {
-    window.print();
+    setTimeout(() => {
+      window.print();
+    }, 300);
   };
 
   // Filtrado predictivo por cliente o ID de ticket

@@ -143,7 +143,7 @@
   @apply bg-[#D0A96B] hover:bg-[#E5C158] text-[#08130E] font-extrabold shadow-md shadow-[#D0A96B]/20 active:scale-95 text-white font-bold transition-all duration-200 shadow-md shadow-violet-600/25 hover:shadow-lg hover:shadow-violet-600/40 cursor-pointer;
 }
 
-/* Forzar impresión a blanco y negro sin interferencia del modo oscuro */
+/* Forzar impresión a blanco y negro sin interferencia del modo oscuro ni notificaciones toast */
 @media print {
   body {
     background: #ffffff !important;
@@ -151,5 +151,11 @@
   }
   .dark {
     color-scheme: light !important;
+  }
+  [data-sonner-toaster],
+  [data-sonner-toast],
+  .toaster,
+  .print\:hidden {
+    display: none !important;
   }
 }
