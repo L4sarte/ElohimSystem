@@ -386,6 +386,17 @@ export function CheckoutModal({
         };
       });
 
+      // Incluir insumos de packaging en la lista impresa del ticket
+      selectedPackaging.forEach(p => {
+        receiptItems.push({
+          name: `Packaging: ${p.name}`,
+          brand: 'Elohim Packaging',
+          quantity: p.quantity_used,
+          priceArs: 0,
+          totalArs: 0
+        });
+      });
+
       setCompletedSaleData({
         saleId: res.saleId || 'TICK-NUEVO',
         createdAt: new Date(),

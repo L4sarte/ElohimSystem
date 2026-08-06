@@ -89,20 +89,24 @@ export function ReceiptTicket({
 
       <div 
         id="printable-receipt-area"
-        className="w-full max-w-[80mm] mx-auto p-4 bg-white text-black font-mono text-[11px] leading-tight border border-dashed border-slate-300 print:border-none print:p-1 print:m-0"
+        className="w-full max-w-[80mm] mx-auto p-4 bg-white text-black font-mono text-[11px] leading-tight border border-dashed border-slate-300 rounded-lg shadow-md print:border-none print:p-1 print:m-0 print:shadow-none print:w-full print:bg-white print:text-black"
       >
-        {/* CABECERA DE LA PERFUMERÍA */}
-        <div className="text-center space-y-1 pb-3 border-b border-dashed border-black">
-          <img src="/logo-elohim.png" alt="Elohim Import" className="h-10 mx-auto mb-1 max-w-[140px] object-contain" />
-          <h2 className="text-sm font-black uppercase tracking-widest">ELOHIM IMPORT PERFUMERÍA</h2>
-          <p className="text-[10px]">Alta Perfumería & Decants Fraccionados</p>
-          <div className="text-[9px] font-bold border border-black px-1.5 py-0.5 mt-1 inline-block">
+        {/* CABECERA CON LOGO CENTRADO Y MARCA OFICIAL */}
+        <div className="text-center space-y-1.5 pb-3 border-b border-dashed border-black">
+          <img 
+            src="/logo-elohim.png" 
+            alt="Elohim Import" 
+            className="w-28 h-auto mx-auto mb-2 object-contain print:w-28" 
+          />
+          <h2 className="text-sm font-black uppercase tracking-widest text-black">ELOHIM IMPORT</h2>
+          <p className="text-[10px] text-black">Alta Perfumería de Nicho & Decants Fraccionados</p>
+          <div className="text-[9px] font-bold border border-black px-2 py-0.5 mt-1 inline-block text-black uppercase">
             DOCUMENTO NO VÁLIDO COMO FACTURA
           </div>
         </div>
 
         {/* METADATA DE LA TRANSACCIÓN */}
-        <div className="py-2.5 border-b border-dashed border-black space-y-1 text-[10px]">
+        <div className="py-2.5 border-b border-dashed border-black space-y-1 text-[10px] text-black">
           <div className="flex justify-between">
             <span>N° Ticket:</span>
             <span className="font-bold">#{ticketNumber}</span>
@@ -121,8 +125,8 @@ export function ReceiptTicket({
           </div>
         </div>
 
-        {/* CUERPO - PRODUCTOS Y DECANTS */}
-        <div className="py-2.5 border-b border-dashed border-black space-y-2">
+        {/* CUERPO - PRODUCTOS, DECANTS Y PACKAGING */}
+        <div className="py-2.5 border-b border-dashed border-black space-y-2 text-black">
           <div className="flex justify-between font-bold border-b border-black pb-1 text-[10px]">
             <span className="w-1/2">CONCEPTO</span>
             <span className="w-1/4 text-center">CANT x P.U</span>
@@ -148,7 +152,7 @@ export function ReceiptTicket({
         </div>
 
         {/* DESGLOSE FINANCIERO */}
-        <div className="py-2.5 border-b border-dashed border-black space-y-1.5">
+        <div className="py-2.5 border-b border-dashed border-black space-y-1.5 text-black">
           <div className="flex justify-between">
             <span>Subtotal Base ARS:</span>
             <span>${subtotalArs.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
@@ -166,14 +170,14 @@ export function ReceiptTicket({
             <span>${totalArs.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
           </div>
 
-          <div className="flex justify-between text-[10px] text-zinc-700">
+          <div className="flex justify-between text-[10px] text-zinc-800">
             <span>Equiv. Dólares (USD):</span>
             <span>u$s {totalUsd.toFixed(2)} (Tasa: ${exchangeRate})</span>
           </div>
         </div>
 
         {/* MEDIOS DE PAGO RECIBIDOS */}
-        <div className="py-2.5 border-b border-dashed border-black space-y-1 text-[10px]">
+        <div className="py-2.5 border-b border-dashed border-black space-y-1 text-[10px] text-black">
           <span className="font-bold block uppercase tracking-wider text-[9px] mb-1">Medios de Pago:</span>
           
           {breakdown.length > 0 ? (
@@ -192,10 +196,10 @@ export function ReceiptTicket({
         </div>
 
         {/* PIE Y AGRADECIMIENTO */}
-        <div className="pt-3 text-center space-y-1 text-[10px]">
-          <p className="font-bold">¡Muchas gracias por su compra!</p>
+        <div className="pt-3 text-center space-y-1 text-[10px] text-black">
+          <p className="font-bold">¡Muchas gracias por su compra en Elohim Import!</p>
           <p className="text-[9px]">Conserve este comprobante para cambios o devoluciones dentro de los 30 días.</p>
-          <div className="pt-2 text-[8px] tracking-widest text-zinc-500 uppercase">
+          <div className="pt-2 text-[8px] tracking-widest text-zinc-600 uppercase font-sans">
             Elohim Import ERP • Sistema Bimonetario
           </div>
         </div>
