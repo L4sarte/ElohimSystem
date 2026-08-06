@@ -419,7 +419,9 @@ export function CheckoutModal({
   };
 
   const handlePrintTicket = () => {
-    window.print();
+    setTimeout(() => {
+      window.print();
+    }, 200);
   };
 
   const handleSendWhatsApp = () => {
@@ -449,8 +451,8 @@ export function CheckoutModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200 overflow-y-auto">
-      <div className="w-[95vw] sm:max-w-lg bg-[#13261E] border border-[#1B362A] rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 my-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200 overflow-y-auto print:bg-transparent print:p-0 print:overflow-visible print:static">
+      <div className="w-[95vw] sm:max-w-lg bg-[#13261E] border border-[#1B362A] rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 my-auto print:overflow-visible print:bg-transparent print:border-none print:shadow-none print:w-full print:max-w-none print:my-0">
         
         {step === 'checkout' ? (
           <form onSubmit={handleCheckout}>
@@ -902,12 +904,12 @@ export function CheckoutModal({
           </form>
         ) : (
           /* ------------------ VISTA DE VENTA EXITOSA & TICKET ------------------ */
-          <div className="p-6 text-center space-y-6 animate-in zoom-in-95 duration-200">
-            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 mb-2 shadow-lg shadow-emerald-500/10">
+          <div className="p-6 text-center space-y-6 animate-in zoom-in-95 duration-200 print:p-0 print:m-0">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 mb-2 shadow-lg shadow-emerald-500/10 print:hidden">
               <CheckCircle className="h-10 w-10" />
             </div>
 
-            <div>
+            <div className="print:hidden">
               <h2 className="text-2xl font-bold text-white font-serif">¡Venta Registrada con Éxito!</h2>
               <p className="text-xs text-zinc-400 mt-1">
                 La transacción ha sido almacenada de forma atómica y el stock descontado.
@@ -915,7 +917,7 @@ export function CheckoutModal({
             </div>
 
             {completedSaleData && (
-              <div className="bg-[#08130E] p-4 rounded-xl border border-[#1B362A] space-y-2 text-left">
+              <div className="bg-[#08130E] p-4 rounded-xl border border-[#1B362A] space-y-2 text-left print:hidden">
                 <div className="flex justify-between text-xs text-zinc-400">
                   <span>N° Transacción:</span>
                   <span className="font-bold font-mono text-white">#{completedSaleData.saleId.split('-')[0].toUpperCase()}</span>
@@ -931,14 +933,14 @@ export function CheckoutModal({
               </div>
             )}
 
-            {/* BANDERAS DE IMPRESIÓN Y TICKET RENDERIZADO */}
+            {/* BANDERAS DE IMPRESIÓN Y TICKET RENDERIZADO AISLADO PARA EL MODAL */}
             {completedSaleData && (
-              <div className="no-print hidden">
+              <div className="hidden print:block print:fixed print:inset-0 print:m-0 print:p-4 print:bg-white print:z-[99999] print:w-full print:h-full print:overflow-visible">
                 <ReceiptTicket {...completedSaleData} />
               </div>
             )}
 
-            <div className="flex flex-wrap justify-center gap-3 pt-2">
+            <div className="flex flex-wrap justify-center gap-3 pt-2 print:hidden">
               <Button
                 onClick={handlePrintTicket}
                 variant="outline"
@@ -956,7 +958,7 @@ export function CheckoutModal({
 
               <Button
                 onClick={handleFinishNewSale}
-                className="bg-[#D0A96B] hover:bg-[#E5C158] text-[#08130E] font-extrabold text-xs shadow-md shadow-[#D0A96B]/20"
+                className="bg-[#D0A96B] hover:bg-[#E5C158] text-[#08130E] font-extrabold text-xs shadow-md shadow-[#D0A96B]/20 cursor-pointer"
               >
                 <ShoppingBag className="mr-2 h-4 w-4" /> Nueva Venta
               </Button>
