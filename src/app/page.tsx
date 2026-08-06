@@ -183,17 +183,17 @@ export default function DashboardPage() {
                   </Card>
                 </div>
 
+                {/* WIDGET DE VALORACIÓN Y PROYECCIÓN DE INVENTARIO (NUEVA FILA EXCLUSIVA) */}
+                {role === 'admin' && (
+                  <div className="my-6">
+                    <InventoryValuationWidget />
+                  </div>
+                )}
+
                 {/* WIDGET DE KPIS RETAIL: TICKET PROMEDIO (AOV) & TOP 3 BEST SELLERS */}
                 {role === 'admin' && (
                   <div>
                     <RetailKPIsWidget />
-                  </div>
-                )}
-
-                {/* WIDGET DE VALORACIÓN Y PROYECTO DE INVENTARIO */}
-                {role === 'admin' && (
-                  <div>
-                    <InventoryValuationWidget />
                   </div>
                 )}
 

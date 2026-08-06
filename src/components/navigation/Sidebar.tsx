@@ -7,7 +7,8 @@ import { useUserStore } from '@/hooks/use-user-store';
 import { 
   ShoppingBag, LayoutGrid, Users, CreditCard, Package, Archive, 
   PackageX, Globe, BarChart3, Coins, DollarSign, TrendingUp, 
-  ShieldCheck, Menu, X, Sparkles, ChevronRight, Home, Percent, Landmark
+  ShieldCheck, Menu, X, Sparkles, ChevronRight, Home, Percent, Landmark,
+  Truck, Settings
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -45,6 +46,13 @@ export function Sidebar() {
       ]
     },
     {
+      title: 'COMPRAS & LOGÍSTICA',
+      items: [
+        { name: 'Proveedores & Compras', href: '/admin/proveedores', icon: ShoppingBag, color: 'text-sky-400', adminOnly: true },
+        { name: 'Logística & Envíos', href: '/admin/envios', icon: Truck, color: 'text-indigo-400' },
+      ]
+    },
+    {
       title: 'FINANZAS & AUDITORÍA',
       items: [
         { name: 'Dashboard Principal', href: '/', icon: Home, color: 'text-[#D0A96B]' },
@@ -54,6 +62,13 @@ export function Sidebar() {
         { name: 'Reportes Financieros', href: '/admin/reportes', icon: TrendingUp, color: 'text-emerald-400', adminOnly: true },
         { name: 'Dashboard Visual Mensual', href: '/admin/reportes/mensual', icon: BarChart3, color: 'text-[#D0A96B]', adminOnly: true },
         { name: 'Auditoría General', href: '/auditoria', icon: ShieldCheck, color: 'text-zinc-400' },
+      ]
+    },
+    {
+      title: 'SISTEMA',
+      items: [
+        { name: 'Configuración', href: '/admin/configuracion', icon: Settings, color: 'text-zinc-400', adminOnly: true },
+        { name: 'Usuarios & Roles', href: '/admin/usuarios', icon: Users, color: 'text-amber-400', adminOnly: true },
       ]
     }
   ];
