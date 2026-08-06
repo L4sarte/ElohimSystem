@@ -20,6 +20,7 @@ import {
 } from 'recharts';
 
 import { MonthlyGoalsWidget } from '@/components/goals/MonthlyGoalsWidget';
+import { InventoryValuationWidget } from '@/components/inventory/InventoryValuationWidget';
 import { ExchangeRatesWidget } from '@/components/rates/ExchangeRatesWidget';
 
 import { toast } from 'sonner';
@@ -349,6 +350,9 @@ export default function ReportesPage() {
 
           {/* WIDGET DE METAS MENSUALES Y RUN RATE */}
           <MonthlyGoalsWidget startDate={startDate} endDate={endDate} />
+
+          {/* WIDGET DE VALORACIÓN DE INVENTARIO */}
+          <InventoryValuationWidget />
 
           {/* MONITOR DE COTIZACIONES EN VIVO */}
           <ExchangeRatesWidget />
