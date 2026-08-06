@@ -82,60 +82,62 @@ export async function createSaleTransaction(
 
     const serviceClient = getServiceSupabase();
 
-    // Intentar recuperar el ID del vendedor (usuario actual) de la sesión de Supabase SSR
-    let sellerId = saleData.seller_id;
-    if (!sellerId) {
-      const serverSupabase = await createClient();
-      const { data: { user } } = await serverSupabase.auth.getUser();
-      if (user) {
-        sellerId = user.id;
+    // Resolución y validación de seguridad para seller_id (evita violar sales_seller_id_fkey)
+    let validSellerId: string | null = null;
+
+    // 1. Si se envió seller_id en el payload, verificar su existencia en la tabla profiles
+    if (saleData.seller_id && typeof saleData.seller_id === 'string' && saleData.seller_id.trim() !== '') {
+      const { data: prof } = await serviceClient
+        .from('profiles')
+        .select('id')
+        .eq('id', saleData.seller_id.trim())
+        .maybeSingle();
+
+      if (prof) {
+        validSellerId = prof.id;
       }
     }
 
-    // Bypass de desarrollo: Si no hay usuario autenticado, buscar el primer perfil de la DB
-    if (!sellerId) {
-      const { data: profiles } = await serviceClient.from('profiles').select('id').limit(1);
-      if (profiles && profiles.length > 0) {
-        sellerId = profiles[0].id;
-      } else {
-        // Si no hay perfiles en la base de datos, creamos un usuario y perfil dummy automáticamente
-        try {
-          const email = 'dummy.seller@elohimimport.com';
-          const { data: userData, error: userError } = await serviceClient.auth.admin.createUser({
-            email,
-            password: 'dummyPassword123!',
-            email_confirm: true
-          });
+    // 2. Si no es válido aún, consultar el usuario autenticado en la sesión SSR
+    if (!validSellerId) {
+      try {
+        const serverSupabase = await createClient();
+        const { data: { user } } = await serverSupabase.auth.getUser();
+        if (user) {
+          const { data: prof } = await serviceClient
+            .from('profiles')
+            .select('id')
+            .eq('id', user.id)
+            .maybeSingle();
 
-          if (userError) {
-            throw userError;
+          if (prof) {
+            validSellerId = prof.id;
           }
-
-          const dummyUserId = userData.user.id;
-          
-          // Insertar manualmente en la tabla profiles
-          const { error: profileError } = await serviceClient.from('profiles').insert({
-            id: dummyUserId,
-            email,
-            role: 'admin'
-          });
-
-          if (profileError) {
-            throw profileError;
-          }
-
-          sellerId = dummyUserId;
-          console.log('Bypass Desarrollo: Creado usuario y perfil dummy exitosamente:', sellerId);
-        } catch (dummyErr: any) {
-          console.error('Bypass Desarrollo: Error al crear usuario dummy:', dummyErr);
         }
+      } catch (authErr) {
+        console.warn('No se pudo autenticar usuario por SSR:', authErr);
       }
     }
+
+    // 3. Fallback: Buscar cualquier perfil existente en la tabla profiles
+    if (!validSellerId) {
+      const { data: profiles } = await serviceClient
+        .from('profiles')
+        .select('id')
+        .limit(1);
+
+      if (profiles && profiles.length > 0) {
+        validSellerId = profiles[0].id;
+      }
+    }
+
+    // 4. Si tras todas las comprobaciones no hay un ID válido en profiles, enviar NULL (evita violar la FK)
+    const finalSellerId = validSellerId || null;
 
     // Invocar el RPC transaccional que procesa la venta en un único bloque atómico
     const { data, error } = await serviceClient.rpc('create_sale_transaction', {
       p_client_id: saleData.client_id,
-      p_seller_id: sellerId,
+      p_seller_id: finalSellerId,
       p_total_ars: saleData.total_ars,
       p_total_usd_equivalent: saleData.total_usd_equivalent,
       p_exchange_rate_used: saleData.exchange_rate_used,
