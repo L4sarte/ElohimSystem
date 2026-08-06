@@ -433,10 +433,21 @@ export function CheckoutModal({
       // Importación dinámica de html-to-image para compatibilidad con SSR en Next.js App Router / Vercel
       const { toPng } = await import('html-to-image');
 
+      const filter = (node: HTMLElement) => {
+        if (node.tagName === 'IMG') {
+          const img = node as HTMLImageElement;
+          if (!img.complete || img.naturalWidth === 0 || img.style.display === 'none') {
+            return false;
+          }
+        }
+        return true;
+      };
+
       const dataUrl = await toPng(ticketRef.current, {
         cacheBust: true,
         backgroundColor: '#FFFFFF',
-        style: { margin: '0' }
+        style: { margin: '0' },
+        filter: filter
       });
 
       const ticketNum = completedSaleData.saleId

@@ -114,9 +114,20 @@ export default function ReportesPage() {
       const { toPng } = await import('html-to-image');
       const { jsPDF } = await import('jspdf');
 
+      const filter = (node: HTMLElement) => {
+        if (node.tagName === 'IMG') {
+          const img = node as HTMLImageElement;
+          if (!img.complete || img.naturalWidth === 0 || img.style.display === 'none') {
+            return false;
+          }
+        }
+        return true;
+      };
+
       const dataUrl = await toPng(reportRef.current, {
         backgroundColor: '#08130E',
-        cacheBust: true
+        cacheBust: true,
+        filter: filter
       });
 
       const pdf = new jsPDF({ orientation: 'portrait', unit: 'px', format: 'a4' });
