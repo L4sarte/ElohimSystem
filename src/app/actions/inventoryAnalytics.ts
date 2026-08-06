@@ -4,43 +4,68 @@ import { getServiceSupabase } from '@/lib/supabase';
 import { UserRole } from '@/types';
 import { getCurrentRate } from '@/app/actions/rates';
 
-export interface InventoryValuationData {
-  capitalCostArs: number;
-  capitalCostUsd: number;
-  potentialRevenueArs: number;
-  potentialRevenueUsd: number;
-  potentialNetProfitArs: number;
-  potentialNetProfitUsd: number;
+export interface InventoryValuationMetrics {
+  capitalInvertido: number;
+  valorBrutoVenta: number;
+  gananciaNetaPotencial: number;
+  capitalInvertidoUsd: number;
+  valorBrutoVentaUsd: number;
+  gananciaNetaPotencialUsd: number;
   totalUnitsInStock: number;
   totalProductsCount: number;
   potentialProfitMarginPercent: number;
 }
 
+export interface InventoryValuationResponse {
+  success: boolean;
+  data: InventoryValuationMetrics;
+  error?: string;
+}
+
+const DEFAULT_METRICS: InventoryValuationMetrics = {
+  capitalInvertido: 0,
+  valorBrutoVenta: 0,
+  gananciaNetaPotencial: 0,
+  capitalInvertidoUsd: 0,
+  valorBrutoVentaUsd: 0,
+  gananciaNetaPotencialUsd: 0,
+  totalUnitsInStock: 0,
+  totalProductsCount: 0,
+  potentialProfitMarginPercent: 0
+};
+
 /**
  * Obtener la valoración financiera del inventario activo y la proyección de ganancia potencial.
+ * Garantiza que NUNCA lance una excepción no capturada y devuelva siempre data estructurada con ceros como fallback.
  */
-export async function getInventoryValuation(role: UserRole): Promise<{
-  success: boolean;
-  data?: InventoryValuationData;
-  error?: string;
-}> {
+export async function getInventoryValuation(role: UserRole): Promise<InventoryValuationResponse> {
   try {
-    if (role !== 'admin') {
-      throw new Error('Operación no autorizada. Se requiere rol de Administrador.');
+    const supabase = getServiceSupabase();
+    let exchangeRate = 1000;
+    
+    try {
+      const rateRes = await getCurrentRate();
+      if (rateRes.data?.value_ars && rateRes.data.value_ars > 0) {
+        exchangeRate = rateRes.data.value_ars;
+      }
+    } catch (rateErr) {
+      console.warn('Advertencia al consultar tasa cambiaria en getInventoryValuation, usando fallback 1000:', rateErr);
     }
 
-    const supabase = getServiceSupabase();
-    const rateRes = await getCurrentRate();
-    const exchangeRate = rateRes.data?.value_ars || 1000;
-
-    // Consultar productos comerciales activos con stock disponible
+    // Consultar todos los productos inventariables con stock mayor a 0
     const { data: products, error } = await supabase
       .from('products')
       .select('id, stock_quantity, base_cost_ars, base_price_ars, cost_usd, base_price_usd, type')
-      .gt('stock_quantity', 0)
-      .neq('type', 'supply'); // Excluir insumos de packaging para valorar perfumería comercial
+      .gt('stock_quantity', 0);
 
-    if (error) throw error;
+    if (error) {
+      console.error('Error al consultar productos de Supabase en getInventoryValuation:', error);
+      return {
+        success: false,
+        data: DEFAULT_METRICS,
+        error: error.message
+      };
+    }
 
     let capitalCostArs = 0;
     let capitalCostUsd = 0;
@@ -50,10 +75,12 @@ export async function getInventoryValuation(role: UserRole): Promise<{
 
     (products || []).forEach((p: any) => {
       const qty = Number(p.stock_quantity || 0);
-      const costArs = Number(p.base_cost_ars || 0);
-      const costUsd = p.cost_usd ? Number(p.cost_usd) : (exchangeRate > 0 ? costArs / exchangeRate : 0);
+      if (qty <= 0) return;
 
+      const costArs = Number(p.base_cost_ars || 0);
       const priceArs = Number(p.base_price_ars || 0);
+
+      const costUsd = p.cost_usd ? Number(p.cost_usd) : (exchangeRate > 0 ? costArs / exchangeRate : 0);
       const priceUsd = p.base_price_usd ? Number(p.base_price_usd) : (exchangeRate > 0 ? priceArs / exchangeRate : 0);
 
       capitalCostArs += qty * costArs;
@@ -72,22 +99,23 @@ export async function getInventoryValuation(role: UserRole): Promise<{
     return {
       success: true,
       data: {
-        capitalCostArs: Math.round(capitalCostArs),
-        capitalCostUsd: Math.round(capitalCostUsd),
-        potentialRevenueArs: Math.round(potentialRevenueArs),
-        potentialRevenueUsd: Math.round(potentialRevenueUsd),
-        potentialNetProfitArs: Math.round(potentialNetProfitArs),
-        potentialNetProfitUsd: Math.round(potentialNetProfitUsd),
+        capitalInvertido: Math.round(capitalCostArs),
+        valorBrutoVenta: Math.round(potentialRevenueArs),
+        gananciaNetaPotencial: Math.round(potentialNetProfitArs),
+        capitalInvertidoUsd: Math.round(capitalCostUsd),
+        valorBrutoVentaUsd: Math.round(potentialRevenueUsd),
+        gananciaNetaPotencialUsd: Math.round(potentialNetProfitUsd),
         totalUnitsInStock,
         totalProductsCount: (products || []).length,
         potentialProfitMarginPercent
       }
     };
   } catch (err: any) {
-    console.error('Error al calcular valoración de inventario:', err);
+    console.error('Excepción crítica capturada en getInventoryValuation:', err);
     return {
       success: false,
-      error: err.message || 'Error al recuperar valoración de inventario'
+      data: DEFAULT_METRICS,
+      error: err.message || 'Error inesperado al calcular la valoración del inventario'
     };
   }
 }
