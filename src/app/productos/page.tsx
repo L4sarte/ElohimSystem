@@ -7,6 +7,7 @@ import { RoleSelector } from '@/components/products/RoleSelector';
 import { ExchangeRateWidget } from '@/components/rates/ExchangeRateWidget';
 import { ProductList } from '@/components/products/ProductList';
 import { BundleManager } from '@/components/products/BundleManager';
+import { InventoryValuationWidget } from '@/components/inventory/InventoryValuationWidget';
 import Link from 'next/link';
 import { ArrowLeft, Package, RefreshCw, Layers } from 'lucide-react';
 
@@ -79,6 +80,9 @@ export default function ProductosPage() {
             )}
           </div>
         </div>
+
+        {/* WIDGET DE VALORACIÓN FINANCIERA Y MÉTRICAS DE STOCK DE INVENTARIO */}
+        <InventoryValuationWidget />
 
         {/* NAVEGACIÓN POR PESTAÑAS (TABS) */}
         <div className="flex items-center justify-between border-b border-[#1B362A] pb-4 mb-6">

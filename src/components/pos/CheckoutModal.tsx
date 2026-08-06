@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { UserRole } from '@/types';
 import { CartItem } from '@/hooks/use-pos-store';
 import { getClients, createSaleTransaction } from '@/app/actions/sales';
@@ -12,7 +12,9 @@ import { ReceiptTicket } from '@/components/pos/ReceiptTicket';
 import { CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { X, DollarSign, CreditCard, Landmark, CheckCircle, RefreshCw, AlertCircle, Sparkles, Percent, Printer, ShoppingBag, ShieldCheck, MessageSquare, Package, ChevronDown, ChevronUp, Plus, Trash2 } from 'lucide-react';
+import { X, DollarSign, CreditCard, Landmark, CheckCircle, RefreshCw, AlertCircle, Sparkles, Percent, Printer, ShoppingBag, ShieldCheck, MessageSquare, Package, ChevronDown, ChevronUp, Plus, Trash2, Download } from 'lucide-react';
+import html2canvas from 'html2canvas';
+import { toast } from 'sonner';
 
 interface CheckoutModalProps {
   isOpen: boolean;
@@ -415,6 +417,38 @@ export function CheckoutModal({
       setError(err.message || 'Ocurrió un error inesperado al procesar el checkout');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const ticketRef = useRef<HTMLDivElement>(null);
+  const [isDownloading, setIsDownloading] = useState(false);
+
+  const downloadAsImage = async () => {
+    if (!ticketRef.current || !completedSaleData) return;
+    try {
+      setIsDownloading(true);
+      const canvas = await html2canvas(ticketRef.current, {
+        useCORS: true,
+        scale: 2,
+        backgroundColor: '#FFFFFF',
+        logging: false
+      });
+      const dataUrl = canvas.toDataURL('image/png');
+      const ticketNum = completedSaleData.saleId
+        ? completedSaleData.saleId.split('-')[0].toUpperCase()
+        : 'TICKET';
+      const link = document.createElement('a');
+      link.href = dataUrl;
+      link.download = `ticket-${ticketNum}.png`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      toast.success('Imagen de ticket descargada');
+    } catch (err) {
+      console.error('Error al generar la imagen del ticket:', err);
+      toast.error('No se pudo generar la imagen del comprobante');
+    } finally {
+      setIsDownloading(false);
     }
   };
 
@@ -933,6 +967,15 @@ export function CheckoutModal({
               </div>
             )}
 
+            {/* CONTENEDOR OCULTO PARA CAPTURA HTML2CANVAS */}
+            {completedSaleData && (
+              <div className="overflow-hidden h-0 w-0 opacity-0 pointer-events-none absolute">
+                <div ref={ticketRef} className="bg-white p-4 text-slate-900 inline-block w-[380px]">
+                  <ReceiptTicket {...completedSaleData} />
+                </div>
+              </div>
+            )}
+
             {/* BANDERAS DE IMPRESIÓN Y TICKET RENDERIZADO AISLADO PARA EL MODAL */}
             {completedSaleData && (
               <div className="hidden print:block print:fixed print:inset-0 print:m-0 print:p-4 print:bg-white print:z-[99999] print:w-full print:h-full print:overflow-visible">
@@ -947,6 +990,21 @@ export function CheckoutModal({
                 className="cursor-pointer border-[#1B362A] bg-[#08130E] font-bold text-zinc-300"
               >
                 <Printer className="mr-2 h-4 w-4 text-[#D0A96B]" /> Imprimir Ticket
+              </Button>
+
+              <Button
+                type="button"
+                variant="outline"
+                onClick={downloadAsImage}
+                disabled={isDownloading}
+                className="cursor-pointer border-[#1B362A] bg-[#08130E] font-bold text-zinc-300 hover:bg-[#13261E] hover:text-white"
+              >
+                {isDownloading ? (
+                  <RefreshCw className="mr-2 h-4 w-4 animate-spin text-[#D0A96B]" />
+                ) : (
+                  <Download className="mr-2 h-4 w-4 text-[#D0A96B]" />
+                )}
+                Descargar Imagen
               </Button>
 
               <Button

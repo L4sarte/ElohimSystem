@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useUserStore } from '@/hooks/use-user-store';
 import { useExchangeRate } from '@/hooks/use-exchange-rate';
 import { getSalesHistory, voidSale } from '@/app/actions/sales';
@@ -11,10 +11,12 @@ import { RoleSelector } from '@/components/products/RoleSelector';
 import { ExchangeRateWidget } from '@/components/rates/ExchangeRateWidget';
 import { 
   ArrowLeft, RefreshCw, AlertCircle, Printer, ShoppingCart, 
-  Search, FileText, CheckCircle2, X, Ban, AlertTriangle, RotateCcw 
+  Search, FileText, CheckCircle2, X, Ban, AlertTriangle, RotateCcw, Download 
 } from 'lucide-react';
 import Link from 'next/link';
 import { ReturnModal } from '@/components/pos/ReturnModal';
+import html2canvas from 'html2canvas';
+import { toast } from 'sonner';
 
 export default function HistorialVentasPage() {
   const { role } = useUserStore();
@@ -38,6 +40,37 @@ export default function HistorialVentasPage() {
   const [isVoidModalOpen, setIsVoidModalOpen] = useState(false);
   const [isVoiding, setIsVoiding] = useState(false);
   const [voidError, setVoidError] = useState<string | null>(null);
+
+  // Ref y estado para captura y descarga del ticket en formato PNG
+  const ticketRef = useRef<HTMLDivElement>(null);
+  const [isDownloading, setIsDownloading] = useState(false);
+
+  const downloadAsImage = async () => {
+    if (!ticketRef.current || !selectedSale) return;
+    try {
+      setIsDownloading(true);
+      const canvas = await html2canvas(ticketRef.current, {
+        useCORS: true,
+        scale: 2,
+        backgroundColor: '#FFFFFF',
+        logging: false
+      });
+      const dataUrl = canvas.toDataURL('image/png');
+      const ticketNum = selectedSale.id ? selectedSale.id.split('-')[0].toUpperCase() : 'TICKET';
+      const link = document.createElement('a');
+      link.href = dataUrl;
+      link.download = `ticket-${ticketNum}.png`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      toast.success('Imagen del ticket descargada exitosamente');
+    } catch (err) {
+      console.error('Error al generar la imagen del ticket:', err);
+      toast.error('No se pudo generar la imagen del comprobante');
+    } finally {
+      setIsDownloading(false);
+    }
+  };
 
   const fetchSales = async () => {
     setLoading(true);
@@ -335,31 +368,33 @@ export default function HistorialVentasPage() {
             </CardHeader>
 
             <CardContent className="p-6 max-h-[60vh] overflow-y-auto bg-[#13261E]/50">
-              {/* COMPONENTE DE TICKET RENDERIZADO */}
-              <ReceiptTicket
-                saleId={selectedSale.id}
-                createdAt={selectedSale.created_at}
-                clientName={selectedSale.clients?.name || 'Consumidor Final'}
-                items={(selectedSale.sale_items || []).map((item: any) => {
-                  const pArs = Number(item.price_ars_at_moment || item.price_ars || 0);
-                  return {
-                    name: item.products?.name || 'Producto Perfumería',
-                    brand: item.products?.brand,
-                    quantity: item.quantity,
-                    priceArs: pArs,
-                    totalArs: pArs * Number(item.quantity)
-                  };
-                })}
-                subtotalArs={Number(selectedSale.total_ars) - Number(selectedSale.payment_methods?.surcharge_applied_ars || 0)}
-                surchargeArs={Number(selectedSale.payment_methods?.surcharge_applied_ars || 0)}
-                totalArs={Number(selectedSale.total_ars)}
-                totalUsd={Number(selectedSale.total_usd_equivalent || 0)}
-                exchangeRate={Number(selectedSale.exchange_rate_used || 1000)}
-                paymentMethods={selectedSale.payment_methods}
-              />
+              {/* COMPONENTE DE TICKET RENDERIZADO CON REF PARA CAPTURA HTML2CANVAS */}
+              <div ref={ticketRef} className="rounded-xl overflow-hidden shadow-lg bg-white p-2">
+                <ReceiptTicket
+                  saleId={selectedSale.id}
+                  createdAt={selectedSale.created_at}
+                  clientName={selectedSale.clients?.name || 'Consumidor Final'}
+                  items={(selectedSale.sale_items || []).map((item: any) => {
+                    const pArs = Number(item.price_ars_at_moment || item.price_ars || 0);
+                    return {
+                      name: item.products?.name || 'Producto Perfumería',
+                      brand: item.products?.brand,
+                      quantity: item.quantity,
+                      priceArs: pArs,
+                      totalArs: pArs * Number(item.quantity)
+                    };
+                  })}
+                  subtotalArs={Number(selectedSale.total_ars) - Number(selectedSale.payment_methods?.surcharge_applied_ars || 0)}
+                  surchargeArs={Number(selectedSale.payment_methods?.surcharge_applied_ars || 0)}
+                  totalArs={Number(selectedSale.total_ars)}
+                  totalUsd={Number(selectedSale.total_usd_equivalent || 0)}
+                  exchangeRate={Number(selectedSale.exchange_rate_used || 1000)}
+                  paymentMethods={selectedSale.payment_methods}
+                />
+              </div>
             </CardContent>
 
-            <CardFooter className="border-t border-[#1B362A] pt-4 flex justify-end gap-3 bg-[#13261E]/40 px-6 py-4">
+            <CardFooter className="border-t border-[#1B362A] pt-4 flex flex-wrap items-center justify-end gap-3 bg-[#13261E]/40 px-6 py-4">
               <Button
                 type="button"
                 variant="outline"
@@ -370,8 +405,22 @@ export default function HistorialVentasPage() {
               </Button>
               <Button
                 type="button"
+                variant="outline"
+                onClick={downloadAsImage}
+                disabled={isDownloading}
+                className="border-[#1B362A] bg-[#08130E] text-zinc-300 hover:bg-[#13261E] hover:text-white cursor-pointer font-semibold"
+              >
+                {isDownloading ? (
+                  <RefreshCw className="mr-2 h-4 w-4 animate-spin text-[#D0A96B]" />
+                ) : (
+                  <Download className="mr-2 h-4 w-4 text-[#D0A96B]" />
+                )}
+                Descargar Imagen
+              </Button>
+              <Button
+                type="button"
                 onClick={handlePrint}
-                className="bg-[#D0A96B] hover:bg-[#E5C158] text-[#08130E] font-extrabold shadow-md shadow-[#D0A96B]/20 text-white cursor-pointer font-bold shadow-md shadow-violet-600/20"
+                className="bg-[#D0A96B] hover:bg-[#E5C158] text-[#08130E] font-extrabold shadow-md shadow-[#D0A96B]/20 cursor-pointer"
               >
                 <Printer className="mr-2 h-4 w-4" /> Disparar Impresión
               </Button>

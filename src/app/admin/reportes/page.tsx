@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useUserStore } from '@/hooks/use-user-store';
 import { useExchangeRate } from '@/hooks/use-exchange-rate';
 import { getFinancialReport, FinancialReportData } from '@/app/actions/analytics';
@@ -98,11 +98,34 @@ export default function ReportesPage() {
     setTimeRange(preset);
   };
 
-  const exportDashboardToPDF = () => {
-    toast.info('Abriendo diálogo de impresión nativo (Guardar como PDF)...');
-    setTimeout(() => {
-      window.print();
-    }, 300);
+  const reportRef = useRef<HTMLDivElement>(null);
+  const [generatingPdf, setGeneratingPdf] = useState(false);
+
+  const handleDownloadPDF = async () => {
+    if (!reportRef.current) return;
+    try {
+      setGeneratingPdf(true);
+      toast.info('Generando archivo PDF...');
+
+      // Importación dinámica para prevenir errores de SSR en Next.js App Router
+      const html2pdf = (await import('html2pdf.js')).default;
+
+      const opt = {
+        margin: 0.5,
+        filename: `reporte-financiero-${new Date().toISOString().slice(0, 10)}.pdf`,
+        image: { type: 'jpeg' as const, quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true },
+        jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' as const }
+      };
+
+      await html2pdf().set(opt).from(reportRef.current).save();
+      toast.success('Reporte PDF descargado exitosamente');
+    } catch (err: any) {
+      console.error('Error al generar el archivo PDF:', err);
+      toast.error('Ocurrió un error al generar el archivo PDF');
+    } finally {
+      setGeneratingPdf(false);
+    }
   };
 
   // Acceso restringido para vendedores
@@ -235,12 +258,16 @@ export default function ReportesPage() {
 
             <Button
               variant="outline"
-              onClick={exportDashboardToPDF}
-              disabled={loading}
+              onClick={handleDownloadPDF}
+              disabled={loading || generatingPdf}
               className="border-[#D0A96B]/40 text-[#E5C158] hover:bg-violet-950/40 hover:text-white cursor-pointer font-bold text-xs flex items-center gap-1.5 h-9 bg-[#13261E] shadow-md shadow-violet-600/10"
             >
-              <Download className="h-3.5 w-3.5 text-[#D0A96B]" />
-              <span>Exportar Reporte PDF</span>
+              {generatingPdf ? (
+                <RefreshCw className="h-3.5 w-3.5 animate-spin text-[#D0A96B]" />
+              ) : (
+                <Download className="h-3.5 w-3.5 text-[#D0A96B]" />
+              )}
+              <span>{generatingPdf ? 'Generando...' : 'Descargar PDF'}</span>
             </Button>
 
             {/* PRESETS DE RANGO DE FECHAS */}
@@ -327,8 +354,8 @@ export default function ReportesPage() {
           </div>
         </div>
 
-        {/* ÁREA CAPTURADA PARA PDF (pdf-export-area) */}
-        <div id="pdf-export-area" className="space-y-6 bg-[#08130E] p-6 rounded-2xl border border-[#1B362A] shadow-2xl">
+        {/* ÁREA CAPTURADA PARA PDF (reporte-financiero-pdf) */}
+        <div ref={reportRef} id="reporte-financiero-pdf" className="space-y-6 bg-[#08130E] p-6 rounded-2xl border border-[#1B362A] shadow-2xl">
           
           {/* LOGO EN CABECERA DEL REPORTE DE EXPORTACIÓN */}
           <div className="flex items-center justify-between pb-4 border-b border-[#1B362A]">
