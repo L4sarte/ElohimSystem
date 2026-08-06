@@ -49,17 +49,18 @@ export async function getInventoryValuation(role: UserRole): Promise<InventoryVa
         exchangeRate = rateRes.data.value_ars;
       }
     } catch (rateErr) {
-      console.warn('Advertencia al consultar tasa cambiaria en getInventoryValuation, usando fallback 1000:', rateErr);
+      console.warn('[INVENTORY_VALUATION_WARN] Error al consultar tasa cambiaria, usando fallback 1000:', rateErr);
     }
 
-    // Consultar todos los productos inventariables con stock mayor a 0
+    // Consultar productos inventariables con stock mayor a 0, excluyendo packaging (type = 'supply')
     const { data: products, error } = await supabase
       .from('products')
-      .select('id, stock_quantity, base_cost_ars, base_price_ars, cost_usd, base_price_usd, type')
-      .gt('stock_quantity', 0);
+      .select('*')
+      .gt('stock_quantity', 0)
+      .neq('type', 'supply');
 
     if (error) {
-      console.error('Error al consultar productos de Supabase en getInventoryValuation:', error);
+      console.error('[INVENTORY_VALUATION_ERROR]', error);
       return {
         success: false,
         data: DEFAULT_METRICS,
@@ -71,23 +72,24 @@ export async function getInventoryValuation(role: UserRole): Promise<InventoryVa
     let capitalCostUsd = 0;
     let potentialRevenueArs = 0;
     let potentialRevenueUsd = 0;
-    let totalUnitsInStock = 0;
+    let totalUnidades = 0;
+    const totalSKUs = (products || []).length;
 
-    (products || []).forEach((p: any) => {
-      const qty = Number(p.stock_quantity || 0);
-      if (qty <= 0) return;
+    (products || []).forEach((item: any) => {
+      // Safe Math Parsing con conversión forzada a número y fallback a 0
+      const stock = Number(item.stock_quantity) || 0;
+      if (stock <= 0) return;
 
-      const costArs = Number(p.base_cost_ars || 0);
-      const priceArs = Number(p.base_price_ars || 0);
+      const priceArs = Number(item.base_price_ars ?? item.price_ars) || 0;
+      const costArs = Number(item.base_cost_ars ?? item.cost_ars) || 0;
+      const costUsd = Number(item.cost_usd) || (exchangeRate > 0 && costArs > 0 ? costArs / exchangeRate : 0);
+      const priceUsd = Number(item.base_price_usd ?? item.price_usd) || (exchangeRate > 0 && priceArs > 0 ? priceArs / exchangeRate : 0);
 
-      const costUsd = p.cost_usd ? Number(p.cost_usd) : (exchangeRate > 0 ? costArs / exchangeRate : 0);
-      const priceUsd = p.base_price_usd ? Number(p.base_price_usd) : (exchangeRate > 0 ? priceArs / exchangeRate : 0);
-
-      capitalCostArs += qty * costArs;
-      capitalCostUsd += qty * costUsd;
-      potentialRevenueArs += qty * priceArs;
-      potentialRevenueUsd += qty * priceUsd;
-      totalUnitsInStock += qty;
+      capitalCostArs += stock * costArs;
+      capitalCostUsd += stock * costUsd;
+      potentialRevenueArs += stock * priceArs;
+      potentialRevenueUsd += stock * priceUsd;
+      totalUnidades += stock;
     });
 
     const potentialNetProfitArs = Math.max(0, potentialRevenueArs - capitalCostArs);
@@ -105,13 +107,13 @@ export async function getInventoryValuation(role: UserRole): Promise<InventoryVa
         capitalInvertidoUsd: Math.round(capitalCostUsd),
         valorBrutoVentaUsd: Math.round(potentialRevenueUsd),
         gananciaNetaPotencialUsd: Math.round(potentialNetProfitUsd),
-        totalUnitsInStock,
-        totalProductsCount: (products || []).length,
+        totalUnitsInStock: totalUnidades,
+        totalProductsCount: totalSKUs,
         potentialProfitMarginPercent
       }
     };
   } catch (err: any) {
-    console.error('Excepción crítica capturada en getInventoryValuation:', err);
+    console.error('[INVENTORY_VALUATION_ERROR]', err);
     return {
       success: false,
       data: DEFAULT_METRICS,
@@ -119,3 +121,4 @@ export async function getInventoryValuation(role: UserRole): Promise<InventoryVa
     };
   }
 }
+
