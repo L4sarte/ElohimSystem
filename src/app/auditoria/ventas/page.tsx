@@ -15,7 +15,6 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { ReturnModal } from '@/components/pos/ReturnModal';
-import html2canvas from 'html2canvas';
 import { toast } from 'sonner';
 
 export default function HistorialVentasPage() {
@@ -53,12 +52,15 @@ export default function HistorialVentasPage() {
       // Delay safeguard para permitir renderizado completo de la imagen y fuentes
       await new Promise((resolve) => setTimeout(resolve, 300));
 
+      // Importación dinámica para prevenir errores de SSR en Next.js App Router / Vercel
+      const html2canvas = (await import('html2canvas')).default;
+
       const canvas = await html2canvas(ticketRef.current, {
+        scale: 2,
         useCORS: true,
         allowTaint: true,
-        scale: 2,
-        backgroundColor: '#FFFFFF',
-        logging: false
+        logging: true,
+        backgroundColor: '#FFFFFF'
       });
       const dataUrl = canvas.toDataURL('image/png');
       const ticketNum = selectedSale.id ? selectedSale.id.split('-')[0].toUpperCase() : 'TICKET';
@@ -69,9 +71,9 @@ export default function HistorialVentasPage() {
       link.click();
       document.body.removeChild(link);
       toast.success('Imagen del ticket descargada exitosamente');
-    } catch (err) {
-      console.error('[CANVAS_ERROR]:', err);
-      toast.error('No se pudo generar la imagen del comprobante');
+    } catch (error) {
+      console.error('[ERROR_EXPORTACION_VERCEL]:', error);
+      toast.error('Error al generar el archivo. Revisa la consola (F12).');
     } finally {
       setIsDownloading(false);
     }

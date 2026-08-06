@@ -110,22 +110,28 @@ export default function ReportesPage() {
       // Safeguard delay para asegurar que fuentes y canvas de Recharts estén totalmente listos
       await new Promise((resolve) => setTimeout(resolve, 300));
 
-      // Importación dinámica para prevenir errores de SSR en Next.js App Router
+      // Importación dinámica para prevenir errores de SSR en Next.js App Router / Vercel
       const html2pdf = (await import('html2pdf.js')).default;
 
       const opt = {
         margin: 0.5,
         filename: `reporte-financiero-${new Date().toISOString().slice(0, 10)}.pdf`,
         image: { type: 'jpeg' as const, quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true, allowTaint: true },
+        html2canvas: { 
+          scale: 2, 
+          useCORS: true, 
+          logging: true, 
+          allowTaint: true,
+          backgroundColor: '#ffffff'
+        },
         jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' as const }
       };
 
       await html2pdf().set(opt).from(reportRef.current).save();
       toast.success('Reporte PDF descargado exitosamente');
-    } catch (err: any) {
-      console.error('[CANVAS_ERROR]:', err);
-      toast.error('Ocurrió un error al generar el archivo PDF');
+    } catch (error) {
+      console.error('[ERROR_EXPORTACION_VERCEL]:', error);
+      toast.error('Error al generar el archivo. Revisa la consola (F12).');
     } finally {
       setGeneratingPdf(false);
     }
@@ -363,7 +369,15 @@ export default function ReportesPage() {
           {/* LOGO EN CABECERA DEL REPORTE DE EXPORTACIÓN */}
           <div className="flex items-center justify-between pb-4 border-b border-[#1B362A]">
             <div className="flex items-center gap-3">
-              <img src="/logo-elohim.png" alt="Elohim Import ERP" className="h-10 w-auto object-contain" crossOrigin="anonymous" />
+              <img 
+                src="/logo-elohim.png" 
+                alt="Elohim Import ERP" 
+                className="h-10 w-auto object-contain" 
+                crossOrigin="anonymous" 
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none';
+                }}
+              />
               <div>
                 <h2 className="text-base font-bold text-white font-serif tracking-wider">ELOHIM IMPORT ERP</h2>
                 <p className="text-[10px] text-[#D0A96B] font-mono uppercase tracking-widest">Reporte Financiero Oficial</p>

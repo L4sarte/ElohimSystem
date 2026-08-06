@@ -8,7 +8,7 @@ import {
   ShoppingBag, LayoutGrid, Users, CreditCard, Package, Archive, 
   PackageX, Globe, BarChart3, Coins, DollarSign, TrendingUp, 
   ShieldCheck, Menu, X, Sparkles, ChevronRight, Home, Percent, Landmark,
-  Truck, Settings
+  Truck, Settings, Printer
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -34,6 +34,7 @@ export function Sidebar() {
         { name: 'Kanban Pedidos', href: '/kanban', icon: LayoutGrid, color: 'text-emerald-400' },
         { name: 'CRM Clientes & Points', href: '/clientes', icon: Users, color: 'text-indigo-400' },
         { name: 'Cobranzas / Fiados', href: '/admin/finanzas/cxcobrar', icon: CreditCard, color: 'text-amber-400' },
+        { name: 'Historial de Ventas', href: '/auditoria/ventas', icon: Printer, color: 'text-[#D0A96B]' },
       ]
     },
     {
@@ -48,8 +49,8 @@ export function Sidebar() {
     {
       title: 'COMPRAS & LOGÍSTICA',
       items: [
-        { name: 'Proveedores & Compras', href: '/compras', icon: ShoppingBag, color: 'text-sky-400', adminOnly: true },
-        { name: 'Logística & Envíos', href: '/kanban', icon: Truck, color: 'text-indigo-400' },
+        { name: 'Proveedores & Compras', href: '/admin/proveedores', icon: ShoppingBag, color: 'text-sky-400', adminOnly: true },
+        { name: 'Logística & Envíos', href: '/admin/envios', icon: Truck, color: 'text-indigo-400' },
       ]
     },
     {
@@ -58,6 +59,7 @@ export function Sidebar() {
         { name: 'Dashboard Principal', href: '/', icon: Home, color: 'text-[#D0A96B]' },
         { name: 'Tesorería & Cuentas', href: '/admin/finanzas/tesoreria', icon: Landmark, color: 'text-[#D0A96B]' },
         { name: 'Comisiones & Pasarelas', href: '/admin/finanzas/comisiones', icon: Percent, color: 'text-[#D0A96B]', adminOnly: true },
+        { name: 'Cuotas & Recargos', href: '/config/pagos', icon: CreditCard, color: 'text-[#D0A96B]', adminOnly: true },
         { name: 'Gastos OPEX', href: '/admin/gastos', icon: DollarSign, color: 'text-rose-400', adminOnly: true },
         { name: 'Reportes Financieros', href: '/admin/reportes', icon: TrendingUp, color: 'text-emerald-400', adminOnly: true },
         { name: 'Dashboard Visual Mensual', href: '/admin/reportes/mensual', icon: BarChart3, color: 'text-[#D0A96B]', adminOnly: true },
@@ -76,10 +78,17 @@ export function Sidebar() {
   const sidebarContent = (
     <div className="flex flex-col h-full bg-[#13261E] border-r border-[#1B362A] w-64 text-zinc-100">
       
-      {/* LOGO SUPERIOR */}
+      {/* LOGO SUPERIOR CON FALLBACK ONERROR */}
       <div className="p-4 border-b border-[#1B362A] flex items-center justify-between">
         <Link href="/" className="flex items-center gap-2 cursor-pointer">
-          <img src="/logo-elohim.png" alt="Elohim Import ERP" className="h-9 w-auto object-contain" />
+          <img 
+            src="/logo-elohim.png" 
+            alt="Elohim Import ERP" 
+            className="h-9 w-auto object-contain"
+            onError={(e) => {
+              e.currentTarget.style.display = 'none';
+            }}
+          />
         </Link>
         {mobileOpen && (
           <button

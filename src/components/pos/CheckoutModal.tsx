@@ -13,7 +13,6 @@ import { CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from 
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { X, DollarSign, CreditCard, Landmark, CheckCircle, RefreshCw, AlertCircle, Sparkles, Percent, Printer, ShoppingBag, ShieldCheck, MessageSquare, Package, ChevronDown, ChevronUp, Plus, Trash2, Download } from 'lucide-react';
-import html2canvas from 'html2canvas';
 import { toast } from 'sonner';
 
 interface CheckoutModalProps {
@@ -431,12 +430,15 @@ export function CheckoutModal({
       // Delay safeguard para garantizar la carga completa del DOM y recursos de imagen
       await new Promise((resolve) => setTimeout(resolve, 300));
 
+      // Importación dinámica para prevenir errores de SSR en Next.js App Router / Vercel
+      const html2canvas = (await import('html2canvas')).default;
+
       const canvas = await html2canvas(ticketRef.current, {
+        scale: 2,
         useCORS: true,
         allowTaint: true,
-        scale: 2,
-        backgroundColor: '#FFFFFF',
-        logging: false
+        logging: true,
+        backgroundColor: '#FFFFFF'
       });
       const dataUrl = canvas.toDataURL('image/png');
       const ticketNum = completedSaleData.saleId
@@ -449,9 +451,9 @@ export function CheckoutModal({
       link.click();
       document.body.removeChild(link);
       toast.success('Imagen de ticket descargada');
-    } catch (err) {
-      console.error('[CANVAS_ERROR]:', err);
-      toast.error('No se pudo generar la imagen del comprobante');
+    } catch (error) {
+      console.error('[ERROR_EXPORTACION_VERCEL]:', error);
+      toast.error('Error al generar el archivo. Revisa la consola (F12).');
     } finally {
       setIsDownloading(false);
     }

@@ -98,6 +98,9 @@ export function ReceiptTicket({
             alt="Elohim Import" 
             className="w-28 h-auto mx-auto mb-2 object-contain print:w-28" 
             crossOrigin="anonymous"
+            onError={(e) => {
+              e.currentTarget.style.display = 'none';
+            }}
           />
           <h2 className="text-sm font-black uppercase tracking-widest text-black">ELOHIM IMPORT</h2>
           <p className="text-[10px] text-black">Alta Perfumería de Nicho & Decants Fraccionados</p>
