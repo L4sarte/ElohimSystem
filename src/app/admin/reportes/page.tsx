@@ -21,6 +21,7 @@ import {
 
 import { MonthlyGoalsWidget } from '@/components/goals/MonthlyGoalsWidget';
 import { InventoryValuationWidget } from '@/components/inventory/InventoryValuationWidget';
+import { RetailKPIsWidget } from '@/components/dashboard/RetailKPIsWidget';
 import { ExchangeRatesWidget } from '@/components/rates/ExchangeRatesWidget';
 
 import { toast } from 'sonner';
@@ -353,6 +354,11 @@ export default function ReportesPage() {
 
           {/* WIDGET DE VALORACIÓN DE INVENTARIO */}
           <InventoryValuationWidget />
+
+          {/* WIDGET DE KPIS RETAIL: TICKET PROMEDIO Y TOP 3 BEST SELLERS */}
+          <div className="w-full">
+            <RetailKPIsWidget />
+          </div>
 
           {/* MONITOR DE COTIZACIONES EN VIVO */}
           <ExchangeRatesWidget />
