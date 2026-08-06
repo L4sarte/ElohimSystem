@@ -4,6 +4,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useUserStore } from '@/hooks/use-user-store';
 import { useExchangeRate } from '@/hooks/use-exchange-rate';
 import { getFinancialReport, FinancialReportData } from '@/app/actions/analytics';
+import { getInventoryValuation } from '@/app/actions/inventoryAnalytics';
+import { getRetailKPIs } from '@/app/actions/reports';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { RoleSelector } from '@/components/products/RoleSelector';
@@ -109,141 +111,136 @@ export default function ReportesPage() {
 
     try {
       setGeneratingPdf(true);
-      toast.info('Generando reporte PDF profesional...');
+      toast.info('Generando reporte financiero corporativo...');
 
-      // Instancia nativa A4 en puntos (pt)
+      // 1. Obtener datos de inventario y KPIs de retail en paralelo
+      const [invRes, retailRes] = await Promise.all([
+        getInventoryValuation(role),
+        getRetailKPIs(role)
+      ]);
+
+      const inventoryData = invRes.success ? invRes.data : null;
+      const retailData = retailRes.success ? retailRes.data : null;
+
+      // 2. Inicialización limpia de jsPDF A4 en puntos (pt)
       const doc = new jsPDF('p', 'pt', 'a4');
       const pageWidth = doc.internal.pageSize.getWidth();
-      const formatArs = (num: number) => `$${Math.round(num || 0).toLocaleString('es-AR')} ARS`;
 
-      // 1. CABECERA Y BRANDING (Fondo blanco nativo y tipografía limpia)
+      // Formateador numérico estricto a moneda local ARS
+      const formatARS = (valor: number) =>
+        new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(valor || 0);
+
+      // 3. Encabezado Corporativo (Fondo Blanco Nativo)
       doc.setFillColor(255, 255, 255);
       doc.rect(0, 0, pageWidth, 842, 'F');
 
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(15);
-      doc.setTextColor(15, 23, 42); // Slate-900
-      doc.text('ELOHIM IMPORT — REPORTE FINANCIERO OFICIAL', 40, 45);
+      doc.setFontSize(18);
+      doc.setTextColor(8, 19, 14); // Verde marca Elohim [8, 19, 14]
+      doc.text('ELOHIM IMPORT - REPORTE FINANCIERO', 40, 40);
 
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(9);
-      doc.setTextColor(71, 85, 105); // Slate-600
+      doc.setTextColor(71, 85, 105);
 
       const periodText = timeRange === 'custom'
         ? `Desde ${startDate} hasta ${endDate}`
         : timeRange === 'current_month' ? 'Mes Actual' : timeRange === 'previous_month' ? 'Mes Anterior' : timeRange === 'last_30_days' ? 'Últimos 30 días' : 'Año en Curso';
 
-      doc.text(`Período de Análisis: ${periodText}  |  Generado: ${new Date().toLocaleDateString('es-AR')}`, 40, 60);
+      doc.text(`Fecha de Generación: ${new Date().toLocaleDateString('es-AR')}  |  Período: ${periodText}`, 40, 56);
 
-      // Línea divisora
-      doc.setDrawColor(203, 213, 225); // Slate-300
+      // Línea separadora
+      doc.setDrawColor(226, 232, 240);
       doc.setLineWidth(1);
-      doc.line(40, 70, pageWidth - 40, 70);
+      doc.line(40, 66, pageWidth - 40, 66);
 
-      // 2. SECCIÓN 1: ESTADO DE RESULTADOS (RESUMEN EJECUTIVO)
+      // Opciones visuales estandarizadas para autoTable (Verde marca en cabeceras)
+      const autoTableOptions = {
+        theme: 'grid' as const,
+        headStyles: { fillColor: [8, 19, 14] as [number, number, number], textColor: [255, 255, 255] as [number, number, number], fontStyle: 'bold' as const, fontSize: 9 },
+        bodyStyles: { textColor: [30, 41, 59] as [number, number, number], fontSize: 9 },
+        alternateRowStyles: { fillColor: [248, 250, 252] as [number, number, number] },
+        margin: { left: 40, right: 40 },
+        styles: { cellPadding: 6 }
+      };
+
+      // --- TABLA 1: ESTADO DE RESULTADOS ---
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(11);
-      doc.setTextColor(15, 23, 42);
-      doc.text('1. Estado de Resultados (Resumen Ejecutivo)', 40, 90);
+      doc.setTextColor(8, 19, 14);
+      doc.text('Estado de Resultados', 40, 85);
 
-      const kpiRows = [
-        ['Ingresos Brutos', formatArs(report.grossRevenue), '100.00% (Ventas Totales Realizadas)'],
-        ['Costo Mercadería (COGS)', `-${formatArs(report.cogs)}`, 'Costo de Adquisición Directa en Catálogo'],
-        ['Comisiones Pasarelas', `-${formatArs(report.gatewayFeeArs)}`, 'Costo Bancario y Retenciones por Pasarelas'],
-        ['Gastos Operativos (OPEX)', `-${formatArs(report.opex)}`, 'Egresos Administrativos y Operativos'],
-        ['Ganancia Neta del Período', formatArs(report.netProfit), `${report.profitMarginPercent}% Margen Neto Resultante`],
-        ['Cuentas por Cobrar (Pendiente)', formatArs(report.totalAmountDueArs), 'Dinero pendiente de cobro en calle'],
-        ['Devoluciones & Reintegros', `-${formatArs(report.totalRefundsArs)}`, 'Total reintegrado por mermas o cambios']
+      const estadoResultadosBody = [
+        ['Ingresos Brutos', formatARS(report.grossRevenue)],
+        ['Costo Mercadería (COGS)', formatARS(-report.cogs)],
+        ['Comisiones Pasarelas (Costo Bancario)', formatARS(-report.gatewayFeeArs)],
+        ['Gastos Operativos (OPEX)', formatARS(-report.opex)],
+        ['Ganancia Neta del Período', `${formatARS(report.netProfit)} (${report.profitMarginPercent}% Margen)`]
       ];
 
       autoTable(doc, {
-        startY: 98,
-        head: [['Métrica Financiera', 'Monto en ARS', 'Detalle / Impacto']],
-        body: kpiRows,
-        theme: 'grid',
-        headStyles: { fillColor: [15, 23, 42], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 9 },
-        bodyStyles: { textColor: [30, 41, 59], fontSize: 9 },
-        alternateRowStyles: { fillColor: [248, 250, 252] },
-        margin: { left: 40, right: 40 },
-        styles: { cellPadding: 6 }
+        ...autoTableOptions,
+        startY: 93,
+        head: [['Concepto', 'Monto (ARS)']],
+        body: estadoResultadosBody
       });
 
-      let currentY = (doc as any).lastAutoTable.finalY + 25;
+      let currentY = (doc as any).lastAutoTable.finalY + 22;
 
-      // 3. SECCIÓN 2: DESGLOSE DE GASTOS OPERATIVOS (OPEX)
-      if (report.categoryBreakdown && report.categoryBreakdown.length > 0) {
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(11);
-        doc.setTextColor(15, 23, 42);
-        doc.text('2. Desglose de Gastos Operativos por Categoría', 40, currentY);
+      // --- TABLA 2: VALORACIÓN DE INVENTARIO ---
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(11);
+      doc.setTextColor(8, 19, 14);
+      doc.text('Valoración de Inventario', 40, currentY);
 
-        const opexRows = report.categoryBreakdown.map(cat => [
-          cat.name,
-          formatArs(cat.value),
-          `${report.opex > 0 ? ((cat.value / report.opex) * 100).toFixed(1) : '0'}%`
-        ]);
+      const valoracionBody = [
+        ['Capital Invertido (Costo en Stock)', formatARS(inventoryData?.capitalInvertido || 0)],
+        ['Valor Bruto Potencial (Venta en Stock)', formatARS(inventoryData?.valorBrutoVenta || 0)],
+        ['Ganancia Neta Potencial', formatARS(inventoryData?.gananciaNetaPotencial || 0)]
+      ];
 
-        autoTable(doc, {
-          startY: currentY + 8,
-          head: [['Categoría de Gasto', 'Monto Invertido (ARS)', 'Participación %']],
-          body: opexRows,
-          theme: 'grid',
-          headStyles: { fillColor: [71, 85, 105], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 9 },
-          bodyStyles: { textColor: [30, 41, 59], fontSize: 9 },
-          alternateRowStyles: { fillColor: [248, 250, 252] },
-          margin: { left: 40, right: 40 },
-          styles: { cellPadding: 5 }
-        });
+      autoTable(doc, {
+        ...autoTableOptions,
+        startY: currentY + 8,
+        head: [['Métrica de Inventario', 'Valor (ARS)']],
+        body: valoracionBody
+      });
 
-        currentY = (doc as any).lastAutoTable.finalY + 25;
-      }
+      currentY = (doc as any).lastAutoTable.finalY + 22;
 
-      // 4. SECCIÓN 3: REGISTRO DIARIO DE FACTURACIÓN
-      if (report.trendData && report.trendData.length > 0) {
-        if (currentY > 650) {
-          doc.addPage();
-          currentY = 40;
-        }
+      // --- TABLA 3: KPIS RETAIL ---
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(11);
+      doc.setTextColor(8, 19, 14);
+      doc.text('KPIs Retail del Mes', 40, currentY);
 
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(11);
-        doc.setTextColor(15, 23, 42);
-        doc.text('3. Registro Diario de Facturación y Utilidad', 40, currentY);
+      const kpiBody = [
+        ['Ticket Promedio (AOV)', formatARS(retailData?.averageOrderValueArs || 0)],
+        ['Transacciones Totales del Mes', `${retailData?.totalSalesCount || 0} ventas`]
+      ];
 
-        const trendRows = report.trendData.map(day => [
-          day.date,
-          formatArs(day.ingresos),
-          formatArs(day.ganancia)
-        ]);
+      autoTable(doc, {
+        ...autoTableOptions,
+        startY: currentY + 8,
+        head: [['Métrica KPI', 'Valor']],
+        body: kpiBody
+      });
 
-        autoTable(doc, {
-          startY: currentY + 8,
-          head: [['Fecha', 'Ingresos Brutos (ARS)', 'Ganancia Est. (ARS)']],
-          body: trendRows,
-          theme: 'grid',
-          headStyles: { fillColor: [15, 23, 42], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 9 },
-          bodyStyles: { textColor: [30, 41, 59], fontSize: 9 },
-          alternateRowStyles: { fillColor: [248, 250, 252] },
-          margin: { left: 40, right: 40 },
-          styles: { cellPadding: 5 }
-        });
-      }
-
-      // PIE DE PÁGINA NATIVO DE IMPRESIÓN
+      // Pie de página corporativo
       const totalPages = (doc as any).internal.getNumberOfPages();
       for (let i = 1; i <= totalPages; i++) {
         doc.setPage(i);
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(8);
-        doc.setTextColor(148, 163, 184); // Slate-400
-        doc.text(`Elohim Import ERP • Sistema de Control Financiero Bimonetario — Página ${i} de ${totalPages}`, 40, 820);
+        doc.setTextColor(148, 163, 184);
+        doc.text(`Elohim Import ERP • Reporte Financiero Corporativo — Página ${i} de ${totalPages}`, 40, 820);
       }
 
       doc.save(`Reporte_Financiero_Elohim_${new Date().toISOString().slice(0, 10)}.pdf`);
-      toast.success('Reporte PDF nativo generado y descargado exitosamente');
+      toast.success('Reporte PDF corporativo generado exitosamente');
     } catch (error: any) {
-      console.error('[ERROR_GENERACION_PDF_NATIVO]:', error);
-      toast.error('Ocurrió un error al generar el reporte PDF');
+      console.error('[ERROR_GENERACION_PDF_CORPORATIVO]:', error);
+      toast.error('Ocurrió un error al generar el PDF corporativo.');
     } finally {
       setGeneratingPdf(false);
     }
