@@ -475,6 +475,35 @@ export async function voidSale(
       throw error;
     }
 
+    // RESTAURAR STOCK DE INSUMOS DE PACKAGING (Bolsas, Frascos, Cajas) DE LA VENTA
+    const { data: packagingItems, error: packErr } = await serviceClient
+      .from('sale_packaging')
+      .select('packaging_id, quantity_used')
+      .eq('sale_id', saleId);
+
+    if (!packErr && packagingItems && packagingItems.length > 0) {
+      for (const pItem of packagingItems) {
+        if (!pItem.packaging_id || !pItem.quantity_used) continue;
+        const qtyToReturn = Number(pItem.quantity_used);
+
+        // Obtener stock actual del insumo en la tabla products
+        const { data: supplyProd } = await serviceClient
+          .from('products')
+          .select('stock_quantity')
+          .eq('id', pItem.packaging_id)
+          .single();
+
+        const currentStock = Number(supplyProd?.stock_quantity || 0);
+        const restoredStock = currentStock + qtyToReturn;
+
+        // Actualizar stock restaurando los insumos de packaging
+        await serviceClient
+          .from('products')
+          .update({ stock_quantity: restoredStock })
+          .eq('id', pItem.packaging_id);
+      }
+    }
+
     revalidatePath('/');
     revalidatePath('/auditoria/ventas');
     revalidatePath('/admin/ventas');
