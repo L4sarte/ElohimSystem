@@ -20,6 +20,7 @@ import { getDashboardData } from '@/app/actions/reports';
 import { StockAlertWidget } from '@/components/products/StockAlertWidget';
 import { MonthlyGoalsWidget } from '@/components/goals/MonthlyGoalsWidget';
 import { RetailKPIsWidget } from '@/components/dashboard/RetailKPIsWidget';
+import { InventoryValuationWidget } from '@/components/inventory/InventoryValuationWidget';
 import { ExchangeRatesWidget } from '@/components/rates/ExchangeRatesWidget';
 import { QuickActions } from '@/components/dashboard/QuickActions';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
@@ -189,6 +190,13 @@ export default function DashboardPage() {
                   </div>
                 )}
 
+                {/* WIDGET DE VALORACIÓN Y PROYECTO DE INVENTARIO */}
+                {role === 'admin' && (
+                  <div>
+                    <InventoryValuationWidget />
+                  </div>
+                )}
+
                 {/* WIDGET DE METAS MENSUALES Y RUN RATE */}
                 {role === 'admin' && (
                   <div className="mb-6">
@@ -201,7 +209,7 @@ export default function DashboardPage() {
                   
                   {/* GRÁFICO RECHARTS (Col-span 2) */}
                   <div className="lg:col-span-2">
-                    <Card className="border border-[#1B362A] bg-[#13261E]/90 rounded-2xl p-6 shadow-xl h-full flex flex-col justify-between">
+                    <Card className="border border-[#1B362A] bg-[#13261E]/90 rounded-2xl p-6 shadow-xl space-y-4">
                       <CardHeader className="px-0 pt-0 pb-6 border-b border-[#1B362A]">
                         <CardTitle className="text-sm font-bold text-zinc-200 font-serif flex items-center gap-2">
                           <Activity className="h-4.5 w-4.5 text-[#D0A96B]" />
