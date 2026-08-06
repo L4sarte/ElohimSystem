@@ -107,27 +107,33 @@ export default function ReportesPage() {
       setGeneratingPdf(true);
       toast.info('Generando archivo PDF...');
 
-      // Safeguard delay para asegurar que fuentes y canvas de Recharts estén totalmente listos
+      // Safeguard delay para asegurar que fuentes y gráficos estén totalmente renderizados
       await new Promise((resolve) => setTimeout(resolve, 300));
 
-      // Importación dinámica para prevenir errores de SSR en Next.js App Router / Vercel
-      const html2pdf = (await import('html2pdf.js')).default;
+      // Importación dinámica de html-to-image y jsPDF (Bypass de html2canvas/html2pdf.js)
+      const { toPng } = await import('html-to-image');
+      const { jsPDF } = await import('jspdf');
 
-      const opt = {
-        margin: 0.5,
-        filename: `reporte-financiero-${new Date().toISOString().slice(0, 10)}.pdf`,
-        image: { type: 'jpeg' as const, quality: 0.98 },
-        html2canvas: { 
-          scale: 2, 
-          useCORS: true, 
-          logging: true, 
-          allowTaint: true,
-          backgroundColor: '#08130E'
-        },
-        jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' as const }
-      };
+      const dataUrl = await toPng(reportRef.current, {
+        backgroundColor: '#08130E',
+        cacheBust: true
+      });
 
-      await html2pdf().set(opt).from(reportRef.current).save();
+      const pdf = new jsPDF({ orientation: 'portrait', unit: 'px', format: 'a4' });
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+
+      const img = new Image();
+      img.src = dataUrl;
+      await new Promise((resolve) => {
+        img.onload = resolve;
+      });
+
+      const imgWidth = img.width || 800;
+      const imgHeight = img.height || 1000;
+      const pdfHeight = (imgHeight * pdfWidth) / imgWidth;
+
+      pdf.addImage(dataUrl, 'PNG', 0, 0, pdfWidth, pdfHeight);
+      pdf.save(`reporte-${new Date().toISOString().slice(0, 10)}.pdf`);
       toast.success('Reporte PDF descargado exitosamente');
     } catch (error) {
       console.error('[ERROR_EXPORTACION_VERCEL]:', error);

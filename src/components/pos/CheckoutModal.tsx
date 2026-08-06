@@ -430,17 +430,15 @@ export function CheckoutModal({
       // Delay safeguard para garantizar la carga completa del DOM y recursos de imagen
       await new Promise((resolve) => setTimeout(resolve, 300));
 
-      // Importación dinámica para prevenir errores de SSR en Next.js App Router / Vercel
-      const html2canvas = (await import('html2canvas')).default;
+      // Importación dinámica de html-to-image para compatibilidad con SSR en Next.js App Router / Vercel
+      const { toPng } = await import('html-to-image');
 
-      const canvas = await html2canvas(ticketRef.current, {
-        scale: 2,
-        useCORS: true,
-        allowTaint: true,
-        logging: true,
-        backgroundColor: '#FFFFFF'
+      const dataUrl = await toPng(ticketRef.current, {
+        cacheBust: true,
+        backgroundColor: '#FFFFFF',
+        style: { margin: '0' }
       });
-      const dataUrl = canvas.toDataURL('image/png');
+
       const ticketNum = completedSaleData.saleId
         ? completedSaleData.saleId.split('-')[0].toUpperCase()
         : 'TICKET';
