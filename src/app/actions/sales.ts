@@ -336,6 +336,35 @@ export async function createSaleTransaction(
       }
     }
 
+    // REGISTRAR AUTOMÁTICAMENTE LA VENTA EN EL TABLERO KANBAN DE SEGUIMIENTO
+    try {
+      let clientDisplayName = 'Venta POS / Mostrador';
+      if (saleData.client_id) {
+        const { data: clientObj } = await serviceClient
+          .from('clients')
+          .select('name')
+          .eq('id', saleData.client_id)
+          .maybeSingle();
+        if (clientObj?.name) {
+          clientDisplayName = clientObj.name;
+        }
+      }
+
+      const shortId = saleId ? saleId.split('-')[0].toUpperCase() : 'POS';
+      const itemsCount = saleData.items ? saleData.items.length : 0;
+      const initialStatus = paymentStatus === 'pending' ? 'pending' : 'processing';
+
+      await serviceClient.from('kanban_orders').insert({
+        client_name: clientDisplayName,
+        product_details: `Venta POS #${shortId} (${itemsCount} ítems)`,
+        total_ars: saleData.total_ars,
+        status: initialStatus,
+        notes: `Facturado vía POS (${paymentStatus === 'paid' ? 'Pago Completo' : 'Pago Parcial / Pendiente'})`
+      });
+    } catch (kanbanErr) {
+      console.warn('Advertencia al insertar venta en tablero Kanban:', kanbanErr);
+    }
+
     revalidatePath('/productos');
     revalidatePath('/auditoria/ventas');
     revalidatePath('/cobranzas');
@@ -343,6 +372,7 @@ export async function createSaleTransaction(
     revalidatePath('/admin/finanzas/tesoreria');
     revalidatePath('/clientes');
     revalidatePath('/pos');
+    revalidatePath('/kanban');
     return { success: true, saleId };
   } catch (error: any) {
     console.error('Error al registrar la venta transaccional:', error);

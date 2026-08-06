@@ -48,8 +48,8 @@ export function Sidebar() {
     {
       title: 'COMPRAS & LOGÍSTICA',
       items: [
-        { name: 'Proveedores & Compras', href: '/admin/proveedores', icon: ShoppingBag, color: 'text-sky-400', adminOnly: true },
-        { name: 'Logística & Envíos', href: '/admin/envios', icon: Truck, color: 'text-indigo-400' },
+        { name: 'Proveedores & Compras', href: '/compras', icon: ShoppingBag, color: 'text-sky-400', adminOnly: true },
+        { name: 'Logística & Envíos', href: '/kanban', icon: Truck, color: 'text-indigo-400' },
       ]
     },
     {
