@@ -122,7 +122,7 @@ export default function ReportesPage() {
           useCORS: true, 
           logging: true, 
           allowTaint: true,
-          backgroundColor: '#ffffff'
+          backgroundColor: '#08130E'
         },
         jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' as const }
       };
@@ -364,7 +364,12 @@ export default function ReportesPage() {
         </div>
 
         {/* ÁREA CAPTURADA PARA PDF (reporte-financiero-pdf) */}
-        <div ref={reportRef} id="reporte-financiero-pdf" className="space-y-6 bg-[#08130E] p-6 rounded-2xl border border-[#1B362A] shadow-2xl">
+        <div 
+          ref={reportRef} 
+          id="reporte-financiero-pdf" 
+          style={{ backgroundColor: '#08130E', color: '#FAFAFA', borderColor: '#1B362A' }}
+          className="space-y-6 bg-[#08130E] text-[#FAFAFA] p-6 rounded-2xl border border-[#1B362A] shadow-2xl"
+        >
           
           {/* LOGO EN CABECERA DEL REPORTE DE EXPORTACIÓN */}
           <div className="flex items-center justify-between pb-4 border-b border-[#1B362A]">
