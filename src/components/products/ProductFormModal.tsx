@@ -6,7 +6,9 @@ import { createProduct, updateProduct } from '@/app/actions/products';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { X, Save, RefreshCw, AlertCircle } from 'lucide-react';
+import { X, Save, RefreshCw, AlertCircle, Sparkles, Wand2 } from 'lucide-react';
+import { extractPerfumeData } from '@/app/actions/aiPerfume';
+import { toast } from 'sonner';
 
 interface ProductFormModalProps {
   isOpen: boolean;
@@ -43,6 +45,47 @@ export function ProductFormModal({ isOpen, onClose, onSuccess, product, role = '
   // Estados para Calculadora de Rentabilidad Automática
   const [profitMode, setProfitMode] = useState<'real_margin' | 'markup'>('real_margin');
   const [marginPercent, setMarginPercent] = useState<string>('40');
+
+  // Estados para Extracción Olfativa con IA
+  const [aiModalOpen, setAiModalOpen] = useState(false);
+  const [rawFragranticaText, setRawFragranticaText] = useState('');
+  const [aiExtracting, setAiExtracting] = useState(false);
+
+  const handleAiAutoFill = async () => {
+    if (!rawFragranticaText || rawFragranticaText.trim().length < 5) {
+      toast.error('Por favor pega el texto descriptivo del perfume (ej. de Fragrantica).');
+      return;
+    }
+
+    try {
+      setAiExtracting(true);
+      const res = await extractPerfumeData(role, rawFragranticaText);
+      if (res.success && res.data) {
+        if (res.data.familia_olfativa) {
+          setOlfactoryFamily(res.data.familia_olfativa);
+        }
+        const allNotes = [
+          ...res.data.notas_salida,
+          ...res.data.notas_corazon,
+          ...res.data.notas_fondo
+        ].filter(Boolean);
+
+        if (allNotes.length > 0) {
+          setOlfactoryNotesText(Array.from(new Set(allNotes)).join(', '));
+        }
+
+        toast.success('¡Pirámide olfativa autocompletada con IA!');
+        setAiModalOpen(false);
+        setRawFragranticaText('');
+      } else {
+        toast.error(res.error || 'No se pudieron extraer notas del texto.');
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'Error al procesar el texto con IA.');
+    } finally {
+      setAiExtracting(false);
+    }
+  };
 
   // Recalcular precio a partir de costo y % de margen/markup
   const calculatePriceFromMargin = (costStr: string, pctStr: string, mode: 'real_margin' | 'markup') => {
@@ -310,6 +353,26 @@ export function ProductFormModal({ isOpen, onClose, onSuccess, product, role = '
                 />
               </div>
             </div>
+
+            {/* BOTÓN Y SECCIÓN AUTO-COMPLETAR CON IA */}
+            {type !== 'supply' && (
+              <div className="flex items-center justify-between p-2.5 rounded-xl bg-[#13261E] border border-[#1B362A]">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-[#D0A96B]" />
+                  <span className="text-xs font-bold text-white">¿Tienes el texto de Fragrantica?</span>
+                </div>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setAiModalOpen(true)}
+                  className="border-[#D0A96B]/40 bg-[#08130E] text-[#D0A96B] hover:bg-zinc-800 text-xs font-bold h-7 cursor-pointer flex items-center gap-1.5"
+                >
+                  <Wand2 className="h-3.5 w-3.5" />
+                  <span>Auto-completar con IA</span>
+                </Button>
+              </div>
+            )}
 
             <div className="grid grid-cols-2 gap-4">
               {/* BATCH CODE */}
@@ -592,6 +655,63 @@ export function ProductFormModal({ isOpen, onClose, onSuccess, product, role = '
           
         </form>
       </div>
+
+      {/* MODAL POPUP PARA PEGAR TEXTO DE FRAGRANTICA Y EXTRAER CON IA */}
+      {aiModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+          <div className="w-full max-w-lg bg-[#08130E] border border-[#1B362A] rounded-2xl shadow-2xl overflow-hidden p-6 space-y-4">
+            <div className="flex items-center justify-between border-b border-[#1B362A] pb-3">
+              <div className="flex items-center gap-2">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#D0A96B]/10 text-[#D0A96B] border border-[#D0A96B]/30">
+                  <Sparkles className="h-4 w-4" />
+                </div>
+                <h3 className="text-sm font-bold text-white">Extracción de Notas con IA</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setAiModalOpen(false)}
+                className="text-zinc-400 hover:text-white p-1 rounded-lg cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <p className="text-xs text-zinc-400">
+              Pega a continuación la reseña o descripción completa del perfume copiada de Fragrantica. La IA extraerá automáticamente la Familia Olfativa y las Notas de Salida, Corazón y Fondo.
+            </p>
+
+            <textarea
+              rows={6}
+              value={rawFragranticaText}
+              onChange={(e) => setRawFragranticaText(e.target.value)}
+              placeholder="Pega aquí el texto... Ej: 'Bleu de Chanel es una fragancia de la familia olfativa Amaderada Aromática. Las Notas de Salida son Toronja, Limón, Menta y Pimienta Rosa. Las Notas de Corazón son Jengibre, Nuez Moscada y Jazmín...'"
+              className="w-full bg-[#13261E] border border-[#1B362A] rounded-xl p-3 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-[#D0A96B] font-mono"
+            />
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setAiModalOpen(false)}
+                disabled={aiExtracting}
+                className="border-[#1B362A] text-zinc-400 hover:text-white text-xs cursor-pointer"
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="button"
+                onClick={handleAiAutoFill}
+                disabled={aiExtracting || !rawFragranticaText.trim()}
+                className="bg-[#D0A96B] hover:bg-[#E5C158] text-[#08130E] font-bold text-xs h-9 px-5 cursor-pointer flex items-center gap-2"
+              >
+                {aiExtracting ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
+                <span>{aiExtracting ? 'Procesando IA...' : 'Extraer y Auto-completar'}</span>
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
