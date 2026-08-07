@@ -167,18 +167,22 @@ export async function matchNewArrivalsToClients(
       ? targetProduct.olfactory_notes
       : (targetProduct.olfactory_family && DEFAULT_FAMILY_NOTES[targetProduct.olfactory_family] ? DEFAULT_FAMILY_NOTES[targetProduct.olfactory_family] : ['Vainilla', 'Bergamota', 'Cedro']);
 
-    // 2. Obtener el historial de ventas con productos comprados
+    // 2. Obtener el historial de ventas con productos comprados y clientes asociados mediante JOIN relacional
     const { data: salesItems, error: salesErr } = await supabase
       .from('sale_items')
       .select(`
         quantity,
         sale_id,
-        sales (
-          client_name,
-          client_phone,
-          created_at
+        sales!inner (
+          created_at,
+          client_id,
+          clients (
+            id,
+            name,
+            phone
+          )
         ),
-        products (
+        products!inner (
           id,
           name,
           brand,
@@ -202,10 +206,13 @@ export async function matchNewArrivalsToClients(
     (salesItems || []).forEach(item => {
       const sale = item.sales as any;
       const product = item.products as any;
-      if (!sale || !sale.client_name || !product || product.id === newProductId) return;
+      const client = sale?.clients as any;
 
-      const clientName = sale.client_name.trim();
-      const clientPhone = sale.client_phone || '';
+      // Fallback de protección: omitir si no hay datos de cliente o si el cliente fue eliminado
+      if (!sale || !client || !client.name || !product || product.id === newProductId) return;
+
+      const clientName = client.name.trim();
+      const clientPhone = client.phone || '';
       const boughtNotes: string[] = Array.isArray(product.olfactory_notes) && product.olfactory_notes.length > 0
         ? product.olfactory_notes
         : (product.olfactory_family && DEFAULT_FAMILY_NOTES[product.olfactory_family] ? DEFAULT_FAMILY_NOTES[product.olfactory_family] : []);
