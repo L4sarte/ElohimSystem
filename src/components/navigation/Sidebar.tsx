@@ -8,7 +8,7 @@ import {
   ShoppingBag, LayoutGrid, Users, CreditCard, Package, Archive, 
   PackageX, Globe, BarChart3, Coins, DollarSign, TrendingUp, 
   ShieldCheck, Menu, X, Sparkles, ChevronRight, Home, Percent, Landmark,
-  Truck, Settings, Printer
+  Truck, Settings, Printer, Calculator
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -41,6 +41,7 @@ export function Sidebar() {
       title: 'INVENTARIO & PACKAGING',
       items: [
         { name: 'Catálogo Productos', href: '/productos', icon: Package, color: 'text-violet-400' },
+        { name: 'Recetas Decants (BOM)', href: '/admin/inventario/recetas', icon: Calculator, color: 'text-[#D0A96B]', adminOnly: true },
         { name: 'Insumos de Packaging', href: '/admin/inventario/insumos', icon: Archive, color: 'text-amber-400', adminOnly: true },
         { name: 'Ajustes / Mermas', href: '/admin/inventario/ajustes', icon: PackageX, color: 'text-rose-400', adminOnly: true },
         { name: 'Vidriera Digital B2C', href: '/catalogo', icon: Globe, color: 'text-teal-400' },
