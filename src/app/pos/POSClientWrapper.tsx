@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
+import dynamic from 'next/dynamic';
 import { useUserStore } from '@/hooks/use-user-store';
 import { useExchangeRate } from '@/hooks/use-exchange-rate';
 import { usePosStore, CartItem } from '@/hooks/use-pos-store';
@@ -9,7 +10,6 @@ import { getProducts } from '@/app/actions/products';
 import { Product, ProductType } from '@/types';
 import { RoleSelector } from '@/components/products/RoleSelector';
 import { ExchangeRateWidget } from '@/components/rates/ExchangeRateWidget';
-import { CheckoutModal } from '@/components/pos/CheckoutModal';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { 
@@ -18,6 +18,11 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
+
+const CheckoutModal = dynamic(
+  () => import('@/components/pos/CheckoutModal').then(mod => mod.CheckoutModal),
+  { ssr: false }
+);
 
 export default function POSClientWrapper() {
   const [mounted, setMounted] = useState(false);
