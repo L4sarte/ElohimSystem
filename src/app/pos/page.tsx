@@ -10,17 +10,18 @@ import { Product, ProductType } from '@/types';
 import { RoleSelector } from '@/components/products/RoleSelector';
 import { ExchangeRateWidget } from '@/components/rates/ExchangeRateWidget';
 import { CheckoutModal } from '@/components/pos/CheckoutModal';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { 
   ArrowLeft, ShoppingBag, Droplet, Archive, Search, Trash2, 
-  Plus, Minus, RefreshCw, AlertCircle, ShoppingCart, Check, Sparkles 
+  Plus, Minus, RefreshCw, AlertCircle, ShoppingCart, Sparkles 
 } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
 
 export default function PosPage() {
+  const [mounted, setMounted] = useState(false);
+
   const { role } = useUserStore();
   const { rate: exchangeRate, refresh: refreshRate } = useExchangeRate();
   const { cart, addItem, removeItem, updateQuantity, clearCart } = usePosStore();
@@ -40,6 +41,10 @@ export default function PosPage() {
   // Clave del producto -> { ml: 5, supplyId: '' }
   const [decantConfig, setDecantConfig] = useState<Record<string, { ml: number; supplyId: string }>>({});
 
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const fetchProducts = async () => {
     setLoading(true);
     setError(null);
@@ -53,8 +58,10 @@ export default function PosPage() {
   };
 
   useEffect(() => {
-    fetchProducts();
-  }, [role]);
+    if (mounted) {
+      fetchProducts();
+    }
+  }, [role, mounted]);
 
   // Filtrar insumos (supplies) disponibles como recipientes vacíos
   const emptyBottles = products.filter(p => p.type === 'supply' && p.stock_quantity > 0);
@@ -142,10 +149,18 @@ export default function PosPage() {
 
   useBarcodeScanner(handleBarcodeScan);
 
+  if (!mounted) {
+    return (
+      <div className="flex flex-col min-h-screen bg-[#08130E] text-zinc-50 items-center justify-center">
+        <RefreshCw className="h-8 w-8 animate-spin text-[#D0A96B] mb-2" />
+        <span className="text-xs text-zinc-400 font-mono">Cargando Punto de Venta (POS)...</span>
+      </div>
+    );
+  }
+
   // Calcular totales del carrito
   const calculateItemTotal = (item: CartItem) => {
     if (item.product.type === 'decant_liquid' && item.decantMl && item.selectedSupplyPrice) {
-      // (Precio del líquido por ml * ml) + Precio del frasco vacío
       return item.quantity * ((item.product.base_price_ars * item.decantMl) + item.selectedSupplyPrice);
     }
     return item.quantity * item.product.base_price_ars;
@@ -340,10 +355,9 @@ export default function PosPage() {
                             </div>
                             
                             <Button
-                              onClick={() => handleDecantConfigChange(product.id, 'ml', 5)} // reset o default
+                              onClick={() => handleAddDecantToCart(product)}
                               disabled={product.stock_quantity < config.ml || emptyBottles.length === 0}
                               className="w-full h-8 bg-blue-600 hover:bg-blue-700 text-white cursor-pointer text-xs"
-                              onClickCapture={() => handleAddDecantToCart(product)}
                             >
                               <Sparkles className="mr-1.5 h-3.5 w-3.5" /> Ensamblar Decant JIT
                             </Button>
@@ -359,7 +373,7 @@ export default function PosPage() {
                             <Button
                               disabled={product.stock_quantity <= 0}
                               onClick={() => addItem(product)}
-                              className="bg-[#D0A96B] hover:bg-[#E5C158] text-[#08130E] font-extrabold shadow-md shadow-[#D0A96B]/20 dark:bg-violet-500 dark:hover:bg-[#D0A96B] text-[#08130E] cursor-pointer h-8 text-xs"
+                              className="bg-[#D0A96B] hover:bg-[#E5C158] text-[#08130E] font-extrabold shadow-md shadow-[#D0A96B]/20 text-[#08130E] cursor-pointer h-8 text-xs"
                             >
                               <Plus className="mr-1 h-3.5 w-3.5" /> Agregar
                             </Button>
