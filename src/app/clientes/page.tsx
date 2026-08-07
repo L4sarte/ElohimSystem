@@ -17,6 +17,9 @@ import {
   X, Check, RefreshCw, AlertCircle, Sparkles, Tag, ShoppingBag, 
   ShoppingCart, Droplet, ArrowRight, Flame 
 } from 'lucide-react';
+import { SmartRecommendations } from '@/components/crm/SmartRecommendations';
+import { getProducts } from '@/app/actions/products';
+import { Product } from '@/types';
 import Link from 'next/link';
 
 const AVAILABLE_NOTES = ['Cítrico', 'Amaderado', 'Gourmand', 'Floral', 'Especiado', 'Cuero', 'Oriental', 'Fresco', 'Vainilla', 'Tabaco', 'Bergamota', 'Sándalo', 'Cedro'];
@@ -57,15 +60,22 @@ export default function ClientesPage() {
   const [formEmail, setFormEmail] = useState('');
   const [formNotes, setFormNotes] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  const [allProducts, setAllProducts] = useState<Product[]>([]);
 
   const fetchClients = async () => {
     setLoading(true);
     setError(null);
-    const res = await getClientsDetailed(role);
-    if (res.success && res.data) {
-      setClients(res.data);
+    const [clientsRes, productsRes] = await Promise.all([
+      getClientsDetailed(role),
+      getProducts(role)
+    ]);
+    if (clientsRes.success && clientsRes.data) {
+      setClients(clientsRes.data);
     } else {
-      setError(res.error || 'Error al cargar clientes');
+      setError(clientsRes.error || 'Error al cargar clientes');
+    }
+    if (productsRes.success && productsRes.data) {
+      setAllProducts(productsRes.data);
     }
     setLoading(false);
   };
@@ -228,6 +238,11 @@ export default function ClientesPage() {
               CRM comercial. Administra perfiles olfativos y ejecuta recomendaciones inteligentes cruzadas con el inventario.
             </p>
           </div>
+        </div>
+
+        {/* MOTOR DE RECOMENDACIONES INTELIGENTES (HOT LEADS CRM) */}
+        <div className="mb-8">
+          <SmartRecommendations products={allProducts} />
         </div>
 
         {/* BARRA DE BÚSQUEDA Y ALTA */}

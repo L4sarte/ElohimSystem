@@ -12,6 +12,17 @@ export interface OlfactoryMatchResult {
   isDecantLiquid: boolean;
 }
 
+export interface ClientMatchRecommendation {
+  clientId?: string;
+  clientName: string;
+  clientPhone?: string;
+  previousPerfumeName: string;
+  matchingNotes: string[];
+  matchScore: number;
+  whatsAppMessage: string;
+  whatsAppUrl: string;
+}
+
 // Diccionario por defecto de notas olfativas según la familia del perfume
 const DEFAULT_FAMILY_NOTES: Record<string, string[]> = {
   'Cítrico': ['Bergamota', 'Limón', 'Mandarina', 'Pomelo', 'Neroli'],
@@ -124,6 +135,152 @@ export async function getOlfactoryMatchForClient(
 }
 
 /**
+ * Algoritmo de Recomendaciones Inteligentes para Lanzamientos / Nuevos Ingresos (Hot Leads CRM).
+ * Cruza el nuevo producto ingresado con el historial de ventas para detectar qué clientes
+ * compraron previamente perfumes que comparten al menos 2 notas olfativas similares.
+ * Genera automáticamente un mensaje de campaña personalizado para WhatsApp Web.
+ */
+export async function matchNewArrivalsToClients(
+  role: UserRole,
+  newProductId: string
+): Promise<{
+  success: boolean;
+  newProduct?: Product;
+  recommendations?: ClientMatchRecommendation[];
+  error?: string;
+}> {
+  try {
+    const supabase = getServiceSupabase();
+
+    // 1. Obtener producto objetivo
+    const { data: targetProduct, error: prodErr } = await supabase
+      .from('products')
+      .select('*')
+      .eq('id', newProductId)
+      .single();
+
+    if (prodErr || !targetProduct) {
+      throw new Error('Producto de lanzamiento no encontrado.');
+    }
+
+    const newNotes: string[] = Array.isArray(targetProduct.olfactory_notes) && targetProduct.olfactory_notes.length > 0
+      ? targetProduct.olfactory_notes
+      : (targetProduct.olfactory_family && DEFAULT_FAMILY_NOTES[targetProduct.olfactory_family] ? DEFAULT_FAMILY_NOTES[targetProduct.olfactory_family] : ['Vainilla', 'Bergamota', 'Cedro']);
+
+    // 2. Obtener el historial de ventas con productos comprados
+    const { data: salesItems, error: salesErr } = await supabase
+      .from('sale_items')
+      .select(`
+        quantity,
+        sale_id,
+        sales (
+          client_name,
+          client_phone,
+          created_at
+        ),
+        products (
+          id,
+          name,
+          brand,
+          olfactory_family,
+          olfactory_notes
+        )
+      `)
+      .not('products', 'is', null);
+
+    if (salesErr) throw salesErr;
+
+    // 3. Procesar y agrupar por cliente
+    const clientMatchesMap = new Map<string, {
+      clientName: string;
+      clientPhone?: string;
+      previousPerfumeName: string;
+      matchingNotes: Set<string>;
+      matchScore: number;
+    }>();
+
+    (salesItems || []).forEach(item => {
+      const sale = item.sales as any;
+      const product = item.products as any;
+      if (!sale || !sale.client_name || !product || product.id === newProductId) return;
+
+      const clientName = sale.client_name.trim();
+      const clientPhone = sale.client_phone || '';
+      const boughtNotes: string[] = Array.isArray(product.olfactory_notes) && product.olfactory_notes.length > 0
+        ? product.olfactory_notes
+        : (product.olfactory_family && DEFAULT_FAMILY_NOTES[product.olfactory_family] ? DEFAULT_FAMILY_NOTES[product.olfactory_family] : []);
+
+      // Calcular coincidencias olfativas con el nuevo producto
+      const sharedNotes = boughtNotes.filter(bn =>
+        newNotes.some(nn => nn.toLowerCase().trim() === bn.toLowerCase().trim())
+      );
+
+      // Si comparte notas o la misma familia olfativa
+      const sameFamily = product.olfactory_family && targetProduct.olfactory_family &&
+        product.olfactory_family.toLowerCase() === targetProduct.olfactory_family.toLowerCase();
+
+      if (sharedNotes.length >= 1 || sameFamily) {
+        const key = clientName.toLowerCase();
+        const existing = clientMatchesMap.get(key);
+
+        const currentNotes = existing ? existing.matchingNotes : new Set<string>();
+        sharedNotes.forEach(sn => currentNotes.add(sn));
+
+        const score = currentNotes.size + (sameFamily ? 1 : 0);
+
+        if (!existing || score > existing.matchScore) {
+          clientMatchesMap.set(key, {
+            clientName,
+            clientPhone,
+            previousPerfumeName: product.name,
+            matchingNotes: currentNotes,
+            matchScore: score
+          });
+        }
+      }
+    });
+
+    // 4. Convertir mapa a array y construir mensajes de WhatsApp personalizados
+    const recommendations: ClientMatchRecommendation[] = [];
+
+    clientMatchesMap.forEach(val => {
+      const notesList = Array.from(val.matchingNotes);
+      const notesFormatted = notesList.length > 0 ? notesList.join(', ') : (targetProduct.olfactory_family || 'notas especiadas');
+
+      const messageText = `Hola ${val.clientName}! 👋 Vimos que compraste ${val.previousPerfumeName} y nos acordamos de vos. Acaba de ingresar a Elohim Import el nuevo ${targetProduct.name} de ${targetProduct.brand}, que comparte notas olfativas de ${notesFormatted}. ¡Tenemos decants disponibles para que lo pruebes! ¿Te reservamos uno? 🛍️✨`;
+
+      let rawPhone = val.clientPhone ? val.clientPhone.replace(/\D/g, '') : '';
+      if (rawPhone && !rawPhone.startsWith('54')) {
+        rawPhone = '549' + rawPhone;
+      }
+      const whatsAppUrl = rawPhone ? `https://wa.me/${rawPhone}?text=${encodeURIComponent(messageText)}` : `https://wa.me/?text=${encodeURIComponent(messageText)}`;
+
+      recommendations.push({
+        clientName: val.clientName,
+        clientPhone: val.clientPhone,
+        previousPerfumeName: val.previousPerfumeName,
+        matchingNotes: notesList,
+        matchScore: val.matchScore,
+        whatsAppMessage: messageText,
+        whatsAppUrl
+      });
+    });
+
+    // Ordenar de mayor coincidencia a menor
+    recommendations.sort((a, b) => b.matchScore - a.matchScore);
+
+    return {
+      success: true,
+      newProduct: targetProduct,
+      recommendations
+    };
+  } catch (error: any) {
+    console.error('Error al generar recomendaciones de lanzamientos:', error);
+    return { success: false, error: error.message || 'Error al procesar recomendaciones.' };
+  }
+}
+
+/**
  * Obtener el historial completo de VibePoints ganados o canjeados por un cliente.
  */
 export async function getClientPointsHistory(
@@ -146,4 +303,3 @@ export async function getClientPointsHistory(
     return { success: false, error: error.message || 'Error al obtener historial de VibePoints' };
   }
 }
-
