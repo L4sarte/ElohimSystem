@@ -81,21 +81,23 @@ export async function getOlfactoryMatchForClient(
       throw new Error(productsRes.error || 'Error al consultar productos');
     }
 
-    // 3. Filtrar estrictamente productos con stock > 0
-    const inStockProducts = productsRes.data.filter(p => Number(p.stock_quantity || 0) > 0);
+    // 3. Filtrar ESTRICTAMENTE fragancias/perfumes con stock > 0 (Excluyendo insumos de packaging)
+    const fragranceProducts = productsRes.data.filter(p => 
+      (p.type === 'bottle' || p.type === 'decant_liquid') && Number(p.stock_quantity || 0) > 0
+    );
 
     const matches: OlfactoryMatchResult[] = [];
 
-    // 4. Calcular el match olfativo para cada producto
-    inStockProducts.forEach(product => {
+    // 4. Calcular el match olfativo para cada fragancia
+    fragranceProducts.forEach(product => {
       let notes: string[] = [];
       if (Array.isArray(product.olfactory_notes) && product.olfactory_notes.length > 0) {
         notes = product.olfactory_notes;
       } else if (product.olfactory_family && DEFAULT_FAMILY_NOTES[product.olfactory_family]) {
         notes = DEFAULT_FAMILY_NOTES[product.olfactory_family];
-      } else {
-        notes = ['Vainilla', 'Bergamota', 'Cedro'];
       }
+
+      if (notes.length === 0) return;
 
       // Encontrar coincidencias (case-insensitive)
       const matchingNotes = notes.filter(note =>

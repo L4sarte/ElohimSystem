@@ -688,7 +688,10 @@ export default function ClientesPage() {
                                 )}
                               </div>
                               <div className="text-[10px] text-zinc-400 mt-0.5">
-                                Marca: <strong className="text-zinc-200">{m.product.brand}</strong> • Familia: <strong className="text-[#E5C158]">{m.product.olfactory_family || 'N/D'}</strong>
+                                Marca: <strong className="text-zinc-200">{m.product.brand}</strong>
+                                {m.product.olfactory_family && (
+                                  <> • Familia: <strong className="text-[#E5C158]">{m.product.olfactory_family}</strong></>
+                                )}
                               </div>
                             </div>
 
@@ -703,26 +706,28 @@ export default function ClientesPage() {
                           </div>
 
                           {/* Notas Olfativas con coincidencias destacadas */}
-                          <div className="space-y-1">
-                            <span className="text-[9px] font-extrabold uppercase text-zinc-500 tracking-wider">Notas Aromáticas:</span>
-                            <div className="flex flex-wrap gap-1">
-                              {m.allNotes.map(n => {
-                                const isMatch = m.matchingNotes.some(mn => mn.toLowerCase() === n.toLowerCase());
-                                return (
-                                  <span
-                                    key={n}
-                                    className={`text-[9px] px-2 py-0.5 rounded-md font-semibold ${
-                                      isMatch
-                                        ? 'bg-[#D0A96B] text-[#08130E]/30 text-violet-200 border border-violet-500/50 font-bold shadow-sm shadow-violet-500/20'
-                                        : 'bg-zinc-800/60 text-zinc-400 border border-[#1B362A]/50'
-                                    }`}
-                                  >
-                                    {n} {isMatch && '★'}
-                                  </span>
-                                );
-                              })}
+                          {m.allNotes && m.allNotes.length > 0 && (
+                            <div className="space-y-1">
+                              <span className="text-[9px] font-extrabold uppercase text-zinc-500 tracking-wider">Notas Aromáticas:</span>
+                              <div className="flex flex-wrap gap-1">
+                                {m.allNotes.map(n => {
+                                  const isMatch = m.matchingNotes.some(mn => mn.toLowerCase() === n.toLowerCase());
+                                  return (
+                                    <span
+                                      key={n}
+                                      className={`text-[9px] px-2 py-0.5 rounded-md font-semibold ${
+                                        isMatch
+                                          ? 'bg-[#D0A96B] text-[#08130E] border border-amber-500/50 font-bold shadow-sm'
+                                          : 'bg-zinc-800/60 text-zinc-400 border border-[#1B362A]/50'
+                                      }`}
+                                    >
+                                      {n} {isMatch && '★'}
+                                    </span>
+                                  );
+                                })}
+                              </div>
                             </div>
-                          </div>
+                          )}
 
                           {/* BOTÓN LLEVAR AL POS */}
                           <Button
