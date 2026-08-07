@@ -371,7 +371,10 @@ export async function createSaleTransaction(
     revalidatePath('/caja');
     revalidatePath('/admin/finanzas/tesoreria');
     revalidatePath('/clientes');
-    revalidatePath('/pos');
+    // NOT revalidating '/pos' — the POS page is 100% client-rendered (all data
+    // is fetched client-side via useEffect → Server Actions). Revalidating it
+    // forces Next.js to re-evaluate the RSC tree for /pos on the server, which
+    // triggers Minified React error #310 during the serialisation phase.
     revalidatePath('/kanban');
     return { success: true, saleId };
   } catch (error: any) {

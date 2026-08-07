@@ -133,7 +133,6 @@ export async function createBundle(
     if (itemsError) throw itemsError;
 
     revalidatePath('/productos');
-    revalidatePath('/pos');
     return { success: true, bundleId };
   } catch (error: any) {
     console.error('Error al crear el combo:', error);
@@ -162,7 +161,6 @@ export async function deleteBundle(
     if (error) throw error;
 
     revalidatePath('/productos');
-    revalidatePath('/pos');
     return { success: true };
   } catch (error: any) {
     console.error('Error al eliminar combo:', error);

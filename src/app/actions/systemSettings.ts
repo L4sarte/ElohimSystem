@@ -107,7 +107,6 @@ export async function updateSystemSettings(
     }
 
     revalidatePath('/admin/configuracion');
-    revalidatePath('/pos');
     revalidatePath('/');
 
     return { success: true };

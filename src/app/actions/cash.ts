@@ -289,7 +289,6 @@ export async function openCashShift(
     if (error) throw error;
 
     revalidatePath('/caja');
-    revalidatePath('/pos');
     revalidatePath('/');
     return { success: true, shiftId: data.id };
   } catch (error: any) {
@@ -444,7 +443,6 @@ export async function closeCashShift(
 
     revalidatePath('/caja');
     revalidatePath('/auditoria/caja');
-    revalidatePath('/pos');
     revalidatePath('/');
     return { success: true };
   } catch (error: any) {

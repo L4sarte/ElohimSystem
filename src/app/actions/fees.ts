@@ -135,7 +135,6 @@ export async function createPaymentMethodConfig(
 
     revalidatePath('/admin/finanzas/comisiones');
     revalidatePath('/config/pagos');
-    revalidatePath('/pos');
     return { success: true, data };
   } catch (error: any) {
     console.error('Error al crear configuración de método de pago:', error);
@@ -183,7 +182,6 @@ export async function updatePaymentMethodConfig(
 
     revalidatePath('/admin/finanzas/comisiones');
     revalidatePath('/config/pagos');
-    revalidatePath('/pos');
     return { success: true, data };
   } catch (error: any) {
     console.error('Error al actualizar método de pago:', error);
@@ -216,7 +214,6 @@ export async function togglePaymentMethodStatus(
 
     revalidatePath('/admin/finanzas/comisiones');
     revalidatePath('/config/pagos');
-    revalidatePath('/pos');
     return { success: true };
   } catch (error: any) {
     console.error('Error al alternar estado de método de pago:', error);
@@ -248,7 +245,6 @@ export async function deletePaymentMethodConfig(
 
     revalidatePath('/admin/finanzas/comisiones');
     revalidatePath('/config/pagos');
-    revalidatePath('/pos');
     return { success: true };
   } catch (error: any) {
     console.error('Error al eliminar método de pago:', error);

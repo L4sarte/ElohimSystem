@@ -118,7 +118,6 @@ export async function updateAccountBalance(
     if (error) throw error;
 
     revalidatePath('/admin/finanzas/tesoreria');
-    revalidatePath('/pos');
     return { success: true };
   } catch (error: any) {
     console.error('Error al ajustar saldo de cuenta:', error);
@@ -190,7 +189,6 @@ export async function transferBetweenAccounts(
     if (updToErr) throw updToErr;
 
     revalidatePath('/admin/finanzas/tesoreria');
-    revalidatePath('/pos');
     return { success: true };
   } catch (error: any) {
     console.error('Error al realizar transferencia entre cuentas:', error);
