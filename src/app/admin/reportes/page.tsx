@@ -6,6 +6,7 @@ import { useExchangeRate } from '@/hooks/use-exchange-rate';
 import { getFinancialReport, FinancialReportData } from '@/app/actions/analytics';
 import { getInventoryValuation } from '@/app/actions/inventoryAnalytics';
 import { getRetailKPIs } from '@/app/actions/reports';
+import { getMonthlyProjection } from '@/app/actions/goals';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { RoleSelector } from '@/components/products/RoleSelector';
@@ -101,6 +102,7 @@ export default function ReportesPage() {
     setTimeRange(preset);
   };
 
+  const chartAreaRef = useRef<HTMLDivElement>(null);
   const [generatingPdf, setGeneratingPdf] = useState(false);
 
   const handleDownloadPDF = async () => {
@@ -111,26 +113,28 @@ export default function ReportesPage() {
 
     try {
       setGeneratingPdf(true);
-      toast.info('Generando reporte financiero corporativo...');
+      toast.info('Generando reporte analítico híbrido (PDF Nativo + Gráficos)...');
 
-      // 1. Obtener datos de inventario y KPIs de retail en paralelo
-      const [invRes, retailRes] = await Promise.all([
+      // 1. Obtener métricas adicionales en paralelo (Metas, Inventario, KPIs)
+      const [invRes, retailRes, goalsRes] = await Promise.all([
         getInventoryValuation(role),
-        getRetailKPIs(role)
+        getRetailKPIs(role),
+        getMonthlyProjection(role, startDate, endDate)
       ]);
 
       const inventoryData = invRes.success ? invRes.data : null;
       const retailData = retailRes.success ? retailRes.data : null;
+      const goalsData = goalsRes.success ? goalsRes.data : null;
 
-      // 2. Inicialización limpia de jsPDF A4 en puntos (pt)
+      // 2. Inicialización de jsPDF A4 (595 x 842 pt)
       const doc = new jsPDF('p', 'pt', 'a4');
       const pageWidth = doc.internal.pageSize.getWidth();
 
-      // Formateador numérico estricto a moneda local ARS
+      // Formateador de moneda local ARS
       const formatARS = (valor: number) =>
         new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(valor || 0);
 
-      // 3. Encabezado Corporativo (Fondo Blanco Nativo)
+      // 3. Encabezado Corporativo Nativo
       doc.setFillColor(255, 255, 255);
       doc.rect(0, 0, pageWidth, 842, 'F');
 
@@ -143,18 +147,19 @@ export default function ReportesPage() {
       doc.setFontSize(9);
       doc.setTextColor(71, 85, 105);
 
-      const periodText = timeRange === 'custom'
+      // Sincronización Dinámica de Período
+      const periodText = goalsData?.monthName || (timeRange === 'custom'
         ? `Desde ${startDate} hasta ${endDate}`
-        : timeRange === 'current_month' ? 'Mes Actual' : timeRange === 'previous_month' ? 'Mes Anterior' : timeRange === 'last_30_days' ? 'Últimos 30 días' : 'Año en Curso';
+        : timeRange === 'current_month' ? 'Mes Actual' : timeRange === 'previous_month' ? 'Mes Anterior' : timeRange === 'last_30_days' ? 'Últimos 30 días' : 'Año en Curso');
 
-      doc.text(`Fecha de Generación: ${new Date().toLocaleDateString('es-AR')}  |  Período: ${periodText}`, 40, 56);
+      doc.text(`Período: ${periodText}  |  Fecha de Generación: ${new Date().toLocaleDateString('es-AR')}`, 40, 56);
 
       // Línea separadora
       doc.setDrawColor(226, 232, 240);
       doc.setLineWidth(1);
       doc.line(40, 66, pageWidth - 40, 66);
 
-      // Opciones visuales estandarizadas para autoTable (Verde marca en cabeceras)
+      // Opciones visuales estandarizadas para autoTable
       const autoTableOptions = {
         theme: 'grid' as const,
         headStyles: { fillColor: [8, 19, 14] as [number, number, number], textColor: [255, 255, 255] as [number, number, number], fontStyle: 'bold' as const, fontSize: 9 },
@@ -185,62 +190,154 @@ export default function ReportesPage() {
         body: estadoResultadosBody
       });
 
-      let currentY = (doc as any).lastAutoTable.finalY + 22;
+      let currentY = (doc as any).lastAutoTable?.finalY || 180;
 
-      // --- TABLA 2: VALORACIÓN DE INVENTARIO ---
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(11);
-      doc.setTextColor(8, 19, 14);
-      doc.text('Valoración de Inventario', 40, currentY);
+      // --- TABLA 2: MONITOREO DE OBJETIVOS MENSUALES ---
+      if (goalsData) {
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(11);
+        doc.setTextColor(8, 19, 14);
+        doc.text('Monitoreo de Objetivos Mensuales', 40, currentY + 22);
 
-      const valoracionBody = [
-        ['Capital Invertido (Costo en Stock)', formatARS(inventoryData?.capitalInvertido || 0)],
-        ['Valor Bruto Potencial (Venta en Stock)', formatARS(inventoryData?.valorBrutoVenta || 0)],
-        ['Ganancia Neta Potencial', formatARS(inventoryData?.gananciaNetaPotencial || 0)]
-      ];
+        const metasBody = [
+          [
+            'Facturación / Ingresos Brutos',
+            formatARS(goalsData.currentRevenueArs),
+            formatARS(goalsData.revenueGoalArs),
+            `${goalsData.revenueProgressPercent}%`
+          ],
+          [
+            'Ganancia Neta Estimada',
+            formatARS(goalsData.currentNetProfitArs),
+            formatARS(goalsData.netProfitGoalArs),
+            `${goalsData.profitProgressPercent}%`
+          ]
+        ];
 
-      autoTable(doc, {
-        ...autoTableOptions,
-        startY: currentY + 8,
-        head: [['Métrica de Inventario', 'Valor (ARS)']],
-        body: valoracionBody
-      });
+        autoTable(doc, {
+          ...autoTableOptions,
+          startY: currentY + 30,
+          head: [['Indicador', 'Logrado (ARS)', 'Objetivo (ARS)', 'Avance (%)']],
+          body: metasBody
+        });
 
-      currentY = (doc as any).lastAutoTable.finalY + 22;
+        currentY = (doc as any).lastAutoTable?.finalY || currentY + 100;
+      }
 
-      // --- TABLA 3: KPIS RETAIL ---
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(11);
-      doc.setTextColor(8, 19, 14);
-      doc.text('KPIs Retail del Mes', 40, currentY);
+      // --- TABLA 3: DESGLOSE DE GASTOS OPERATIVOS (OPEX) ---
+      if (report.categoryBreakdown && report.categoryBreakdown.length > 0) {
+        if (currentY > 650) {
+          doc.addPage();
+          currentY = 40;
+        }
 
-      const kpiBody = [
-        ['Ticket Promedio (AOV)', formatARS(retailData?.averageOrderValueArs || 0)],
-        ['Transacciones Totales del Mes', `${retailData?.totalSalesCount || 0} ventas`]
-      ];
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(11);
+        doc.setTextColor(8, 19, 14);
+        doc.text('Desglose de Gastos Operativos (OPEX)', 40, currentY + 22);
 
-      autoTable(doc, {
-        ...autoTableOptions,
-        startY: currentY + 8,
-        head: [['Métrica KPI', 'Valor']],
-        body: kpiBody
-      });
+        const opexBody = report.categoryBreakdown.map(cat => [
+          cat.name,
+          formatARS(cat.value),
+          `${report.opex > 0 ? ((cat.value / report.opex) * 100).toFixed(1) : '0'}%`
+        ]);
 
-      // Pie de página corporativo
+        autoTable(doc, {
+          ...autoTableOptions,
+          startY: currentY + 30,
+          head: [['Categoría de Gasto', 'Monto Invertido (ARS)', 'Participación %']],
+          body: opexBody
+        });
+
+        currentY = (doc as any).lastAutoTable?.finalY || currentY + 100;
+      }
+
+      // --- TABLA 4: TOP BEST SELLERS Y KPIS RETAIL ---
+      if (retailData) {
+        if (currentY > 650) {
+          doc.addPage();
+          currentY = 40;
+        }
+
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(11);
+        doc.setTextColor(8, 19, 14);
+        doc.text('Top 3 Best Sellers y KPIs Retail', 40, currentY + 22);
+
+        const topSellersBody: (string | number)[][] = [];
+
+        if (retailData.topBestSellers && retailData.topBestSellers.length > 0) {
+          retailData.topBestSellers.forEach(item => {
+            topSellersBody.push([
+              `${item.name} (${item.brand})`,
+              `${item.units_sold} unidades`,
+              formatARS(item.total_revenue_ars)
+            ]);
+          });
+        } else {
+          topSellersBody.push(['Sin datos registrados', '0 unidades', '$0 ARS']);
+        }
+
+        autoTable(doc, {
+          ...autoTableOptions,
+          startY: currentY + 30,
+          head: [['Producto', 'Unidades Vendidas', 'Facturado']],
+          body: topSellersBody
+        });
+
+        currentY = (doc as any).lastAutoTable?.finalY || currentY + 100;
+      }
+
+      // --- INTEGRACIÓN HÍBRIDA DE GRÁFICOS (toPng + doc.addImage) ---
+      if (chartAreaRef.current) {
+        try {
+          const { toPng } = await import('html-to-image');
+
+          const filter = (node: HTMLElement) => {
+            if (node.tagName === 'IMG') {
+              const img = node as HTMLImageElement;
+              if (!img.complete || img.naturalWidth === 0 || img.style.display === 'none') {
+                return false;
+              }
+            }
+            return true;
+          };
+
+          const chartImg = await toPng(chartAreaRef.current, {
+            backgroundColor: '#08130E',
+            cacheBust: true,
+            filter: filter
+          });
+
+          // Agregar página exclusiva para analítica visual
+          doc.addPage();
+
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(14);
+          doc.setTextColor(8, 19, 14);
+          doc.text('Analítica Visual de Tendencias y Distribución (Recharts)', 40, 40);
+
+          doc.addImage(chartImg, 'PNG', 40, 55, 515, 250);
+        } catch (chartErr) {
+          console.warn('[PDF_HYBRID_CHART_WARN] No se pudo capturar el gráfico visual:', chartErr);
+        }
+      }
+
+      // Pie de página corporativo en todas las páginas
       const totalPages = (doc as any).internal.getNumberOfPages();
       for (let i = 1; i <= totalPages; i++) {
         doc.setPage(i);
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(8);
         doc.setTextColor(148, 163, 184);
-        doc.text(`Elohim Import ERP • Reporte Financiero Corporativo — Página ${i} de ${totalPages}`, 40, 820);
+        doc.text(`Elohim Import ERP • Reporte Financiero Analítico — Página ${i} de ${totalPages}`, 40, 820);
       }
 
       doc.save(`Reporte_Financiero_Elohim_${new Date().toISOString().slice(0, 10)}.pdf`);
-      toast.success('Reporte PDF corporativo generado exitosamente');
+      toast.success('Reporte PDF analítico híbrido generado exitosamente');
     } catch (error: any) {
-      console.error('[ERROR_GENERACION_PDF_CORPORATIVO]:', error);
-      toast.error('Ocurrió un error al generar el PDF corporativo.');
+      console.error('[ERROR_GENERACION_PDF_HIBRIDO]:', error);
+      toast.error('Ocurrió un error al generar el PDF analítico.');
     } finally {
       setGeneratingPdf(false);
     }
@@ -664,7 +761,7 @@ export default function ReportesPage() {
             </div>
 
             {/* SECCIÓN DE GRÁFICOS ANALÍTICOS */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div ref={chartAreaRef} className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               
               {/* GRÁFICO 1: EVOLUCIÓN TEMPORAL (BAR CHART RECHARTS) */}
               <Card className="border-slate-200 dark:border-[#1B362A] lg:col-span-2">
