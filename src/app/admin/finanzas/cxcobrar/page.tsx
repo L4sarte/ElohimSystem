@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useUserStore } from '@/hooks/use-user-store';
 import { useExchangeRate } from '@/hooks/use-exchange-rate';
 import { getPendingSales, registerInstallment, PendingSale } from '@/app/actions/installments';
+import { getDebtorsForReport } from '@/app/actions/receivables';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -13,9 +14,12 @@ import { ShiftStatusBadge } from '@/components/cash/ShiftStatusBadge';
 import { 
   ArrowLeft, Search, Plus, DollarSign, Clock, Mail, Phone, User, 
   X, Check, RefreshCw, AlertCircle, Sparkles, CreditCard, ShieldCheck, 
-  TrendingUp, Coins, FileText, CheckCircle, Calendar, History
+  TrendingUp, Coins, FileText, CheckCircle, Calendar, History, Download 
 } from 'lucide-react';
 import Link from 'next/link';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import { toast } from 'sonner';
 
 export default function CxCobrarPage() {
   const { role } = useUserStore();
@@ -24,6 +28,7 @@ export default function CxCobrarPage() {
   const [sales, setSales] = useState<PendingSale[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
 
   // Filtros
   const [searchTerm, setSearchTerm] = useState('');
@@ -84,6 +89,156 @@ export default function CxCobrarPage() {
     }
   };
 
+  /**
+   * Generación de PDF Nativo de Cuentas por Cobrar (Deudores) con jsPDF + jspdf-autotable.
+   */
+  const downloadDebtorsReport = async () => {
+    try {
+      setIsGeneratingPdf(true);
+      toast.info('Generando reporte PDF nativo de deudores...');
+
+      const res = await getDebtorsForReport(role);
+      if (!res.success || !res.data) {
+        toast.error(res.error || 'No se pudieron obtener los datos para el reporte.');
+        return;
+      }
+
+      const debtors = res.data;
+      const totalMoneyOnTheStreet = res.totalOutstandingArs || 0;
+
+      // 1. Inicialización de jsPDF A4 (595 x 842 pt)
+      const doc = new jsPDF('p', 'pt', 'a4');
+      const pageWidth = doc.internal.pageSize.getWidth();
+
+      // Formateador monetario estándar argentino
+      const formatARS = (valor: number) =>
+        new Intl.NumberFormat('es-AR', {
+          style: 'currency',
+          currency: 'ARS',
+          maximumFractionDigits: 0
+        }).format(valor || 0);
+
+      // Fondo blanco base
+      doc.setFillColor(255, 255, 255);
+      doc.rect(0, 0, pageWidth, 842, 'F');
+
+      // 2. Encabezado Corporativo
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(16);
+      doc.setTextColor(8, 19, 14); // #08130E
+      doc.text('ELOHIM IMPORT - REPORTE DE CUENTAS POR COBRAR', 40, 45);
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(9);
+      doc.setTextColor(71, 85, 105);
+      doc.text(
+        `Fecha de Generación: ${new Date().toLocaleDateString('es-AR', {
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit'
+        })}  |  Estado: Cuentas Pendientes & Vencidas`,
+        40,
+        62
+      );
+
+      // Línea divisoria dorada
+      doc.setDrawColor(208, 169, 107); // #D0A96B
+      doc.setLineWidth(1.5);
+      doc.line(40, 72, pageWidth - 40, 72);
+
+      // 3. Mapeo de Filas
+      const tableRows = debtors.map((d) => [
+        d.client_name,
+        d.client_phone,
+        d.status,
+        d.due_date,
+        formatARS(d.total_amount_ars),
+        formatARS(d.balance_ars)
+      ]);
+
+      // 4. Tabla Principal con autoTable y tema 'grid'
+      autoTable(doc, {
+        startY: 85,
+        head: [['Cliente', 'Contacto', 'Estado', 'Vencimiento', 'Monto Original', 'Saldo Deudor (ARS)']],
+        body: tableRows,
+        theme: 'grid',
+        headStyles: {
+          fillColor: [8, 19, 14], // #08130E
+          textColor: [255, 255, 255],
+          fontSize: 9,
+          fontStyle: 'bold',
+          halign: 'left'
+        },
+        columnStyles: {
+          0: { cellWidth: 120, fontStyle: 'bold' },
+          1: { cellWidth: 85 },
+          2: { cellWidth: 70, halign: 'center' },
+          3: { cellWidth: 75, halign: 'center' },
+          4: { cellWidth: 80, halign: 'right' },
+          5: { cellWidth: 85, halign: 'right', fontStyle: 'bold' }
+        },
+        styles: {
+          fontSize: 8.5,
+          textColor: [30, 41, 59],
+          cellPadding: 5
+        },
+        alternateRowStyles: {
+          fillColor: [248, 250, 252]
+        },
+        didParseCell: function (data) {
+          if (data.section === 'body' && data.column.index === 2) {
+            if (data.cell.raw === 'VENCIDO') {
+              data.cell.styles.textColor = [225, 29, 72]; // Rose-600
+              data.cell.styles.fontStyle = 'bold';
+            } else {
+              data.cell.styles.textColor = [217, 119, 6]; // Amber-600
+            }
+          }
+        }
+      });
+
+      // 5. Resumen Financiero al final de la tabla ("Dinero en la Calle")
+      const finalY = (doc as any).lastAutoTable?.finalY || 200;
+
+      doc.setFillColor(241, 245, 249);
+      doc.roundedRect(40, finalY + 15, pageWidth - 80, 40, 6, 6, 'F');
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(11);
+      doc.setTextColor(8, 19, 14);
+      doc.text('RESUMEN DE DINERO EN LA CALLE:', 55, finalY + 39);
+
+      doc.setFontSize(12);
+      doc.setTextColor(184, 134, 11); // Dorado
+      doc.text(
+        `Total Saldo Deudor: ${formatARS(totalMoneyOnTheStreet)}`,
+        pageWidth - 55,
+        finalY + 39,
+        { align: 'right' }
+      );
+
+      // 6. Pie de página corporativo
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.setTextColor(148, 163, 184);
+      doc.text(
+        'Elohim Import ERP • Sistema Bimonetario de Perfumería y Cuentas Corrientes',
+        40,
+        820
+      );
+
+      doc.save(`elohim-reporte-deudores-${new Date().toISOString().split('T')[0]}.pdf`);
+      toast.success('Reporte PDF de cuentas por cobrar descargado con éxito.');
+    } catch (pdfErr: any) {
+      console.error('Error al generar PDF de deudores:', pdfErr);
+      toast.error('Error al generar el documento PDF: ' + pdfErr.message);
+    } finally {
+      setIsGeneratingPdf(false);
+    }
+  };
+
   // Filtrado de lista
   const filteredSales = sales.filter(item => {
     const clientName = (item.clients?.name || 'Consumidor Final').toLowerCase();
@@ -137,7 +292,7 @@ export default function CxCobrarPage() {
       <main className="flex-1 container mx-auto px-4 py-8 sm:px-6 max-w-6xl space-y-6">
         
         {/* Cabecera */}
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-white font-serif flex items-center gap-2">
               Panel de Cuentas por Cobrar (Fiados / Pagos Parciales)
@@ -147,14 +302,27 @@ export default function CxCobrarPage() {
             </p>
           </div>
 
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={fetchSales}
-            className="border-[#1B362A] bg-[#13261E] text-xs font-semibold text-zinc-300 hover:bg-zinc-800 cursor-pointer self-start sm:self-center"
-          >
-            <RefreshCw className="mr-1.5 h-3.5 w-3.5 text-[#D0A96B]" /> Actualizar Deudores
-          </Button>
+          <div className="flex flex-wrap items-center gap-2 self-start sm:self-center">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={downloadDebtorsReport}
+              disabled={isGeneratingPdf}
+              className="border-[#1B362A] bg-[#13261E] text-xs font-semibold text-zinc-300 hover:bg-zinc-800 cursor-pointer shadow-md"
+            >
+              <Download className={`mr-1.5 h-3.5 w-3.5 text-[#D0A96B] ${isGeneratingPdf ? 'animate-bounce' : ''}`} />
+              {isGeneratingPdf ? 'Generando PDF...' : 'Exportar Reporte PDF'}
+            </Button>
+
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={fetchSales}
+              className="border-[#1B362A] bg-[#13261E] text-xs font-semibold text-zinc-300 hover:bg-zinc-800 cursor-pointer"
+            >
+              <RefreshCw className="mr-1.5 h-3.5 w-3.5 text-[#D0A96B]" /> Actualizar Deudores
+            </Button>
+          </div>
         </div>
 
         {/* GRILLA DE TARJETAS KPI */}

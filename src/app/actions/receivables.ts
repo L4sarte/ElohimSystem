@@ -150,3 +150,83 @@ export async function registerDebtPayment(
     return { success: false, error: error.message || 'Error al procesar el abono' };
   }
 }
+
+export interface DebtorReportItem {
+  id: string;
+  client_name: string;
+  client_phone: string;
+  status: string;
+  due_date: string;
+  total_amount_ars: number;
+  paid_amount_ars: number;
+  balance_ars: number;
+  created_at: string;
+}
+
+/**
+ * Consulta de datos para la generación del PDF de Cuentas por Cobrar (Deudores).
+ * Filtra los registros donde status sea 'pending' u 'overdue' con datos de clientes.
+ */
+export async function getDebtorsForReport(role: UserRole): Promise<{
+  success: boolean;
+  data?: DebtorReportItem[];
+  totalOutstandingArs?: number;
+  error?: string;
+}> {
+  try {
+    const supabase = getServiceSupabase();
+    const { data, error } = await supabase
+      .from('accounts_receivable')
+      .select(`
+        id,
+        total_amount_ars,
+        paid_amount_ars,
+        due_date,
+        status,
+        created_at,
+        clients (
+          name,
+          phone
+        )
+      `)
+      .in('status', ['pending', 'overdue'])
+      .order('due_date', { ascending: true });
+
+    if (error) throw error;
+
+    let totalOutstandingArs = 0;
+    const list: DebtorReportItem[] = (data || []).map((item: any) => {
+      const total = Number(item.total_amount_ars || 0);
+      const paid = Number(item.paid_amount_ars || 0);
+      const balance = Math.max(0, total - paid);
+      totalOutstandingArs += balance;
+
+      const isOverdue = item.status === 'overdue' || (item.due_date && new Date(item.due_date) < new Date());
+
+      return {
+        id: item.id,
+        client_name: item.clients?.name || 'Consumidor Final',
+        client_phone: item.clients?.phone || 'Sin contacto',
+        status: isOverdue ? 'VENCIDO' : 'PENDIENTE',
+        due_date: item.due_date ? new Date(item.due_date).toLocaleDateString('es-AR') : 'Sin fecha',
+        total_amount_ars: total,
+        paid_amount_ars: paid,
+        balance_ars: balance,
+        created_at: item.created_at
+      };
+    });
+
+    return {
+      success: true,
+      data: list,
+      totalOutstandingArs: Math.round(totalOutstandingArs)
+    };
+  } catch (err: any) {
+    console.error('Error al consultar deudores para reporte:', err);
+    return {
+      success: false,
+      error: err.message || 'Error al consultar datos de deudores'
+    };
+  }
+}
+

@@ -68,6 +68,10 @@ export function CheckoutModal({
   // Venta completada para impresión de ticket
   const [completedSaleData, setCompletedSaleData] = useState<any | null>(null);
 
+  // Referencia para exportación de ticket a imagen PNG
+  const ticketRef = useRef<HTMLDivElement>(null);
+  const [isDownloading, setIsDownloading] = useState(false);
+
   // Cargar lista de clientes, pasarela de cuotas y cuentas de tesorería al abrir el modal
   useEffect(() => {
     if (!isOpen) return;
@@ -418,9 +422,6 @@ export function CheckoutModal({
       setLoading(false);
     }
   };
-
-  const ticketRef = useRef<HTMLDivElement>(null);
-  const [isDownloading, setIsDownloading] = useState(false);
 
   const downloadAsImage = async () => {
     if (!ticketRef.current || !completedSaleData) return;
