@@ -245,6 +245,23 @@ export function MonthlyGoalsWidget({ startDate, endDate }: MonthlyGoalsWidgetPro
                       <> ¡Felicidades! Has alcanzado la meta fijada para este período.</>
                     )}
                   </p>
+
+                  {/* PROYECIÓN MATEMÁTICA EN UNIDADES DIARIAS */}
+                  {projection.remainingDays > 0 && projection.dailyRevenueNeeded > 0 && (
+                    <div className="p-3 rounded-lg bg-[#13261E] border border-[#D0A96B]/30 flex items-center gap-2.5 text-xs text-[#D0A96B]">
+                      <Sparkles className="h-4 w-4 shrink-0 text-[#D0A96B]" />
+                      <div className="font-sans">
+                        <strong className="font-semibold">Objetivo Diario en Unidades:</strong> Necesitás una venta promedio de{' '}
+                        <span className="font-bold underline decoration-[#D0A96B]">
+                          ~{Math.max(1, Math.round(projection.dailyRevenueNeeded / 55000))} perfumes (100ml)
+                        </span>{' '}
+                        ó{' '}
+                        <span className="font-bold underline decoration-[#D0A96B]">
+                          ~{Math.max(1, Math.round(projection.dailyRevenueNeeded / 15000))} decants diarios
+                        </span>.
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 

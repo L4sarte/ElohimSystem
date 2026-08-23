@@ -24,18 +24,44 @@ export function Omnibar() {
   const { addItem } = usePosStore();
   const router = useRouter();
 
-  // Escuchar atajo global Ctrl+K / Cmd+K
+  // Escuchar atajo global Ctrl+K / Cmd+K y atajos directos (N, G, I)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Ignorar si el usuario está escribiendo en un input, textarea o modal de texto
+      const activeEl = document.activeElement;
+      const isEditingInput = activeEl && (
+        activeEl.tagName === 'INPUT' ||
+        activeEl.tagName === 'TEXTAREA' ||
+        activeEl.tagName === 'SELECT' ||
+        (activeEl as HTMLElement).isContentEditable
+      );
+
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
         setOpen((prev) => !prev);
+        return;
+      }
+
+      if (isEditingInput || open) return;
+
+      const key = e.key.toLowerCase();
+      if (!e.ctrlKey && !e.metaKey && !e.altKey) {
+        if (key === 'n') {
+          e.preventDefault();
+          router.push('/pos');
+        } else if (key === 'g' && role === 'admin') {
+          e.preventDefault();
+          router.push('/admin/gastos');
+        } else if (key === 'i') {
+          e.preventDefault();
+          router.push('/productos');
+        }
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [open, role, router]);
 
   // Cargar productos al abrir el Omnibar
   useEffect(() => {

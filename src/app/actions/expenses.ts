@@ -26,13 +26,20 @@ export interface OperatingExpenseInput {
   treasury_account_id?: string;
 }
 
+import { createClient } from '@/utils/supabase/server';
+
 /**
- * Resolver ID de usuario para desarrollo local o auth real.
+ * Resolver ID de usuario para desarrollo local o auth real con SSR cookies.
  */
 async function resolveUserId(): Promise<string> {
   const serviceClient = getServiceSupabase();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (user) return user.id;
+  try {
+    const serverSupabase = await createClient();
+    const { data: { user } } = await serverSupabase.auth.getUser();
+    if (user) return user.id;
+  } catch (err) {
+    // Si falla auth por cookies, intentar fallback a perfil
+  }
 
   const { data: profiles } = await serviceClient.from('profiles').select('id').limit(1);
   if (profiles && profiles.length > 0) return profiles[0].id;

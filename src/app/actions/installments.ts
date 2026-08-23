@@ -120,7 +120,9 @@ export async function registerInstallment(
     const currentDue = Number(sale.amount_due_ars || 0);
     const newAmountDue = Math.max(0, currentDue - valAmount);
     const newPaymentStatus = newAmountDue <= 0 ? 'paid' : 'partial';
-    const clientName = (sale.clients as any)?.name || 'Cliente';
+    const clientName = Array.isArray(sale.clients) 
+      ? (sale.clients[0] as any)?.name || 'Cliente'
+      : (sale.clients as any)?.name || 'Cliente';
 
     // 2. Insertar registro en la tabla sale_installments
     const { error: instErr } = await supabase

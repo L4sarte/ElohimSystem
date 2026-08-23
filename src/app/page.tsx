@@ -24,9 +24,9 @@ import { InventoryValuationWidget } from '@/components/inventory/InventoryValuat
 import { ExchangeRatesWidget } from '@/components/rates/ExchangeRatesWidget';
 import { QuickActions } from '@/components/dashboard/QuickActions';
 import { QuickAccessPills } from '@/components/dashboard/QuickAccessPills';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
-// Componente Tooltip personalizado para el gráfico de Recharts
+// Componente Tooltip personalizado para el gráfico de Recharts con Comparativa Histórica
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (active && payload && payload.length) {
     return (
@@ -34,12 +34,18 @@ const CustomTooltip = ({ active, payload, label }: any) => {
         <p className="font-mono font-bold text-zinc-400 border-b border-[#1B362A] pb-1">{label}</p>
         <p className="font-bold text-[#D0A96B] flex items-center justify-between gap-3">
           <span>Ventas Brutas:</span>
-          <span className="font-mono">${Number(payload[0].value).toLocaleString('es-AR')}</span>
+          <span className="font-mono">${Number(payload[0]?.value || 0).toLocaleString('es-AR')}</span>
         </p>
         {payload[1] && (
           <p className="font-bold text-emerald-400 flex items-center justify-between gap-3">
             <span>Ganancia Neta:</span>
-            <span className="font-mono">${Number(payload[1].value).toLocaleString('es-AR')}</span>
+            <span className="font-mono">${Number(payload[1]?.value || 0).toLocaleString('es-AR')}</span>
+          </p>
+        )}
+        {payload[2] && (
+          <p className="font-semibold text-zinc-400 flex items-center justify-between gap-3 border-t border-[#1B362A]/60 pt-1 text-[11px]">
+            <span>Ref. Mes Anterior:</span>
+            <span className="font-mono text-zinc-300">${Number(payload[2]?.value || 0).toLocaleString('es-AR')}</span>
           </p>
         )}
       </div>
@@ -48,12 +54,15 @@ const CustomTooltip = ({ active, payload, label }: any) => {
   return null;
 };
 
+import { SaleDetailModal } from '@/components/pos/SaleDetailModal';
+
 export default function DashboardPage() {
   const { role } = useUserStore();
   const { refresh: refreshRate } = useExchangeRate();
 
   const [stats, setStats] = useState<any>(null);
   const [loadingStats, setLoadingStats] = useState<boolean>(true);
+  const [selectedSaleId, setSelectedSaleId] = useState<string | null>(null);
 
   const loadDashboardData = async () => {
     if (role === 'admin') {
@@ -222,14 +231,15 @@ export default function DashboardPage() {
                       {stats.salesByDate.length > 0 ? (
                         <div className="h-72 w-full mt-4">
                           <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={stats.salesByDate} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                            <ComposedChart data={stats.salesByDate} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#27272a80" />
                               <XAxis dataKey="date" tickLine={false} axisLine={false} style={{ fontSize: '10px', fill: '#71717a' }} />
                               <YAxis tickLine={false} axisLine={false} style={{ fontSize: '10px', fill: '#71717a' }} />
                               <Tooltip content={<CustomTooltip />} />
-                              <Bar name="Ventas" dataKey="Ventas" fill="#D0A96B" radius={[6, 6, 0, 0]} barSize={22} />
-                              <Bar name="Ganancias" dataKey="Ganancias" fill="#10b981" radius={[6, 6, 0, 0]} barSize={22} />
-                            </BarChart>
+                              <Bar name="Ventas" dataKey="Ventas" fill="#D0A96B" radius={[6, 6, 0, 0]} barSize={20} />
+                              <Bar name="Ganancias" dataKey="Ganancias" fill="#10b981" radius={[6, 6, 0, 0]} barSize={20} />
+                              <Line type="monotone" name="Mes Anterior" dataKey="VentasMesAnterior" stroke="#71717a" strokeDasharray="4 4" strokeWidth={2} dot={false} />
+                            </ComposedChart>
                           </ResponsiveContainer>
                         </div>
                       ) : (
@@ -312,20 +322,28 @@ export default function DashboardPage() {
                             <span className="text-xs">No se registran ventas históricas.</span>
                           </div>
                         ) : (
-                          <div className="space-y-3">
+                          <div className="space-y-2">
                             {stats.recentSales.map((sale: any) => (
-                              <div key={sale.id} className="flex items-center justify-between text-xs pb-3 border-b border-[#1B362A]/60 last:border-0 last:pb-0">
+                              <div 
+                                key={sale.id} 
+                                onClick={() => setSelectedSaleId(sale.id)}
+                                className="flex items-center justify-between text-xs p-2 rounded-xl border border-[#1B362A]/60 bg-[#08130E]/30 hover:bg-[#08130E] hover:border-[#D0A96B]/50 transition-all cursor-pointer group"
+                                title="Ver comprobante y detalle de venta"
+                              >
                                 <div>
-                                  <div className="font-bold text-zinc-200">
+                                  <div className="font-bold text-zinc-200 group-hover:text-[#D0A96B] transition-colors">
                                     {sale.client_name}
                                   </div>
                                   <div className="text-[9px] text-zinc-500 font-mono mt-0.5">
-                                    {new Date(sale.created_at).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })} • ID: #{sale.id.split('-')[0].toUpperCase()}
+                                    {new Date(sale.created_at).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })} • Ticket: #{sale.id.split('-')[0].toUpperCase()}
                                   </div>
                                 </div>
-                                <span className="font-mono font-black text-emerald-400">
-                                  +${sale.total_ars.toLocaleString('es-AR')}
-                                </span>
+                                <div className="text-right">
+                                  <span className="font-mono font-black text-emerald-400 block">
+                                    +${sale.total_ars.toLocaleString('es-AR')}
+                                  </span>
+                                  <span className="text-[9px] text-zinc-500 underline group-hover:text-zinc-300">Ver detalle</span>
+                                </div>
                               </div>
                             ))}
                           </div>
@@ -462,6 +480,12 @@ export default function DashboardPage() {
         </div>
       </footer>
 
+      {/* MODAL DE DETALLE Y COMPROBANTE DE VENTA */}
+      <SaleDetailModal
+        isOpen={!!selectedSaleId}
+        onClose={() => setSelectedSaleId(null)}
+        saleId={selectedSaleId}
+      />
     </div>
   );
 }

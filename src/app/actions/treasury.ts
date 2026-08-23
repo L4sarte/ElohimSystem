@@ -180,13 +180,20 @@ export async function transferBetweenAccounts(
 
     if (updFromErr) throw updFromErr;
 
-    // 4. Actualizar Destino (Acreditar)
+    // 4. Actualizar Destino (Acreditar) con Rollback Preventivo
     const { error: updToErr } = await supabase
       .from('treasury_accounts')
       .update({ balance_ars: currentToBal + amount })
       .eq('id', toAccountId);
 
-    if (updToErr) throw updToErr;
+    if (updToErr) {
+      // Revertir descuento en origen para preservar integridad de datos
+      await supabase
+        .from('treasury_accounts')
+        .update({ balance_ars: currentFromBal })
+        .eq('id', fromAccountId);
+      throw updToErr;
+    }
 
     revalidatePath('/admin/finanzas/tesoreria');
     return { success: true };

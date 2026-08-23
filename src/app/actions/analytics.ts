@@ -142,7 +142,10 @@ export async function getFinancialReport(
       financialCost += feeForSale;
 
       // Agrupar por día para gráfico de tendencia
-      const dayKey = new Date(s.created_at).toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' });
+      const createdDate = s.created_at ? new Date(s.created_at) : new Date();
+      const dayKey = isNaN(createdDate.getTime()) 
+        ? 'Hoy' 
+        : createdDate.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' });
       if (!dailyMap[dayKey]) {
         dailyMap[dayKey] = { ingresos: 0, ganancia: 0 };
       }

@@ -1,12 +1,12 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { 
-  TrendingUp, RefreshCw, DollarSign, Coins, Wallet, 
-  ArrowUpRight, ArrowDownRight, Clock, AlertCircle, Sparkles, Zap
+  TrendingUp, RefreshCw, DollarSign, Wallet, Clock, Zap
 } from 'lucide-react';
+import { CurrencyConverterWidget } from '@/components/rates/CurrencyConverterWidget';
 
 interface RateItem {
   compra: number;
@@ -14,20 +14,31 @@ interface RateItem {
 }
 
 interface RatesData {
-  blue: RateItem | null;
-  binance: RateItem | null;
-  lemon: RateItem | null;
+  blue: RateItem;
+  binance: RateItem;
+  lemon: RateItem;
 }
 
+const DEFAULT_RATES: RatesData = {
+  blue: { compra: 1550, venta: 1570 },
+  binance: { compra: 1593, venta: 1595 },
+  lemon: { compra: 1530, venta: 1595 }
+};
+
 export function ExchangeRatesWidget() {
-  const [rates, setRates] = useState<RatesData>({
-    blue: null,
-    binance: null,
-    lemon: null
-  });
+  const [rates, setRates] = useState<RatesData>(DEFAULT_RATES);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+
+  const isMountedRef = useRef(true);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   const fetchRates = useCallback(async (isManualRefresh = false) => {
     if (isManualRefresh) {
@@ -36,50 +47,54 @@ export function ExchangeRatesWidget() {
 
     try {
       const [resBlue, resBinance, resLemon] = await Promise.allSettled([
-        fetch('https://dolarapi.com/v1/dolares/blue').then(res => res.json()),
-        fetch('https://criptoya.com/api/binance/usdt/ars').then(res => res.json()),
-        fetch('https://criptoya.com/api/lemoncash/usdt/ars').then(res => res.json())
+        fetch('https://dolarapi.com/v1/dolares/blue').then(res => res.ok ? res.json() : null),
+        fetch('https://criptoya.com/api/binance/usdt/ars').then(res => res.ok ? res.json() : null),
+        fetch('https://criptoya.com/api/lemoncash/usdt/ars').then(res => res.ok ? res.json() : null)
       ]);
 
-      const newRates: RatesData = { ...rates };
+      if (!isMountedRef.current) return;
 
-      // 1. Dólar Blue
-      if (resBlue.status === 'fulfilled' && resBlue.value) {
-        newRates.blue = {
-          compra: Number(resBlue.value.compra || 0),
-          venta: Number(resBlue.value.venta || 0)
-        };
-      } else if (!newRates.blue) {
-        newRates.blue = { compra: 1550, venta: 1570 }; // Fallback estimado
-      }
+      setRates(prev => {
+        const updated = { ...prev };
 
-      // 2. USDT Binance
-      if (resBinance.status === 'fulfilled' && resBinance.value) {
-        newRates.binance = {
-          compra: Number(resBinance.value.bid || 0),
-          venta: Number(resBinance.value.ask || 0)
-        };
-      } else if (!newRates.binance) {
-        newRates.binance = { compra: 1593, venta: 1595 }; // Fallback estimado
-      }
+        // 1. Dólar Blue
+        if (resBlue.status === 'fulfilled' && resBlue.value) {
+          const c = Number(resBlue.value.compra);
+          const v = Number(resBlue.value.venta);
+          if (!isNaN(c) && c > 0 && !isNaN(v) && v > 0) {
+            updated.blue = { compra: c, venta: v };
+          }
+        }
 
-      // 3. USDT Lemon
-      if (resLemon.status === 'fulfilled' && resLemon.value) {
-        newRates.lemon = {
-          compra: Number(resLemon.value.bid || 0),
-          venta: Number(resLemon.value.ask || 0)
-        };
-      } else if (!newRates.lemon) {
-        newRates.lemon = { compra: 1530, venta: 1595 }; // Fallback estimado
-      }
+        // 2. USDT Binance
+        if (resBinance.status === 'fulfilled' && resBinance.value) {
+          const c = Number(resBinance.value.bid);
+          const v = Number(resBinance.value.ask);
+          if (!isNaN(c) && c > 0 && !isNaN(v) && v > 0) {
+            updated.binance = { compra: c, venta: v };
+          }
+        }
 
-      setRates(newRates);
+        // 3. USDT Lemon
+        if (resLemon.status === 'fulfilled' && resLemon.value) {
+          const c = Number(resLemon.value.bid);
+          const v = Number(resLemon.value.ask);
+          if (!isNaN(c) && c > 0 && !isNaN(v) && v > 0) {
+            updated.lemon = { compra: c, venta: v };
+          }
+        }
+
+        return updated;
+      });
+
       setLastUpdated(new Date());
     } catch (err) {
       console.error('Error al consultar cotizaciones:', err);
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      if (isMountedRef.current) {
+        setLoading(false);
+        setRefreshing(false);
+      }
     }
   }, []);
 
@@ -93,6 +108,11 @@ export function ExchangeRatesWidget() {
 
     return () => clearInterval(interval);
   }, [fetchRates]);
+
+  const formatCurrency = (val?: number | null) => {
+    if (val === undefined || val === null || isNaN(val)) return '$0,00';
+    return `$${val.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  };
 
   // SKELETON LOADER CON SHIMMER
   if (loading) {
@@ -117,11 +137,6 @@ export function ExchangeRatesWidget() {
       </Card>
     );
   }
-
-  const formatCurrency = (val?: number | null) => {
-    if (val === undefined || val === null || isNaN(val)) return '$0,00';
-    return `$${val.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-  };
 
   return (
     <Card className="border border-[#1B362A] bg-[#13261E] rounded-2xl shadow-xl overflow-hidden transition-all duration-300">
@@ -182,11 +197,11 @@ export function ExchangeRatesWidget() {
             <div className="pt-2.5 space-y-1.5 font-mono text-xs">
               <div className="flex justify-between items-center text-zinc-400">
                 <span className="text-[10px] uppercase tracking-wider">Compra:</span>
-                <span className="font-semibold text-zinc-300">{formatCurrency(rates.blue?.compra)}</span>
+                <span className="font-semibold text-zinc-300">{formatCurrency(rates.blue.compra)}</span>
               </div>
               <div className="flex justify-between items-center text-[#D0A96B] font-bold text-sm">
                 <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#E5C158] font-sans">Venta (Ref):</span>
-                <span className="text-base text-[#D0A96B] font-black">{formatCurrency(rates.blue?.venta)}</span>
+                <span className="text-base text-[#D0A96B] font-black">{formatCurrency(rates.blue.venta)}</span>
               </div>
             </div>
           </div>
@@ -208,11 +223,11 @@ export function ExchangeRatesWidget() {
             <div className="pt-2.5 space-y-1.5 font-mono text-xs">
               <div className="flex justify-between items-center text-zinc-400">
                 <span className="text-[10px] uppercase tracking-wider">Compra (Bid):</span>
-                <span className="font-semibold text-zinc-300">{formatCurrency(rates.binance?.compra)}</span>
+                <span className="font-semibold text-zinc-300">{formatCurrency(rates.binance.compra)}</span>
               </div>
               <div className="flex justify-between items-center text-[#D0A96B] font-bold text-sm">
                 <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#E5C158] font-sans">Venta (Ask):</span>
-                <span className="text-base text-[#D0A96B] font-black">{formatCurrency(rates.binance?.venta)}</span>
+                <span className="text-base text-[#D0A96B] font-black">{formatCurrency(rates.binance.venta)}</span>
               </div>
             </div>
           </div>
@@ -234,16 +249,22 @@ export function ExchangeRatesWidget() {
             <div className="pt-2.5 space-y-1.5 font-mono text-xs">
               <div className="flex justify-between items-center text-zinc-400">
                 <span className="text-[10px] uppercase tracking-wider">Compra (Bid):</span>
-                <span className="font-semibold text-zinc-300">{formatCurrency(rates.lemon?.compra)}</span>
+                <span className="font-semibold text-zinc-300">{formatCurrency(rates.lemon.compra)}</span>
               </div>
               <div className="flex justify-between items-center text-[#D0A96B] font-bold text-sm">
                 <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#E5C158] font-sans">Venta (Ask):</span>
-                <span className="text-base text-[#D0A96B] font-black">{formatCurrency(rates.lemon?.venta)}</span>
+                <span className="text-base text-[#D0A96B] font-black">{formatCurrency(rates.lemon.venta)}</span>
               </div>
             </div>
           </div>
-
         </div>
+
+        {/* MINI WIDGET CONVERSOR RÁPIDO EN VIVO */}
+        <CurrencyConverterWidget 
+          dolarBlueVenta={rates.blue.venta}
+          usdtBinanceVenta={rates.binance.venta}
+          usdtLemonVenta={rates.lemon.venta}
+        />
       </CardContent>
 
     </Card>
