@@ -1,8 +1,10 @@
 'use server';
 
-import { getServiceSupabase } from '@/lib/supabase';
+import { getServiceSupabase, isSupabaseConfigured } from '@/lib/supabase';
 import { UserRole } from '@/types';
 import { revalidatePath } from 'next/cache';
+import { requireAdmin, requireAuth } from '@/lib/auth-checks';
+import { paymentMethodConfigInputSchema } from '@/lib/sales-validation';
 
 export interface PaymentMethodConfig {
   id: string;
@@ -30,11 +32,45 @@ export interface PaymentMethodConfigInput {
   surcharge_percent?: number;
 }
 
+interface DbPaymentMethodRow {
+  id: string;
+  method_name: string;
+  fee_percentage: number | null;
+  fixed_fee_ars: number | null;
+  pass_fee_to_customer: boolean | null;
+  is_active: boolean | null;
+  created_at: string | null;
+}
+
 /**
  * Obtener todos los métodos de pago configurados (para administración).
  */
-export async function getPaymentMethodsConfig(role: UserRole): Promise<{ success: boolean; data?: PaymentMethodConfig[]; error?: string }> {
+export async function getPaymentMethodsConfig(role?: UserRole): Promise<{
+  success: boolean;
+  data?: PaymentMethodConfig[];
+  error?: string;
+}> {
   try {
+    await requireAuth();
+
+    if (!isSupabaseConfigured()) {
+      return {
+        success: true,
+        data: [
+          {
+            id: 'mock-pm-1',
+            method_name: 'Tarjeta de Crédito (3 Cuotas)',
+            fee_percentage: 15,
+            fixed_fee_ars: 0,
+            pass_fee_to_customer: true,
+            is_active: true,
+            name: 'Tarjeta de Crédito (3 Cuotas)',
+            surcharge_percent: 15,
+          },
+        ],
+      };
+    }
+
     const supabase = getServiceSupabase();
     const { data, error } = await supabase
       .from('payment_methods_config')
@@ -45,28 +81,54 @@ export async function getPaymentMethodsConfig(role: UserRole): Promise<{ success
       throw error;
     }
 
-    const mappedData = (data || []).map((item: any) => ({
-      ...item,
+    const rows = (data || []) as unknown as DbPaymentMethodRow[];
+    const mappedData: PaymentMethodConfig[] = rows.map((item) => ({
+      id: item.id,
+      method_name: item.method_name,
       fee_percentage: Number(item.fee_percentage || 0),
       fixed_fee_ars: Number(item.fixed_fee_ars || 0),
       pass_fee_to_customer: Boolean(item.pass_fee_to_customer),
       is_active: Boolean(item.is_active),
+      created_at: item.created_at || undefined,
       name: item.method_name,
-      surcharge_percent: Number(item.fee_percentage || 0)
+      surcharge_percent: Number(item.fee_percentage || 0),
     }));
 
     return { success: true, data: mappedData };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error al obtener configuración de métodos de pago:', error);
-    return { success: false, error: error.message || 'Error al obtener métodos de pago' };
+    const msg = error instanceof Error ? error.message : 'Error al obtener métodos de pago';
+    return { success: false, error: msg };
   }
 }
 
 /**
  * Obtener únicamente los métodos de pago activos (para el POS y CheckoutModal).
  */
-export async function getActivePaymentMethods(): Promise<{ success: boolean; data?: PaymentMethodConfig[]; error?: string }> {
+export async function getActivePaymentMethods(): Promise<{
+  success: boolean;
+  data?: PaymentMethodConfig[];
+  error?: string;
+}> {
   try {
+    if (!isSupabaseConfigured()) {
+      return {
+        success: true,
+        data: [
+          {
+            id: 'mock-pm-1',
+            method_name: 'Tarjeta de Crédito (3 Cuotas)',
+            fee_percentage: 15,
+            fixed_fee_ars: 0,
+            pass_fee_to_customer: true,
+            is_active: true,
+            name: 'Tarjeta de Crédito (3 Cuotas)',
+            surcharge_percent: 15,
+          },
+        ],
+      };
+    }
+
     const supabase = getServiceSupabase();
     const { data, error } = await supabase
       .from('payment_methods_config')
@@ -78,20 +140,24 @@ export async function getActivePaymentMethods(): Promise<{ success: boolean; dat
       throw error;
     }
 
-    const mappedData = (data || []).map((item: any) => ({
-      ...item,
+    const rows = (data || []) as unknown as DbPaymentMethodRow[];
+    const mappedData: PaymentMethodConfig[] = rows.map((item) => ({
+      id: item.id,
+      method_name: item.method_name,
       fee_percentage: Number(item.fee_percentage || 0),
       fixed_fee_ars: Number(item.fixed_fee_ars || 0),
       pass_fee_to_customer: Boolean(item.pass_fee_to_customer),
       is_active: Boolean(item.is_active),
+      created_at: item.created_at || undefined,
       name: item.method_name,
-      surcharge_percent: Number(item.fee_percentage || 0)
+      surcharge_percent: Number(item.fee_percentage || 0),
     }));
 
     return { success: true, data: mappedData };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error al obtener métodos de pago activos:', error);
-    return { success: false, error: error.message || 'Error al obtener métodos activos' };
+    const msg = error instanceof Error ? error.message : 'Error al obtener métodos activos';
+    return { success: false, error: msg };
   }
 }
 
@@ -103,28 +169,47 @@ export async function createPaymentMethodConfig(
   input: PaymentMethodConfigInput
 ): Promise<{ success: boolean; data?: PaymentMethodConfig; error?: string }> {
   try {
-    if (role !== 'admin') {
-      throw new Error('Operación no autorizada. Se requiere rol de Administrador.');
+    await requireAdmin();
+
+    const normalizedInput = {
+      ...input,
+      method_name: input.method_name || input.name || '',
+      fee_percentage: input.fee_percentage !== undefined ? input.fee_percentage : (input.surcharge_percent || 0),
+    };
+
+    const validation = paymentMethodConfigInputSchema.safeParse(normalizedInput);
+    if (!validation.success) {
+      const firstError = validation.error.issues[0]?.message || 'Datos de configuración de pago inválidos.';
+      return { success: false, error: firstError };
     }
 
-    const name = input.method_name || input.name || '';
-    if (!name.trim()) {
-      throw new Error('El nombre comercial del método de pago es obligatorio.');
-    }
+    const clean = validation.data;
 
-    const feePct = input.fee_percentage !== undefined ? input.fee_percentage : (input.surcharge_percent || 0);
+    if (!isSupabaseConfigured()) {
+      return {
+        success: true,
+        data: {
+          id: 'mock-new-pm',
+          method_name: clean.method_name,
+          fee_percentage: clean.fee_percentage,
+          fixed_fee_ars: clean.fixed_fee_ars,
+          pass_fee_to_customer: clean.pass_fee_to_customer,
+          is_active: clean.is_active,
+        },
+      };
+    }
 
     const supabase = getServiceSupabase();
     const { data, error } = await supabase
       .from('payment_methods_config')
       .insert([
         {
-          method_name: name.trim(),
-          fee_percentage: Math.max(0, Number(feePct || 0)),
-          fixed_fee_ars: Math.max(0, Number(input.fixed_fee_ars || 0)),
-          pass_fee_to_customer: input.pass_fee_to_customer !== undefined ? input.pass_fee_to_customer : false,
-          is_active: input.is_active !== undefined ? input.is_active : true
-        }
+          method_name: clean.method_name,
+          fee_percentage: clean.fee_percentage,
+          fixed_fee_ars: clean.fixed_fee_ars,
+          pass_fee_to_customer: clean.pass_fee_to_customer,
+          is_active: clean.is_active,
+        },
       ])
       .select()
       .single();
@@ -135,10 +220,11 @@ export async function createPaymentMethodConfig(
 
     revalidatePath('/admin/finanzas/comisiones');
     revalidatePath('/config/pagos');
-    return { success: true, data };
-  } catch (error: any) {
+    return { success: true, data: data as PaymentMethodConfig };
+  } catch (error: unknown) {
     console.error('Error al crear configuración de método de pago:', error);
-    return { success: false, error: error.message || 'Error al crear el método de pago' };
+    const msg = error instanceof Error ? error.message : 'Error al crear el método de pago';
+    return { success: false, error: msg };
   }
 }
 
@@ -151,28 +237,41 @@ export async function updatePaymentMethodConfig(
   input: PaymentMethodConfigInput
 ): Promise<{ success: boolean; data?: PaymentMethodConfig; error?: string }> {
   try {
-    if (role !== 'admin') {
-      throw new Error('Operación no autorizada.');
+    await requireAdmin();
+
+    if (!id || !id.trim()) {
+      throw new Error('Identificador de método de pago no especificado.');
     }
 
-    const name = input.method_name || input.name || '';
-    if (!name.trim()) {
-      throw new Error('El nombre comercial del método de pago es obligatorio.');
+    const normalizedInput = {
+      ...input,
+      method_name: input.method_name || input.name || '',
+      fee_percentage: input.fee_percentage !== undefined ? input.fee_percentage : (input.surcharge_percent || 0),
+    };
+
+    const validation = paymentMethodConfigInputSchema.safeParse(normalizedInput);
+    if (!validation.success) {
+      const firstError = validation.error.issues[0]?.message || 'Datos de configuración de pago inválidos.';
+      return { success: false, error: firstError };
     }
 
-    const feePct = input.fee_percentage !== undefined ? input.fee_percentage : (input.surcharge_percent || 0);
+    const clean = validation.data;
+
+    if (!isSupabaseConfigured()) {
+      return { success: true };
+    }
 
     const supabase = getServiceSupabase();
     const { data, error } = await supabase
       .from('payment_methods_config')
       .update({
-        method_name: name.trim(),
-        fee_percentage: Math.max(0, Number(feePct || 0)),
-        fixed_fee_ars: Math.max(0, Number(input.fixed_fee_ars || 0)),
-        pass_fee_to_customer: input.pass_fee_to_customer !== undefined ? input.pass_fee_to_customer : false,
-        is_active: input.is_active !== undefined ? input.is_active : true
+        method_name: clean.method_name,
+        fee_percentage: clean.fee_percentage,
+        fixed_fee_ars: clean.fixed_fee_ars,
+        pass_fee_to_customer: clean.pass_fee_to_customer,
+        is_active: clean.is_active,
       })
-      .eq('id', id)
+      .eq('id', id.trim())
       .select()
       .single();
 
@@ -182,10 +281,11 @@ export async function updatePaymentMethodConfig(
 
     revalidatePath('/admin/finanzas/comisiones');
     revalidatePath('/config/pagos');
-    return { success: true, data };
-  } catch (error: any) {
+    return { success: true, data: data as PaymentMethodConfig };
+  } catch (error: unknown) {
     console.error('Error al actualizar método de pago:', error);
-    return { success: false, error: error.message || 'Error al actualizar método de pago' };
+    const msg = error instanceof Error ? error.message : 'Error al actualizar método de pago';
+    return { success: false, error: msg };
   }
 }
 
@@ -198,15 +298,21 @@ export async function togglePaymentMethodStatus(
   is_active: boolean
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    if (role !== 'admin') {
-      throw new Error('Operación no autorizada.');
+    await requireAdmin();
+
+    if (!id || !id.trim()) {
+      throw new Error('Identificador no especificado.');
+    }
+
+    if (!isSupabaseConfigured()) {
+      return { success: true };
     }
 
     const supabase = getServiceSupabase();
     const { error } = await supabase
       .from('payment_methods_config')
       .update({ is_active })
-      .eq('id', id);
+      .eq('id', id.trim());
 
     if (error) {
       throw error;
@@ -215,9 +321,10 @@ export async function togglePaymentMethodStatus(
     revalidatePath('/admin/finanzas/comisiones');
     revalidatePath('/config/pagos');
     return { success: true };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error al alternar estado de método de pago:', error);
-    return { success: false, error: error.message || 'Error al cambiar estado' };
+    const msg = error instanceof Error ? error.message : 'Error al cambiar estado';
+    return { success: false, error: msg };
   }
 }
 
@@ -229,15 +336,21 @@ export async function deletePaymentMethodConfig(
   id: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    if (role !== 'admin') {
-      throw new Error('Operación no autorizada.');
+    await requireAdmin();
+
+    if (!id || !id.trim()) {
+      throw new Error('Identificador no especificado.');
+    }
+
+    if (!isSupabaseConfigured()) {
+      return { success: true };
     }
 
     const supabase = getServiceSupabase();
     const { error } = await supabase
       .from('payment_methods_config')
       .delete()
-      .eq('id', id);
+      .eq('id', id.trim());
 
     if (error) {
       throw error;
@@ -246,8 +359,9 @@ export async function deletePaymentMethodConfig(
     revalidatePath('/admin/finanzas/comisiones');
     revalidatePath('/config/pagos');
     return { success: true };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error al eliminar método de pago:', error);
-    return { success: false, error: error.message || 'Error al eliminar método' };
+    const msg = error instanceof Error ? error.message : 'Error al eliminar método';
+    return { success: false, error: msg };
   }
 }

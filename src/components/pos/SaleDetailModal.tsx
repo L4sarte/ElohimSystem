@@ -4,11 +4,8 @@ import React, { useState, useEffect } from 'react';
 import { CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ReceiptTicket } from '@/components/pos/ReceiptTicket';
-import { 
-  X, Printer, ShoppingBag, DollarSign, Calendar, User, 
-  CreditCard, Landmark, FileText, CheckCircle2, ShieldCheck 
-} from 'lucide-react';
-import { getServiceSupabase, supabase } from '@/lib/supabase';
+import { X, Printer, ShoppingBag } from 'lucide-react';
+import { getSaleById, SaleDetailRecord } from '@/app/actions/sales';
 
 interface SaleDetailModalProps {
   isOpen: boolean;
@@ -17,7 +14,7 @@ interface SaleDetailModalProps {
 }
 
 export function SaleDetailModal({ isOpen, onClose, saleId }: SaleDetailModalProps) {
-  const [saleData, setSaleData] = useState<any | null>(null);
+  const [saleData, setSaleData] = useState<SaleDetailRecord | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showPrintTicket, setShowPrintTicket] = useState(false);
@@ -33,43 +30,15 @@ export function SaleDetailModal({ isOpen, onClose, saleId }: SaleDetailModalProp
       setLoading(true);
       setError(null);
       try {
-        const client = getServiceSupabase();
-        const { data, error: err } = await client
-          .from('sales')
-          .select(`
-            id,
-            total_ars,
-            total_usd_equivalent,
-            exchange_rate_used,
-            payment_status,
-            amount_due_ars,
-            payment_methods,
-            created_at,
-            clients (
-              id,
-              name,
-              phone
-            ),
-            sale_items (
-              id,
-              quantity,
-              price_ars_at_moment,
-              products (
-                id,
-                name,
-                brand,
-                sku
-              )
-            )
-          `)
-          .eq('id', saleId)
-          .single();
-
-        if (err) throw err;
-        setSaleData(data);
-      } catch (e: any) {
+        const res = await getSaleById(saleId as string);
+        if (!res.success || !res.data) {
+          throw new Error(res.error || 'No se pudo cargar el detalle de la venta.');
+        }
+        setSaleData(res.data);
+      } catch (e: unknown) {
         console.error('Error al cargar detalle de venta:', e);
-        setError(e.message || 'No se pudo cargar el detalle de la venta.');
+        const msg = e instanceof Error ? e.message : 'No se pudo cargar el detalle de la venta.';
+        setError(msg);
       } finally {
         setLoading(false);
       }
@@ -81,7 +50,7 @@ export function SaleDetailModal({ isOpen, onClose, saleId }: SaleDetailModalProp
   if (!isOpen || !saleId) return null;
 
   const ticketNum = saleId.split('-')[0].toUpperCase();
-  const clientName = (saleData?.clients as any)?.name || 'Cliente Ocasional';
+  const clientName = saleData?.clients?.name || 'Cliente Ocasional';
   const createdDateStr = saleData?.created_at ? new Date(saleData.created_at).toLocaleString('es-AR') : '';
 
   return (
@@ -128,7 +97,7 @@ export function SaleDetailModal({ isOpen, onClose, saleId }: SaleDetailModalProp
                 </span>
 
                 <div className="space-y-1.5 bg-[#08130E] border border-[#1B362A] p-3 rounded-xl">
-                  {saleData.sale_items?.map((item: any, idx: number) => {
+                  {saleData.sale_items?.map((item, idx: number) => {
                     const prodName = item.products?.name || 'Producto';
                     const brand = item.products?.brand || '';
                     const itemTotal = (item.price_ars_at_moment || 0) * (item.quantity || 1);
@@ -177,12 +146,12 @@ export function SaleDetailModal({ isOpen, onClose, saleId }: SaleDetailModalProp
                     saleId={saleId}
                     createdAt={saleData.created_at}
                     clientName={clientName}
-                    items={(saleData.sale_items || []).map((i: any) => ({
+                    items={(saleData.sale_items || []).map((i) => ({
                       name: i.products?.name || 'Producto',
                       brand: i.products?.brand || '',
                       quantity: i.quantity || 1,
                       priceArs: i.price_ars_at_moment || 0,
-                      totalArs: (i.price_ars_at_moment || 0) * (i.quantity || 1)
+                      totalArs: (i.price_ars_at_moment || 0) * (i.quantity || 1),
                     }))}
                     subtotalArs={saleData.total_ars || 0}
                     totalArs={saleData.total_ars || 0}

@@ -1,9 +1,10 @@
 'use server';
 
-import { getServiceSupabase } from '@/lib/supabase';
+import { getServiceSupabase, isSupabaseConfigured } from '@/lib/supabase';
 import { UserRole } from '@/types';
 import { revalidatePath } from 'next/cache';
 import { depositToAccount, getTreasuryAccounts } from '@/app/actions/treasury';
+import { requireAuth } from '@/lib/auth-checks';
 
 export interface PendingSale {
   id: string;
@@ -14,9 +15,29 @@ export interface PendingSale {
   clients?: {
     id: string;
     name: string;
-    phone?: string;
-    email?: string;
-  };
+    phone?: string | null;
+    email?: string | null;
+  } | null;
+  sale_installments?: Array<{
+    id: string;
+    amount_paid_ars: number;
+    payment_method: string;
+    created_at: string;
+  }>;
+}
+
+interface DbPendingSaleRow {
+  id: string;
+  total_ars: number;
+  amount_due_ars: number;
+  payment_status: 'paid' | 'partial' | 'pending';
+  created_at: string;
+  clients?: {
+    id: string;
+    name: string;
+    phone?: string | null;
+    email?: string | null;
+  } | null;
   sale_installments?: Array<{
     id: string;
     amount_paid_ars: number;
@@ -28,14 +49,20 @@ export interface PendingSale {
 /**
  * Obtener únicamente las ventas con saldo pendiente de cobro (payment_status != 'paid').
  */
-export async function getPendingSales(role: UserRole): Promise<{
+export async function getPendingSales(role?: UserRole): Promise<{
   success: boolean;
   data?: PendingSale[];
   error?: string;
 }> {
   try {
+    await requireAuth();
+
+    if (!isSupabaseConfigured()) {
+      return { success: true, data: [] };
+    }
+
     const supabase = getServiceSupabase();
-    
+
     // Consultar ventas activas con saldo pendiente o estado != 'paid'
     const { data, error } = await supabase
       .from('sales')
@@ -65,27 +92,34 @@ export async function getPendingSales(role: UserRole): Promise<{
 
     if (error) throw error;
 
-    const list: PendingSale[] = (data || []).map((item: any) => ({
-      ...item,
+    const rows = (data || []) as unknown as DbPendingSaleRow[];
+    const list: PendingSale[] = rows.map((item) => ({
+      id: item.id,
       total_ars: Number(item.total_ars || 0),
       amount_due_ars: Number(item.amount_due_ars || 0),
-      sale_installments: (item.sale_installments || []).map((inst: any) => ({
-        ...inst,
-        amount_paid_ars: Number(inst.amount_paid_ars || 0)
-      }))
+      payment_status: item.payment_status || 'pending',
+      created_at: item.created_at,
+      clients: item.clients || null,
+      sale_installments: (item.sale_installments || []).map((inst) => ({
+        id: inst.id,
+        amount_paid_ars: Number(inst.amount_paid_ars || 0),
+        payment_method: inst.payment_method || 'Efectivo',
+        created_at: inst.created_at,
+      })),
     }));
 
     return { success: true, data: list };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error al obtener ventas pendientes de cobro:', error);
-    return { success: false, error: error.message || 'Error al obtener deudas' };
+    const msg = error instanceof Error ? error.message : 'Error al obtener deudas';
+    return { success: false, error: msg };
   }
 }
 
 /**
  * Registrar un abono parcial o total a una venta con saldo pendiente.
  * Resta el monto del amount_due_ars de la venta original, inserta un registro en sale_installments,
- * actualiza payment_status a 'paid' si el saldo llega a 0, y registra el movimiento de caja física.
+ * actualiza payment_status a 'paid' si el saldo llega a 0, y registra el ingreso en tesorería.
  */
 export async function registerInstallment(
   role: UserRole,
@@ -95,7 +129,9 @@ export async function registerInstallment(
   notes?: string
 ): Promise<{ success: boolean; newAmountDue?: number; paymentStatus?: string; error?: string }> {
   try {
-    if (!saleId) {
+    await requireAuth();
+
+    if (!saleId || !saleId.trim()) {
       throw new Error('El ID de la venta es obligatorio.');
     }
 
@@ -104,13 +140,17 @@ export async function registerInstallment(
       throw new Error('El monto abonado debe ser mayor a $0.');
     }
 
+    if (!isSupabaseConfigured()) {
+      return { success: true, newAmountDue: 0, paymentStatus: 'paid' };
+    }
+
     const supabase = getServiceSupabase();
 
     // 1. Obtener la venta objetivo
     const { data: sale, error: saleErr } = await supabase
       .from('sales')
       .select('id, client_id, total_ars, amount_due_ars, payment_status, clients(name)')
-      .eq('id', saleId)
+      .eq('id', saleId.trim())
       .single();
 
     if (saleErr || !sale) {
@@ -120,24 +160,21 @@ export async function registerInstallment(
     const currentDue = Number(sale.amount_due_ars || 0);
     const newAmountDue = Math.max(0, currentDue - valAmount);
     const newPaymentStatus = newAmountDue <= 0 ? 'paid' : 'partial';
-    const clientName = Array.isArray(sale.clients) 
-      ? (sale.clients[0] as any)?.name || 'Cliente'
-      : (sale.clients as any)?.name || 'Cliente';
 
     // 2. Insertar registro en la tabla sale_installments
     const { error: instErr } = await supabase
       .from('sale_installments')
       .insert([
         {
-          sale_id: saleId,
+          sale_id: saleId.trim(),
           client_id: sale.client_id || null,
           amount_paid_ars: valAmount,
-          payment_method: paymentMethod || 'Efectivo'
-        }
+          payment_method: paymentMethod || 'Efectivo',
+        },
       ]);
 
     if (instErr) {
-      console.warn('Advertencia al guardar en sale_installments:', instErr);
+      console.warn('Advertencia al guardar en sale_installments:', instErr.message);
     }
 
     // 3. Actualizar la venta en la tabla sales
@@ -145,9 +182,9 @@ export async function registerInstallment(
       .from('sales')
       .update({
         amount_due_ars: newAmountDue,
-        payment_status: newPaymentStatus
+        payment_status: newPaymentStatus,
       })
-      .eq('id', saleId);
+      .eq('id', saleId.trim());
 
     if (updateSaleErr) throw updateSaleErr;
 
@@ -156,7 +193,7 @@ export async function registerInstallment(
       const { data: rec } = await supabase
         .from('accounts_receivable')
         .select('id, paid_amount_ars')
-        .eq('sale_id', saleId)
+        .eq('sale_id', saleId.trim())
         .maybeSingle();
 
       if (rec) {
@@ -167,7 +204,7 @@ export async function registerInstallment(
           .update({
             paid_amount_ars: newPaidAcc,
             status: newAmountDue <= 0 ? 'paid' : 'pending',
-            updated_at: new Date().toISOString()
+            updated_at: new Date().toISOString(),
           })
           .eq('id', rec.id);
       }
@@ -187,8 +224,9 @@ export async function registerInstallment(
     revalidatePath('/caja');
 
     return { success: true, newAmountDue, paymentStatus: newPaymentStatus };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error al registrar abono a venta:', error);
-    return { success: false, error: error.message || 'Error al procesar el abono' };
+    const msg = error instanceof Error ? error.message : 'Error al procesar el abono';
+    return { success: false, error: msg };
   }
 }

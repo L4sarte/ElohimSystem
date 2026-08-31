@@ -3,12 +3,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { UserRole } from '@/types';
 import { CartItem } from '@/hooks/use-pos-store';
-import { getClients, createSaleTransaction } from '@/app/actions/sales';
+import { getClients, createSaleTransaction, ClientRecord } from '@/app/actions/sales';
 import { getTreasuryAccounts, TreasuryAccount } from '@/app/actions/treasury';
 import { getSupplies } from '@/app/actions/products';
 import { useFeesStore } from '@/hooks/use-fees-store';
 import { PaymentMethodConfig } from '@/app/actions/fees';
-import { ReceiptTicket } from '@/components/pos/ReceiptTicket';
+import { ReceiptTicket, ReceiptTicketProps } from '@/components/pos/ReceiptTicket';
 import { CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -38,7 +38,7 @@ export function CheckoutModal({
 
   const [step, setStep] = useState<'checkout' | 'success'>('checkout');
 
-  const [clients, setClients] = useState<any[]>([]);
+  const [clients, setClients] = useState<ClientRecord[]>([]);
   const [clientId, setClientId] = useState<string>('default');
   const [loading, setLoading] = useState(false);
   const [loadingClients, setLoadingClients] = useState(false);
@@ -416,8 +416,9 @@ export function CheckoutModal({
       });
 
       setStep('success');
-    } catch (err: any) {
-      setError(err.message || 'Ocurrió un error inesperado al procesar el checkout');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Ocurrió un error inesperado al procesar el checkout';
+      setError(msg);
     } finally {
       setLoading(false);
     }
@@ -484,10 +485,9 @@ export function CheckoutModal({
 
     const rawMessage = `¡Hola! Gracias por tu compra en Elohim. Tu resumen: ${itemsSummary}. Total pagado: $${completedSaleData.totalArs.toLocaleString('es-AR')} ARS. ¡Que lo disfrutes!`;
 
+    const rawPhone = selectedClient?.contact_whatsapp || selectedClient?.phone || '';
+    const clientPhoneClean = rawPhone ? rawPhone.replace(/\D/g, '') : '';
     const encodedText = encodeURIComponent(rawMessage);
-    const clientPhoneClean = selectedClient?.contact_whatsapp 
-      ? selectedClient.contact_whatsapp.replace(/\D/g, '')
-      : '';
 
     const whatsappUrl = clientPhoneClean 
       ? `https://wa.me/${clientPhoneClean}?text=${encodedText}`

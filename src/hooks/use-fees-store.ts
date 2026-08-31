@@ -21,8 +21,9 @@ export const useFeesStore = create<FeesState>((set) => ({
       } else {
         set({ error: res.error || 'Error al cargar comisiones', loading: false });
       }
-    } catch (err: any) {
-      set({ error: err.message || 'Error al conectar con comisiones', loading: false });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Error al conectar con comisiones';
+      set({ error: msg, loading: false });
     }
-  }
+  },
 }));

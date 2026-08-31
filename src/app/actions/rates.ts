@@ -1,8 +1,9 @@
 'use server';
 
-import { getServiceSupabase } from '@/lib/supabase';
+import { getServiceSupabase, isSupabaseConfigured } from '@/lib/supabase';
 import { UserRole } from '@/types';
 import { revalidatePath } from 'next/cache';
+import { requireAdmin } from '@/lib/auth-checks';
 
 export interface ExchangeRateResult {
   value_ars: number;
@@ -18,8 +19,25 @@ export interface ExchangeRateResult {
  * Si no la hay, consume la API externa de dolarapi.com en tiempo real.
  * Si la API falla, activa un fallback seguro recuperando el último valor en DB o variable de entorno.
  */
-export async function getCurrentRate(): Promise<{ success: boolean; data?: ExchangeRateResult; error?: string }> {
+export async function getCurrentRate(): Promise<{
+  success: boolean;
+  data?: ExchangeRateResult;
+  error?: string;
+}> {
   try {
+    if (!isSupabaseConfigured()) {
+      return {
+        success: true,
+        data: {
+          value_ars: 1250,
+          type: 'fallback',
+          is_fallback: true,
+          is_active: false,
+          created_at: new Date().toISOString(),
+        },
+      };
+    }
+
     const supabase = getServiceSupabase();
 
     // 1. Consultar si hay una cotización manual activa en Supabase
@@ -30,7 +48,7 @@ export async function getCurrentRate(): Promise<{ success: boolean; data?: Excha
       .limit(1);
 
     if (dbError) {
-      console.error('Error al leer de la tabla exchange_rates:', dbError);
+      console.error('Error al leer de la tabla exchange_rates:', dbError.message);
     }
 
     if (dbRates && dbRates.length > 0) {
@@ -40,17 +58,16 @@ export async function getCurrentRate(): Promise<{ success: boolean; data?: Excha
         data: {
           value_ars: Number(activeRate.value_ars),
           type: activeRate.type as 'blue_venta' | 'manual',
-          is_active: activeRate.is_active,
-          created_at: activeRate.created_at
-        }
+          is_active: Boolean(activeRate.is_active),
+          created_at: activeRate.created_at || undefined,
+        },
       };
     }
 
     // 2. Si no hay cotización activa en base de datos, consumimos dolarapi.com
-    console.log('No hay cotización manual activa, consultando dolarapi.com...');
     try {
       const res = await fetch('https://dolarapi.com/v1/dolares/blue', {
-        next: { revalidate: 60 } // caché de 60 segundos para evitar llamadas excesivas
+        next: { revalidate: 60 },
       });
 
       if (!res.ok) {
@@ -63,15 +80,16 @@ export async function getCurrentRate(): Promise<{ success: boolean; data?: Excha
         data: {
           value_ars: Number(apiData.venta),
           type: 'blue_venta',
-          is_active: false
-        }
+          is_active: false,
+        },
       };
-    } catch (apiError: any) {
-      console.warn('Fallo en la API cambiaria externa (dolarapi.com), activando cotización de respaldo:', apiError.message);
+    } catch (apiError: unknown) {
+      const errMsg = apiError instanceof Error ? apiError.message : 'Error en API externa';
+      console.warn('Fallo en la API cambiaria externa (dolarapi.com), activando cotización de respaldo:', errMsg);
 
       // 3. Fallback: Recuperar la última cotización conocida en Supabase o variable de entorno
-      let fallbackValue = process.env.NEXT_PUBLIC_FALLBACK_USD_RATE 
-        ? parseFloat(process.env.NEXT_PUBLIC_FALLBACK_USD_RATE) 
+      let fallbackValue = process.env.NEXT_PUBLIC_FALLBACK_USD_RATE
+        ? parseFloat(process.env.NEXT_PUBLIC_FALLBACK_USD_RATE)
         : 1250;
 
       const { data: lastRate } = await supabase
@@ -91,13 +109,14 @@ export async function getCurrentRate(): Promise<{ success: boolean; data?: Excha
           type: 'fallback',
           is_fallback: true,
           is_active: false,
-          created_at: new Date().toISOString()
-        }
+          created_at: new Date().toISOString(),
+        },
       };
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error general al obtener tipo de cambio:', error);
-    return { success: false, error: error.message || 'Error desconocido al obtener tipo de cambio' };
+    const msg = error instanceof Error ? error.message : 'Error desconocido al obtener tipo de cambio';
+    return { success: false, error: msg };
   }
 }
 
@@ -105,14 +124,19 @@ export async function getCurrentRate(): Promise<{ success: boolean; data?: Excha
  * Congelar manualmente la cotización del dólar blue (Solo Admin).
  * Guarda la cotización en exchange_rates con is_active = true y desactiva las anteriores.
  */
-export async function setManualRate(role: UserRole, value: number): Promise<{ success: boolean; error?: string }> {
+export async function setManualRate(
+  role: UserRole,
+  value: number
+): Promise<{ success: boolean; error?: string }> {
   try {
-    if (role !== 'admin') {
-      throw new Error('Operación no autorizada. Se requiere rol de Administrador.');
-    }
+    await requireAdmin();
 
     if (!value || value <= 0) {
       throw new Error('La cotización debe ser un número positivo.');
+    }
+
+    if (!isSupabaseConfigured()) {
+      return { success: true };
     }
 
     const supabase = getServiceSupabase();
@@ -133,21 +157,21 @@ export async function setManualRate(role: UserRole, value: number): Promise<{ su
       .insert({
         type: 'manual',
         value_ars: value,
-        is_active: true
+        is_active: true,
       });
 
     if (insertError) {
       throw insertError;
     }
 
-    // Revalidar las páginas principales para actualizar el estado del dólar
     revalidatePath('/');
     revalidatePath('/productos');
 
     return { success: true };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error al establecer cotización manual:', error);
-    return { success: false, error: error.message || 'Error al guardar la cotización' };
+    const msg = error instanceof Error ? error.message : 'Error al guardar la cotización';
+    return { success: false, error: msg };
   }
 }
 
@@ -157,13 +181,14 @@ export async function setManualRate(role: UserRole, value: number): Promise<{ su
  */
 export async function clearManualRate(role: UserRole): Promise<{ success: boolean; error?: string }> {
   try {
-    if (role !== 'admin') {
-      throw new Error('Operación no autorizada. Se requiere rol de Administrador.');
+    await requireAdmin();
+
+    if (!isSupabaseConfigured()) {
+      return { success: true };
     }
 
     const supabase = getServiceSupabase();
 
-    // Desactivar todas las cotizaciones activas
     const { error: updateError } = await supabase
       .from('exchange_rates')
       .update({ is_active: false })
@@ -173,13 +198,13 @@ export async function clearManualRate(role: UserRole): Promise<{ success: boolea
       throw updateError;
     }
 
-    // Revalidar las páginas principales para actualizar el estado del dólar
     revalidatePath('/');
     revalidatePath('/productos');
 
     return { success: true };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error al liberar cotización:', error);
-    return { success: false, error: error.message || 'Error al liberar la cotización' };
+    const msg = error instanceof Error ? error.message : 'Error al liberar la cotización';
+    return { success: false, error: msg };
   }
 }

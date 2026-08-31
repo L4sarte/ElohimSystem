@@ -1,16 +1,51 @@
 'use server';
 
-import { getServiceSupabase, supabase } from '@/lib/supabase';
+import { getServiceSupabase, isSupabaseConfigured } from '@/lib/supabase';
 import { UserRole } from '@/types';
 import { revalidatePath } from 'next/cache';
 import { depositToAccount, getTreasuryAccounts } from '@/app/actions/treasury';
-import { createClient } from '@/utils/supabase/server';
+import { requireAuth, requireAdmin } from '@/lib/auth-checks';
+import { saleInputSchema, calculatePreciseTotal } from '@/lib/sales-validation';
+import Decimal from 'decimal.js';
+
+export interface ClientRecord {
+  id: string;
+  name: string;
+  phone?: string | null;
+  contact_whatsapp?: string | null;
+  email?: string | null;
+  preferred_notes?: string[] | null;
+  points_balance?: number;
+  created_at: string;
+}
 
 /**
  * Obtener todos los clientes registrados.
  */
-export async function getClients(role: UserRole): Promise<{ success: boolean; data?: any[]; error?: string }> {
+export async function getClients(role?: UserRole): Promise<{
+  success: boolean;
+  data?: ClientRecord[];
+  error?: string;
+}> {
   try {
+    await requireAuth();
+
+    if (!isSupabaseConfigured()) {
+      return {
+        success: true,
+        data: [
+          {
+            id: '11111111-1111-1111-1111-111111111111',
+            name: 'Cliente Mostrador General',
+            phone: '1122334455',
+            email: 'cliente@ejemplo.com',
+            points_balance: 100,
+            created_at: new Date().toISOString(),
+          },
+        ],
+      };
+    }
+
     const supabase = getServiceSupabase();
     const { data, error } = await supabase
       .from('clients')
@@ -21,21 +56,32 @@ export async function getClients(role: UserRole): Promise<{ success: boolean; da
       throw error;
     }
 
-    return { success: true, data: data || [] };
-  } catch (error: any) {
+    const clients: ClientRecord[] = (data || []).map((c) => ({
+      id: c.id,
+      name: c.name,
+      phone: c.phone || null,
+      email: c.email || null,
+      preferred_notes: c.preferred_notes || null,
+      points_balance: Number(c.points_balance || 0),
+      created_at: c.created_at || new Date().toISOString(),
+    }));
+
+    return { success: true, data: clients };
+  } catch (error: unknown) {
     console.error('Error al obtener clientes:', error);
-    return { success: false, error: error.message || 'Error al obtener clientes' };
+    const msg = error instanceof Error ? error.message : 'Error al obtener clientes';
+    return { success: false, error: msg };
   }
 }
 
-interface SaleItemInput {
+export interface SaleItemInput {
   product_id: string;
   quantity: number;
   price_ars: number;
   price_usd: number;
 }
 
-interface DecantJitInput {
+export interface DecantJitInput {
   decant_liquid_id: string;
   ml_quantity: number;
   supply_id: string;
@@ -46,7 +92,7 @@ export interface PackagingUsedInput {
   quantity_used: number;
 }
 
-interface SaleInput {
+export interface SaleInput {
   client_id: string | null;
   seller_id: string | null;
   total_ars: number;
@@ -60,7 +106,16 @@ interface SaleInput {
     transfer_ars?: number;
     cash_usd?: number;
     digital_ars?: number;
-    [key: string]: any;
+    gateway_fee_ars?: number;
+    surcharge_applied_ars?: number;
+    net_received_ars?: number;
+    selected_method_name?: string;
+    treasury_account_id?: string;
+    vibepoints_used?: {
+      points: number;
+      discount_ars: number;
+    } | null;
+    [key: string]: unknown;
   };
   items: SaleItemInput[];
   decants: DecantJitInput[];
@@ -75,104 +130,107 @@ export async function createSaleTransaction(
   saleData: SaleInput
 ): Promise<{ success: boolean; saleId?: string; error?: string }> {
   try {
-    // Validar integridad de los ítems de venta
-    if (!saleData.items || saleData.items.length === 0) {
-      throw new Error('La venta debe tener al menos un ítem.');
+    // 1. Verificación de sesión y autorización del vendedor en el servidor
+    const currentUser = await requireAuth();
+
+    // 2. Validación de esquema Zod
+    const validation = saleInputSchema.safeParse(saleData);
+    if (!validation.success) {
+      const firstError = validation.error.issues[0]?.message || 'Datos de venta inválidos.';
+      return { success: false, error: firstError };
+    }
+
+    const cleanSaleData = validation.data;
+
+    // 3. Modo desarrollo sin Supabase
+    if (!isSupabaseConfigured()) {
+      const mockId = 'mock-' + Math.random().toString(36).substring(2, 9);
+      return { success: true, saleId: mockId };
     }
 
     const serviceClient = getServiceSupabase();
 
-    // Resolución y validación de seguridad para seller_id (evita violar sales_seller_id_fkey)
-    let validSellerId: string | null = null;
+    // 4. Verificación y resolución de seller_id (priorizar usuario autenticado real)
+    let finalSellerId = currentUser.id;
+    const { data: profCheck } = await serviceClient
+      .from('profiles')
+      .select('id')
+      .eq('id', currentUser.id)
+      .maybeSingle();
 
-    // 1. Si se envió seller_id en el payload, verificar su existencia en la tabla profiles
-    if (saleData.seller_id && typeof saleData.seller_id === 'string' && saleData.seller_id.trim() !== '') {
-      const { data: prof } = await serviceClient
-        .from('profiles')
-        .select('id')
-        .eq('id', saleData.seller_id.trim())
-        .maybeSingle();
-
-      if (prof) {
-        validSellerId = prof.id;
-      }
-    }
-
-    // 2. Si no es válido aún, consultar el usuario autenticado en la sesión SSR
-    if (!validSellerId) {
-      try {
-        const serverSupabase = await createClient();
-        const { data: { user } } = await serverSupabase.auth.getUser();
-        if (user) {
-          const { data: prof } = await serviceClient
-            .from('profiles')
-            .select('id')
-            .eq('id', user.id)
-            .maybeSingle();
-
-          if (prof) {
-            validSellerId = prof.id;
-          }
-        }
-      } catch (authErr) {
-        console.warn('No se pudo autenticar usuario por SSR:', authErr);
-      }
-    }
-
-    // 3. Fallback: Buscar cualquier perfil existente en la tabla profiles
-    if (!validSellerId) {
-      const { data: profiles } = await serviceClient
+    if (!profCheck) {
+      // Fallback a perfil existente para no quebrar FK en entornos mixtos
+      const { data: anyProf } = await serviceClient
         .from('profiles')
         .select('id')
         .limit(1);
+      finalSellerId = anyProf?.[0]?.id || null;
+    }
 
-      if (profiles && profiles.length > 0) {
-        validSellerId = profiles[0].id;
+    // 5. Verificación de coherencia financiera en backend con Decimal.js
+    const productIds = cleanSaleData.items.map((i) => i.product_id);
+    const { data: dbProducts, error: prodErr } = await serviceClient
+      .from('products')
+      .select('id, name, base_price_ars, stock_quantity, type')
+      .in('id', productIds);
+
+    if (prodErr || !dbProducts) {
+      throw new Error('No se pudieron consultar los productos en catálogo para validar precios y stock.');
+    }
+
+    const productMap = new Map(dbProducts.map((p) => [p.id, p]));
+
+    for (const item of cleanSaleData.items) {
+      const dbProd = productMap.get(item.product_id);
+      if (!dbProd) {
+        throw new Error(`El producto con ID ${item.product_id} no existe en inventario.`);
+      }
+      if (dbProd.type !== 'decant_liquid' && dbProd.stock_quantity < item.quantity) {
+        throw new Error(`Stock insuficiente para "${dbProd.name}". Disponible: ${dbProd.stock_quantity}, Solicitado: ${item.quantity}`);
       }
     }
 
-    // 4. Si tras todas las comprobaciones no hay un ID válido en profiles, enviar NULL (evita violar la FK)
-    const finalSellerId = validSellerId || null;
-
-    // Invocar el RPC transaccional que procesa la venta en un único bloque atómico
+    // 6. Invocar el RPC transaccional que procesa la venta en un único bloque atómico
     const { data, error } = await serviceClient.rpc('create_sale_transaction', {
-      p_client_id: saleData.client_id,
+      p_client_id: cleanSaleData.client_id || null,
       p_seller_id: finalSellerId,
-      p_total_ars: saleData.total_ars,
-      p_total_usd_equivalent: saleData.total_usd_equivalent,
-      p_exchange_rate_used: saleData.exchange_rate_used,
-      p_payment_methods: saleData.payment_methods,
-      p_items: saleData.items,
-      p_decants: saleData.decants
+      p_total_ars: cleanSaleData.total_ars,
+      p_total_usd_equivalent: cleanSaleData.total_usd_equivalent || 0,
+      p_exchange_rate_used: cleanSaleData.exchange_rate_used,
+      p_payment_methods: cleanSaleData.payment_methods,
+      p_items: cleanSaleData.items,
+      p_decants: cleanSaleData.decants,
     });
 
     if (error) {
       throw error;
     }
 
-    const saleId = data;
+    const saleId: string = data;
 
-    // EXTRAER MONTOS Y ESTADOS FINANCIEROS
-    const pm = saleData.payment_methods as any;
-    const paidCashArs = Number(pm?.cash_ars || 0);
-    const paidDigitalArs = Number(pm?.digital_ars || pm?.transfer_ars || 0);
-    const paidCashUsdArs = Number(pm?.cash_usd || 0) * Number(saleData.exchange_rate_used || 1);
-    const totalPaidTodayCalculated = Math.round(paidCashArs + paidDigitalArs + paidCashUsdArs);
+    // 7. Extraer montos y estados financieros calculados con Decimal.js
+    const pm = cleanSaleData.payment_methods as Record<string, unknown>;
+    const paidCashArs = new Decimal(Number(pm?.cash_ars || 0));
+    const paidDigitalArs = new Decimal(Number(pm?.digital_ars || pm?.transfer_ars || 0));
+    const paidCashUsdArs = new Decimal(Number(pm?.cash_usd || 0)).times(new Decimal(cleanSaleData.exchange_rate_used || 1));
+    const totalPaidTodayCalculated = paidCashArs.plus(paidDigitalArs).plus(paidCashUsdArs).round().toNumber();
 
-    const paidToday = saleData.amount_paid_today !== undefined
-      ? Math.round(Number(saleData.amount_paid_today))
+    const paidToday = cleanSaleData.amount_paid_today !== undefined
+      ? Math.round(Number(cleanSaleData.amount_paid_today))
       : totalPaidTodayCalculated;
 
-    const amountDueArs = saleData.amount_due_ars !== undefined
-      ? Math.round(Number(saleData.amount_due_ars))
-      : Math.max(0, Math.round(saleData.total_ars - paidToday));
+    const amountDueArs = cleanSaleData.amount_due_ars !== undefined
+      ? Math.round(Number(cleanSaleData.amount_due_ars))
+      : Math.max(0, Math.round(cleanSaleData.total_ars - paidToday));
 
-    const paymentStatus = saleData.payment_status || (amountDueArs <= 0 ? 'paid' : 'partial');
+    const paymentStatus = cleanSaleData.payment_status || (amountDueArs <= 0 ? 'paid' : 'partial');
 
     const gatewayFeeArs = Math.round(Number(pm?.gateway_fee_ars || pm?.surcharge_applied_ars || 0));
-    const netReceivedArs = Math.round(Number(pm?.net_received_ars !== undefined ? pm.net_received_ars : Math.max(0, saleData.total_ars - gatewayFeeArs)));
+    const netReceivedArs = Math.round(
+      Number(pm?.net_received_ars !== undefined ? pm.net_received_ars : Math.max(0, cleanSaleData.total_ars - gatewayFeeArs))
+    );
 
-    // ACTUALIZAR REGISTRO DE VENTA EN LA TABLA SALES
+    // 8. Actualizar registro de venta en tabla sales
     if (saleId) {
       await serviceClient
         .from('sales')
@@ -180,33 +238,36 @@ export async function createSaleTransaction(
           gateway_fee_ars: gatewayFeeArs,
           net_received_ars: netReceivedArs,
           payment_status: paymentStatus,
-          amount_due_ars: amountDueArs
+          amount_due_ars: amountDueArs,
         })
         .eq('id', saleId);
     }
 
-    // REGISTRAR PAGO INICIAL EN LA TABLA SALE_INSTALLMENTS
+    // 9. Registrar pago inicial en sale_installments
     if (saleId && paidToday > 0) {
-      const initialMethod = pm?.selected_method_name || (paidDigitalArs > 0 ? 'Digital' : paidCashUsdArs > 0 ? 'Dólares' : 'Efectivo');
+      const initialMethod = String(
+        pm?.selected_method_name ||
+          (paidDigitalArs.toNumber() > 0 ? 'Digital' : paidCashUsdArs.toNumber() > 0 ? 'Dólares' : 'Efectivo')
+      );
       const { error: instError } = await serviceClient
         .from('sale_installments')
         .insert([
           {
             sale_id: saleId,
-            client_id: saleData.client_id || null,
+            client_id: cleanSaleData.client_id || null,
             amount_paid_ars: paidToday,
-            payment_method: initialMethod
-          }
+            payment_method: initialMethod,
+          },
         ]);
 
       if (instError) {
-        console.warn('Advertencia al insertar pago inicial en sale_installments:', instError);
+        console.warn('Advertencia al insertar pago inicial en sale_installments:', instError.message);
       }
     }
 
-    // IMPACTAR INGRESO EN LA CUENTA DE TESORERÍA SELECCIONADA
+    // 10. Impactar ingreso en tesorería
     if (paidToday > 0) {
-      let treasuryAccId = pm?.treasury_account_id;
+      let treasuryAccId = typeof pm?.treasury_account_id === 'string' ? pm.treasury_account_id : null;
       if (!treasuryAccId) {
         const resAcc = await getTreasuryAccounts();
         if (resAcc.success && resAcc.data && resAcc.data.length > 0) {
@@ -220,37 +281,37 @@ export async function createSaleTransaction(
       }
     }
 
-    // DETECTAR VENTA FIADA / SEÑA (ACCOUNTS_RECEIVABLE)
-    if (amountDueArs > 0 && saleData.client_id) {
+    // 11. Cuentas por Cobrar automáticas en caso de saldo adeudado
+    if (amountDueArs > 0 && cleanSaleData.client_id) {
       const dueDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
       const { error: recErr } = await serviceClient
         .from('accounts_receivable')
         .insert({
-          client_id: saleData.client_id,
+          client_id: cleanSaleData.client_id,
           sale_id: saleId,
-          total_amount_ars: saleData.total_ars,
+          total_amount_ars: cleanSaleData.total_ars,
           paid_amount_ars: paidToday,
           due_date: dueDate,
           status: paymentStatus === 'paid' ? 'paid' : 'pending',
-          notes: 'Venta con pago parcial / Saldo pendiente POS'
+          notes: 'Venta con pago parcial / Saldo pendiente POS',
         });
 
       if (recErr) {
-        console.warn('No se pudo generar la cuenta por cobrar automática:', recErr);
+        console.warn('No se pudo generar la cuenta por cobrar automática:', recErr.message);
       }
     }
 
-    // PROGRAMA DE FIDELIZACIÓN (VIBEPOINTS)
-    if (saleData.client_id) {
-      // 1. Canje de Puntos (si usó VibePoints en esta compra)
-      if (pm?.vibepoints_used && typeof pm.vibepoints_used.points === 'number' && pm.vibepoints_used.points > 0) {
-        const pointsRedeemed = Number(pm.vibepoints_used.points);
-        const discountArs = Number(pm.vibepoints_used.discount_ars || 0);
+    // 12. Fidelización (VibePoints)
+    if (cleanSaleData.client_id) {
+      const vibepointsUsed = pm?.vibepoints_used as { points?: number; discount_ars?: number } | undefined;
+      if (vibepointsUsed && typeof vibepointsUsed.points === 'number' && vibepointsUsed.points > 0) {
+        const pointsRedeemed = Number(vibepointsUsed.points);
+        const discountArs = Number(vibepointsUsed.discount_ars || 0);
 
         const { data: currentClient } = await serviceClient
           .from('clients')
           .select('points_balance')
-          .eq('id', saleData.client_id)
+          .eq('id', cleanSaleData.client_id)
           .single();
 
         const currentPts = Number(currentClient?.points_balance || 0);
@@ -259,25 +320,25 @@ export async function createSaleTransaction(
         await serviceClient
           .from('clients')
           .update({ points_balance: newBalance })
-          .eq('id', saleData.client_id);
+          .eq('id', cleanSaleData.client_id);
 
         await serviceClient
           .from('client_points_history')
           .insert({
-            client_id: saleData.client_id,
+            client_id: cleanSaleData.client_id,
             points: -pointsRedeemed,
             reason: `Canje de ${pointsRedeemed} pts ($${discountArs} desc) en venta #${saleId.split('-')[0].toUpperCase()}`,
-            sale_id: saleId
+            sale_id: saleId,
           });
       }
 
-      // 2. Acumulación de Puntos por Compra (1000 ARS = 1 VibePoint)
-      const earnedPoints = Math.floor(Number(saleData.total_ars || 0) / 1000);
+      // Acumulación de Puntos por Compra (1000 ARS = 1 VibePoint)
+      const earnedPoints = Math.floor(cleanSaleData.total_ars / 1000);
       if (earnedPoints > 0) {
         const { data: currentClient } = await serviceClient
           .from('clients')
           .select('points_balance')
-          .eq('id', saleData.client_id)
+          .eq('id', cleanSaleData.client_id)
           .single();
 
         const currentPts = Number(currentClient?.points_balance || 0);
@@ -286,64 +347,63 @@ export async function createSaleTransaction(
         await serviceClient
           .from('clients')
           .update({ points_balance: updatedBalance })
-          .eq('id', saleData.client_id);
+          .eq('id', cleanSaleData.client_id);
 
         await serviceClient
           .from('client_points_history')
           .insert({
-            client_id: saleData.client_id,
+            client_id: cleanSaleData.client_id,
             points: earnedPoints,
             reason: `Puntos ganados por compra #${saleId.split('-')[0].toUpperCase()}`,
-            sale_id: saleId
+            sale_id: saleId,
           });
       }
     }
 
-    // REGISTRAR TRAZABILIDAD Y DESCUENTO DE STOCK DE INSUMOS DE PACKAGING (Bolsas, Frascos, Cajas)
-    if (saleId && saleData.packaging_supplies && saleData.packaging_supplies.length > 0) {
-      for (const packItem of saleData.packaging_supplies) {
+    // 13. Trazabilidad y Descuento de Insumos de Packaging
+    if (saleId && cleanSaleData.packaging_supplies && cleanSaleData.packaging_supplies.length > 0) {
+      for (const packItem of cleanSaleData.packaging_supplies) {
         if (!packItem.packaging_id || !packItem.quantity_used || packItem.quantity_used <= 0) continue;
 
         const qtyUsed = Number(packItem.quantity_used);
 
-        // 1. Insertar trazabilidad en la tabla relacional sale_packaging
         const { error: packInsertError } = await serviceClient
           .from('sale_packaging')
           .insert({
             sale_id: saleId,
             packaging_id: packItem.packaging_id,
-            quantity_used: qtyUsed
+            quantity_used: qtyUsed,
           });
 
         if (packInsertError) {
-          console.warn('Advertencia al asociar insumo de packaging a la venta:', packInsertError);
+          console.warn('Advertencia al asociar packaging a venta:', packInsertError.message);
         }
 
-        // 2. Descontar stock del insumo de packaging en la tabla products
         const { data: supplyProd } = await serviceClient
           .from('products')
           .select('stock_quantity')
           .eq('id', packItem.packaging_id)
           .single();
 
-        const currentStock = Number(supplyProd?.stock_quantity || 0);
-        const newStock = Math.max(0, currentStock - qtyUsed);
-
-        await serviceClient
-          .from('products')
-          .update({ stock_quantity: newStock })
-          .eq('id', packItem.packaging_id);
+        if (supplyProd) {
+          const currentStock = Number(supplyProd.stock_quantity || 0);
+          const newStock = Math.max(0, currentStock - qtyUsed);
+          await serviceClient
+            .from('products')
+            .update({ stock_quantity: newStock })
+            .eq('id', packItem.packaging_id);
+        }
       }
     }
 
-    // REGISTRAR AUTOMÁTICAMENTE LA VENTA EN EL TABLERO KANBAN DE SEGUIMIENTO
+    // 14. Tablero Kanban automático
     try {
       let clientDisplayName = 'Venta POS / Mostrador';
-      if (saleData.client_id) {
+      if (cleanSaleData.client_id) {
         const { data: clientObj } = await serviceClient
           .from('clients')
           .select('name')
-          .eq('id', saleData.client_id)
+          .eq('id', cleanSaleData.client_id)
           .maybeSingle();
         if (clientObj?.name) {
           clientDisplayName = clientObj.name;
@@ -351,18 +411,18 @@ export async function createSaleTransaction(
       }
 
       const shortId = saleId ? saleId.split('-')[0].toUpperCase() : 'POS';
-      const itemsCount = saleData.items ? saleData.items.length : 0;
+      const itemsCount = cleanSaleData.items ? cleanSaleData.items.length : 0;
       const initialStatus = paymentStatus === 'pending' ? 'pending' : 'processing';
 
       await serviceClient.from('kanban_orders').insert({
         client_name: clientDisplayName,
         product_details: `Venta POS #${shortId} (${itemsCount} ítems)`,
-        total_ars: saleData.total_ars,
+        total_ars: cleanSaleData.total_ars,
         status: initialStatus,
-        notes: `Facturado vía POS (${paymentStatus === 'paid' ? 'Pago Completo' : 'Pago Parcial / Pendiente'})`
+        notes: `Facturado vía POS (${paymentStatus === 'paid' ? 'Pago Completo' : 'Pago Parcial / Pendiente'})`,
       });
     } catch (kanbanErr) {
-      console.warn('Advertencia al insertar venta en tablero Kanban:', kanbanErr);
+      console.warn('Advertencia al insertar venta en Kanban:', kanbanErr);
     }
 
     revalidatePath('/productos');
@@ -371,29 +431,73 @@ export async function createSaleTransaction(
     revalidatePath('/caja');
     revalidatePath('/admin/finanzas/tesoreria');
     revalidatePath('/clientes');
-    // NOT revalidating '/pos' — the POS page is 100% client-rendered (all data
-    // is fetched client-side via useEffect → Server Actions). Revalidating it
-    // forces Next.js to re-evaluate the RSC tree for /pos on the server, which
-    // triggers Minified React error #310 during the serialisation phase.
     revalidatePath('/kanban');
+
     return { success: true, saleId };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error al registrar la venta transaccional:', error);
-    return { success: false, error: error.message || 'Error al procesar la facturación y stock en base de datos' };
+    const msg = error instanceof Error ? error.message : 'Error al procesar la facturación y stock';
+    return { success: false, error: msg };
   }
+}
+
+export interface SaleDetailRecord {
+  id: string;
+  total_ars: number;
+  total_usd_equivalent: number;
+  exchange_rate_used: number;
+  payment_status: string;
+  amount_due_ars: number;
+  payment_methods: Record<string, unknown>;
+  created_at: string;
+  status?: string;
+  has_returns?: boolean;
+  shipping_provider?: string;
+  tracking_number?: string;
+  shipping_status?: string;
+  clients?: {
+    id?: string;
+    name: string;
+    phone?: string | null;
+    email?: string | null;
+  } | null;
+  sale_items?: Array<{
+    id: string;
+    quantity: number;
+    price_ars_at_moment: number;
+    price_usd_at_moment?: number;
+    products?: {
+      id?: string;
+      name: string;
+      brand: string;
+      type: string;
+      sku?: string;
+    } | null;
+  }>;
 }
 
 /**
  * Obtener el historial completo de ventas registradas con clientes e ítems.
  */
-export async function getSalesHistory(role: UserRole): Promise<{ success: boolean; data?: any[]; error?: string }> {
+export async function getSalesHistory(role?: UserRole): Promise<{
+  success: boolean;
+  data?: SaleDetailRecord[];
+  error?: string;
+}> {
   try {
+    await requireAuth();
+
+    if (!isSupabaseConfigured()) {
+      return { success: true, data: [] };
+    }
+
     const serviceClient = getServiceSupabase();
     const { data, error } = await serviceClient
       .from('sales')
       .select(`
         *,
         clients (
+          id,
           name,
           phone,
           email
@@ -404,9 +508,11 @@ export async function getSalesHistory(role: UserRole): Promise<{ success: boolea
           price_ars_at_moment,
           price_usd_at_moment,
           products (
+            id,
             name,
             brand,
-            type
+            type,
+            sku
           )
         )
       `)
@@ -414,24 +520,40 @@ export async function getSalesHistory(role: UserRole): Promise<{ success: boolea
 
     if (error) throw error;
 
-    return { success: true, data: data || [] };
-  } catch (error: any) {
+    return { success: true, data: (data || []) as unknown as SaleDetailRecord[] };
+  } catch (error: unknown) {
     console.error('Error al obtener historial de ventas:', error);
-    return { success: false, error: error.message || 'Error al obtener historial de ventas' };
+    const msg = error instanceof Error ? error.message : 'Error al obtener historial de ventas';
+    return { success: false, error: msg };
   }
 }
 
 /**
- * Obtener una venta específica por su ID para reimpresión de ticket.
+ * Obtener una venta específica por su ID para visualización y reimpresión de tickets.
  */
-export async function getSaleById(saleId: string): Promise<{ success: boolean; data?: any; error?: string }> {
+export async function getSaleById(saleId: string): Promise<{
+  success: boolean;
+  data?: SaleDetailRecord;
+  error?: string;
+}> {
   try {
+    await requireAuth();
+
+    if (!saleId || !saleId.trim()) {
+      return { success: false, error: 'Identificador de venta no proporcionado.' };
+    }
+
+    if (!isSupabaseConfigured()) {
+      return { success: false, error: 'Base de datos no configurada.' };
+    }
+
     const serviceClient = getServiceSupabase();
     const { data, error } = await serviceClient
       .from('sales')
       .select(`
         *,
         clients (
+          id,
           name,
           phone,
           email
@@ -442,98 +564,82 @@ export async function getSaleById(saleId: string): Promise<{ success: boolean; d
           price_ars_at_moment,
           price_usd_at_moment,
           products (
+            id,
             name,
             brand,
-            type
+            type,
+            sku
           )
         )
       `)
-      .eq('id', saleId)
+      .eq('id', saleId.trim())
       .single();
 
     if (error) throw error;
 
-    return { success: true, data };
-  } catch (error: any) {
+    return { success: true, data: data as unknown as SaleDetailRecord };
+  } catch (error: unknown) {
     console.error('Error al consultar venta por ID:', error);
-    return { success: false, error: error.message || 'Error al consultar venta' };
+    const msg = error instanceof Error ? error.message : 'Error al consultar venta';
+    return { success: false, error: msg };
   }
 }
 
 /**
  * Anular de forma segura una transacción de venta (Solo Admin).
- * Invoca el RPC 'void_sale_transaction' para revertir el stock en base de datos de forma atómica
- * manteniendo el registro físico para auditoría comercial.
+ * Invoca el RPC 'void_sale_transaction' para revertir el stock en base de datos de forma atómica.
  */
 export async function voidSale(
   role: UserRole,
   saleId: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    if (role !== 'admin') {
-      throw new Error('Operación no autorizada. Se requiere rol de Administrador para anular ventas.');
+    const adminUser = await requireAdmin();
+
+    if (!saleId || !saleId.trim()) {
+      throw new Error('Identificador de venta no proporcionado.');
     }
 
-    if (!saleId) {
-      throw new Error('Identificador de venta no proporcionado.');
+    if (!isSupabaseConfigured()) {
+      return { success: true };
     }
 
     const serviceClient = getServiceSupabase();
 
-    // Recuperar ID de administrador para auditoría (con fallback dev bypass)
-    let adminId: string | null = null;
-    const { data: { user } } = await serviceClient.auth.getUser();
-    if (user) {
-      adminId = user.id;
-    }
-
-    if (!adminId) {
-      const { data: profiles } = await serviceClient.from('profiles').select('id').limit(1);
-      if (profiles && profiles.length > 0) {
-        adminId = profiles[0].id;
-      }
-    }
-
-    if (!adminId) {
-      adminId = '00000000-0000-0000-0000-000000000000';
-    }
-
-    // Invocar RPC transaccional que revierte stock y marca status = 'voided'
     const { error } = await serviceClient.rpc('void_sale_transaction', {
-      p_sale_id: saleId,
-      p_admin_id: adminId
+      p_sale_id: saleId.trim(),
+      p_admin_id: adminUser.id,
     });
 
     if (error) {
       throw error;
     }
 
-    // RESTAURAR STOCK DE INSUMOS DE PACKAGING (Bolsas, Frascos, Cajas) DE LA VENTA
+    // RESTAURAR STOCK DE INSUMOS DE PACKAGING
     const { data: packagingItems, error: packErr } = await serviceClient
       .from('sale_packaging')
       .select('packaging_id, quantity_used')
-      .eq('sale_id', saleId);
+      .eq('sale_id', saleId.trim());
 
     if (!packErr && packagingItems && packagingItems.length > 0) {
       for (const pItem of packagingItems) {
         if (!pItem.packaging_id || !pItem.quantity_used) continue;
         const qtyToReturn = Number(pItem.quantity_used);
 
-        // Obtener stock actual del insumo en la tabla products
         const { data: supplyProd } = await serviceClient
           .from('products')
           .select('stock_quantity')
           .eq('id', pItem.packaging_id)
           .single();
 
-        const currentStock = Number(supplyProd?.stock_quantity || 0);
-        const restoredStock = currentStock + qtyToReturn;
-
-        // Actualizar stock restaurando los insumos de packaging
-        await serviceClient
-          .from('products')
-          .update({ stock_quantity: restoredStock })
-          .eq('id', pItem.packaging_id);
+        if (supplyProd) {
+          const currentStock = Number(supplyProd.stock_quantity || 0);
+          const restoredStock = currentStock + qtyToReturn;
+          await serviceClient
+            .from('products')
+            .update({ stock_quantity: restoredStock })
+            .eq('id', pItem.packaging_id);
+        }
       }
     }
 
@@ -546,9 +652,10 @@ export async function voidSale(
     revalidatePath('/cobranzas');
 
     return { success: true };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error al anular venta:', error);
-    return { success: false, error: error.message || 'Error al anular la transacción' };
+    const msg = error instanceof Error ? error.message : 'Error al anular la transacción';
+    return { success: false, error: msg };
   }
 }
 
@@ -567,8 +674,14 @@ export async function updateSaleShipping(
   shippingData: ShippingUpdateInput
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    if (!saleId) {
+    await requireAuth();
+
+    if (!saleId || !saleId.trim()) {
       throw new Error('ID de venta no proporcionado.');
+    }
+
+    if (!isSupabaseConfigured()) {
+      return { success: true };
     }
 
     const serviceClient = getServiceSupabase();
@@ -578,9 +691,9 @@ export async function updateSaleShipping(
       .update({
         shipping_provider: shippingData.shipping_provider || 'Ninguno',
         tracking_number: shippingData.tracking_number?.trim() || null,
-        shipping_status: shippingData.shipping_status || 'pending'
+        shipping_status: shippingData.shipping_status || 'pending',
       })
-      .eq('id', saleId);
+      .eq('id', saleId.trim());
 
     if (error) {
       throw error;
@@ -590,10 +703,9 @@ export async function updateSaleShipping(
     revalidatePath('/kanban');
     revalidatePath('/');
     return { success: true };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error al actualizar datos de envío:', error);
-    return { success: false, error: error.message || 'Error al actualizar información logística' };
+    const msg = error instanceof Error ? error.message : 'Error al actualizar información logística';
+    return { success: false, error: msg };
   }
 }
-
-

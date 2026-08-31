@@ -1,9 +1,11 @@
 'use server';
 
-import { getServiceSupabase, supabase } from '@/lib/supabase';
+import { getServiceSupabase, isSupabaseConfigured } from '@/lib/supabase';
 import { UserRole } from '@/types';
 import { revalidatePath } from 'next/cache';
 import { withdrawFromAccount, getTreasuryAccounts } from '@/app/actions/treasury';
+import { requireAuth } from '@/lib/auth-checks';
+import { returnProcessInputSchema } from '@/lib/sales-validation';
 
 export interface ReturnProcessInput {
   sale_id: string;
@@ -12,79 +14,100 @@ export interface ReturnProcessInput {
   refund_amount_ars: number;
 }
 
+interface SaleForReturn {
+  id: string;
+  total_ars: number;
+  status?: string;
+  has_returns?: boolean;
+  client_id?: string | null;
+  payment_methods?: Record<string, unknown>;
+  sale_items?: Array<{
+    product_id: string;
+    quantity: number;
+  }>;
+}
+
 /**
- * Procesar una devolución de venta en un flujo atómico:
+ * Procesar una devolución de venta en un flujo atómico y seguro:
  * 1. Inserta el registro en la tabla `returns`.
  * 2. Actualiza la venta original marcando `has_returns = true`.
  * 3. Si `restock_item === true`, restituye el stock a los productos asociados.
  * 4. Si la venta utilizó o acumuló VibePoints, reintegra/ajusta los puntos del cliente.
- * 5. Registra un movimiento de egreso (`type = 'out'`) en la caja chica activa.
+ * 5. Registra un movimiento de egreso en la cuenta de tesorería.
  */
 export async function processReturn(
   role: UserRole,
   input: ReturnProcessInput
 ): Promise<{ success: boolean; returnId?: string; error?: string }> {
   try {
-    if (!input.sale_id) {
-      throw new Error('El ID de la venta es obligatorio.');
+    const currentUser = await requireAuth();
+
+    const validation = returnProcessInputSchema.safeParse(input);
+    if (!validation.success) {
+      const firstError = validation.error.issues[0]?.message || 'Datos de devolución inválidos.';
+      return { success: false, error: firstError };
     }
 
-    if (!input.return_reason || !input.return_reason.trim()) {
-      throw new Error('Debes indicar el motivo de la devolución.');
-    }
+    const { sale_id, return_reason, restock_item, refund_amount_ars } = validation.data;
 
-    const refundAmount = Math.round(Number(input.refund_amount_ars || 0));
-    if (refundAmount < 0) {
-      throw new Error('El monto a reintegrar no puede ser negativo.');
+    if (!isSupabaseConfigured()) {
+      return { success: true, returnId: 'mock-return-id' };
     }
 
     const serviceClient = getServiceSupabase();
 
     // 1. Obtener la venta objetivo con sus ítems
-    const { data: sale, error: saleErr } = await serviceClient
+    const { data: saleData, error: saleErr } = await serviceClient
       .from('sales')
       .select(`
-        *,
+        id,
+        total_ars,
+        status,
+        has_returns,
+        client_id,
+        payment_methods,
         sale_items (
           product_id,
           quantity
         )
       `)
-      .eq('id', input.sale_id)
+      .eq('id', sale_id)
       .single();
 
-    if (saleErr || !sale) {
-      throw new Error('No se encontró la venta especificada.');
+    if (saleErr || !saleData) {
+      throw new Error('No se encontró la venta especificada para devolución.');
     }
 
+    const sale = saleData as unknown as SaleForReturn;
+
     if (sale.status === 'voided') {
-      throw new Error('No se puede procesar una devolución sobre una venta anulada.');
+      throw new Error('No se puede procesar una devolución sobre una venta que ya ha sido anulada.');
     }
 
     if (sale.has_returns) {
       throw new Error('Esta venta ya posee una devolución procesada previamente.');
     }
 
-    // Identificar usuario actual que procesa
-    let userId = null;
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) userId = user.id;
+    if (refund_amount_ars > sale.total_ars) {
+      throw new Error(`El monto a devolver ($${refund_amount_ars}) no puede superar el total facturado ($${sale.total_ars}).`);
+    }
 
     const productId = sale.sale_items?.[0]?.product_id || null;
+    const initialQuantity = sale.sale_items?.[0]?.quantity || 1;
 
     // 2. Insertar registro en la tabla `returns`
     const { data: returnRecord, error: returnErr } = await serviceClient
       .from('returns')
       .insert([
         {
-          sale_id: input.sale_id,
+          sale_id,
           product_id: productId,
-          quantity: sale.sale_items?.[0]?.quantity || 1,
-          refund_amount_ars: refundAmount,
-          return_reason: input.return_reason.trim(),
-          restock_item: Boolean(input.restock_item),
-          processed_by: userId
-        }
+          quantity: initialQuantity,
+          refund_amount_ars,
+          return_reason,
+          restock_item,
+          processed_by: currentUser.id,
+        },
       ])
       .select('id')
       .single();
@@ -97,12 +120,12 @@ export async function processReturn(
     const { error: updateSaleErr } = await serviceClient
       .from('sales')
       .update({ has_returns: true })
-      .eq('id', input.sale_id);
+      .eq('id', sale_id);
 
     if (updateSaleErr) throw updateSaleErr;
 
     // 4. Si restock_item === true, devolver el stock a la tabla `products`
-    if (input.restock_item && sale.sale_items && sale.sale_items.length > 0) {
+    if (restock_item && sale.sale_items && sale.sale_items.length > 0) {
       for (const item of sale.sale_items) {
         if (item.product_id && item.quantity > 0) {
           const { data: prod } = await serviceClient
@@ -124,11 +147,12 @@ export async function processReturn(
 
     // 5. Ajuste de VibePoints si la venta tuvo cliente asociado
     if (sale.client_id) {
-      const pm = sale.payment_methods as any;
+      const pm = sale.payment_methods as Record<string, unknown> | undefined;
+      const vibepointsUsed = pm?.vibepoints_used as { points?: number } | undefined;
 
       // Restablecer VibePoints canjeados
-      if (pm?.vibepoints_used && typeof pm.vibepoints_used.points === 'number' && pm.vibepoints_used.points > 0) {
-        const ptsToRestore = Number(pm.vibepoints_used.points);
+      if (vibepointsUsed && typeof vibepointsUsed.points === 'number' && vibepointsUsed.points > 0) {
+        const ptsToRestore = Number(vibepointsUsed.points);
         const { data: client } = await serviceClient
           .from('clients')
           .select('points_balance')
@@ -147,8 +171,8 @@ export async function processReturn(
             .insert({
               client_id: sale.client_id,
               points: ptsToRestore,
-              reason: `Devolución de ${ptsToRestore} pts por devolución ticket #${input.sale_id.split('-')[0].toUpperCase()}`,
-              sale_id: input.sale_id
+              reason: `Devolución de ${ptsToRestore} pts por devolución ticket #${sale_id.split('-')[0].toUpperCase()}`,
+              sale_id,
             });
         }
       }
@@ -175,18 +199,18 @@ export async function processReturn(
             .insert({
               client_id: sale.client_id,
               points: -earnedPoints,
-              reason: `Ajuste por devolución ticket #${input.sale_id.split('-')[0].toUpperCase()}`,
-              sale_id: input.sale_id
+              reason: `Ajuste por devolución ticket #${sale_id.split('-')[0].toUpperCase()}`,
+              sale_id,
             });
         }
       }
     }
 
     // 6. Registro de egreso en Tesorería & Cuentas
-    if (refundAmount > 0) {
+    if (refund_amount_ars > 0) {
       const resAcc = await getTreasuryAccounts();
       if (resAcc.success && resAcc.data && resAcc.data.length > 0) {
-        await withdrawFromAccount(resAcc.data[0].id, refundAmount);
+        await withdrawFromAccount(resAcc.data[0].id, refund_amount_ars);
       }
     }
 
@@ -199,8 +223,9 @@ export async function processReturn(
     revalidatePath('/clientes');
 
     return { success: true, returnId: returnRecord?.id };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error al procesar la devolución:', error);
-    return { success: false, error: error.message || 'Error al procesar la devolución' };
+    const msg = error instanceof Error ? error.message : 'Error al procesar la devolución';
+    return { success: false, error: msg };
   }
 }
