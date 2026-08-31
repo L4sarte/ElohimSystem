@@ -1,8 +1,14 @@
 'use server';
 
-import { getServiceSupabase } from '@/lib/supabase';
+import { getServiceSupabase, isSupabaseConfigured } from '@/lib/supabase';
 import { UserRole } from '@/types';
 import { revalidatePath } from 'next/cache';
+import { requireAdmin, requireAuth } from '@/lib/auth-checks';
+import {
+  createTreasuryAccountSchema,
+  updateAccountBalanceSchema,
+  treasuryTransferSchema,
+} from '@/lib/cash-validation';
 
 export interface TreasuryAccount {
   id: string;
@@ -22,11 +28,50 @@ export interface TreasuryMovement {
   created_at: string;
 }
 
+interface DbTreasuryAccountRow {
+  id: string;
+  account_name: string;
+  account_type: string;
+  balance_ars: number | null;
+  is_active: boolean | null;
+  created_at: string;
+}
+
 /**
  * Obtener todas las cuentas de tesorería activas.
  */
-export async function getTreasuryAccounts(): Promise<{ success: boolean; data?: TreasuryAccount[]; error?: string }> {
+export async function getTreasuryAccounts(): Promise<{
+  success: boolean;
+  data?: TreasuryAccount[];
+  error?: string;
+}> {
   try {
+    await requireAuth();
+
+    if (!isSupabaseConfigured()) {
+      return {
+        success: true,
+        data: [
+          {
+            id: 'mock-acc-1',
+            account_name: 'Caja Efectivo Local',
+            account_type: 'cash',
+            balance_ars: 150000,
+            is_active: true,
+            created_at: new Date().toISOString(),
+          },
+          {
+            id: 'mock-acc-2',
+            account_name: 'Mercado Pago Principal',
+            account_type: 'wallet',
+            balance_ars: 450000,
+            is_active: true,
+            created_at: new Date().toISOString(),
+          },
+        ],
+      };
+    }
+
     const supabase = getServiceSupabase();
     const { data, error } = await supabase
       .from('treasury_accounts')
@@ -36,47 +81,74 @@ export async function getTreasuryAccounts(): Promise<{ success: boolean; data?: 
 
     if (error) throw error;
 
-    return { 
-      success: true, 
-      data: (data || []).map(acc => ({
-        ...acc,
-        balance_ars: Number(acc.balance_ars || 0)
-      }))
+    const rows = (data || []) as unknown as DbTreasuryAccountRow[];
+    return {
+      success: true,
+      data: rows.map((acc) => ({
+        id: acc.id,
+        account_name: acc.account_name,
+        account_type: acc.account_type,
+        balance_ars: Number(acc.balance_ars || 0),
+        is_active: Boolean(acc.is_active),
+        created_at: acc.created_at,
+      })),
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error al obtener cuentas de tesorería:', error);
-    return { success: false, error: error.message || 'Error al consultar tesorería' };
+    const msg = error instanceof Error ? error.message : 'Error al consultar tesorería';
+    return { success: false, error: msg };
   }
 }
 
 /**
- * Crear una nueva cuenta bancaria / billetera virtual en Tesorería.
+ * Crear una nueva cuenta bancaria / billetera virtual en Tesorería (Solo Admin).
  */
 export async function createTreasuryAccount(
   role: UserRole,
   input: { account_name: string; account_type: string; initial_balance_ars?: number }
 ): Promise<{ success: boolean; data?: TreasuryAccount; error?: string }> {
   try {
-    if (role !== 'admin') {
-      throw new Error('Solo los administradores pueden crear cuentas de tesorería.');
+    await requireAdmin();
+
+    const validation = createTreasuryAccountSchema.safeParse({
+      account_name: input.account_name,
+      account_type: input.account_type,
+      initial_balance_ars: input.initial_balance_ars || 0,
+    });
+
+    if (!validation.success) {
+      const firstError = validation.error.issues[0]?.message || 'Datos de cuenta inválidos.';
+      return { success: false, error: firstError };
     }
 
-    if (!input.account_name || !input.account_name.trim()) {
-      throw new Error('El nombre de la cuenta es obligatorio.');
+    const { account_name, account_type, initial_balance_ars } = validation.data;
+
+    if (!isSupabaseConfigured()) {
+      return {
+        success: true,
+        data: {
+          id: 'mock-acc-new',
+          account_name,
+          account_type,
+          balance_ars: Math.round(initial_balance_ars),
+          is_active: true,
+          created_at: new Date().toISOString(),
+        },
+      };
     }
 
     const supabase = getServiceSupabase();
-    const initialBalance = Math.round(Number(input.initial_balance_ars || 0));
+    const initialBalance = Math.round(initial_balance_ars);
 
     const { data, error } = await supabase
       .from('treasury_accounts')
       .insert([
         {
-          account_name: input.account_name.trim(),
-          account_type: input.account_type || 'wallet',
+          account_name,
+          account_type,
           balance_ars: initialBalance,
-          is_active: true
-        }
+          is_active: true,
+        },
       ])
       .select('*')
       .single();
@@ -84,15 +156,16 @@ export async function createTreasuryAccount(
     if (error) throw error;
 
     revalidatePath('/admin/finanzas/tesoreria');
-    return { success: true, data };
-  } catch (error: any) {
+    return { success: true, data: data as unknown as TreasuryAccount };
+  } catch (error: unknown) {
     console.error('Error al crear cuenta de tesorería:', error);
-    return { success: false, error: error.message || 'Error al crear cuenta' };
+    const msg = error instanceof Error ? error.message : 'Error al crear cuenta';
+    return { success: false, error: msg };
   }
 }
 
 /**
- * Realizar un ajuste manual directo en el saldo de una cuenta.
+ * Realizar un ajuste manual directo en el saldo de una cuenta (Solo Admin).
  */
 export async function updateAccountBalance(
   role: UserRole,
@@ -101,32 +174,45 @@ export async function updateAccountBalance(
   reason: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    if (role !== 'admin') {
-      throw new Error('Operación restringida a Administradores.');
+    await requireAdmin();
+
+    const validation = updateAccountBalanceSchema.safeParse({
+      accountId,
+      newBalanceArs,
+      reason,
+    });
+
+    if (!validation.success) {
+      const firstError = validation.error.issues[0]?.message || 'Parámetros de ajuste inválidos.';
+      return { success: false, error: firstError };
     }
 
-    if (!accountId) throw new Error('ID de cuenta no proporcionado.');
-    if (isNaN(newBalanceArs)) throw new Error('Saldo inválido.');
+    const clean = validation.data;
+
+    if (!isSupabaseConfigured()) {
+      return { success: true };
+    }
 
     const supabase = getServiceSupabase();
 
     const { error } = await supabase
       .from('treasury_accounts')
-      .update({ balance_ars: Math.round(newBalanceArs) })
-      .eq('id', accountId);
+      .update({ balance_ars: Math.round(clean.newBalanceArs) })
+      .eq('id', clean.accountId);
 
     if (error) throw error;
 
     revalidatePath('/admin/finanzas/tesoreria');
     return { success: true };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error al ajustar saldo de cuenta:', error);
-    return { success: false, error: error.message || 'Error al ajustar saldo' };
+    const msg = error instanceof Error ? error.message : 'Error al ajustar saldo';
+    return { success: false, error: msg };
   }
 }
 
 /**
- * Transferir fondos de forma atómica entre dos cuentas de tesorería.
+ * Transferir fondos de forma atómica entre dos cuentas de tesorería (Solo Admin).
  */
 export async function transferBetweenAccounts(
   role: UserRole,
@@ -136,17 +222,25 @@ export async function transferBetweenAccounts(
   notes?: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    if (!fromAccountId || !toAccountId) {
-      throw new Error('Debes seleccionar cuenta origen y cuenta destino.');
+    await requireAdmin();
+
+    const validation = treasuryTransferSchema.safeParse({
+      fromAccountId,
+      toAccountId,
+      amount_ars: amountArs,
+      notes,
+    });
+
+    if (!validation.success) {
+      const firstError = validation.error.issues[0]?.message || 'Datos de transferencia inválidos.';
+      return { success: false, error: firstError };
     }
 
-    if (fromAccountId === toAccountId) {
-      throw new Error('La cuenta de origen y destino no pueden ser la misma.');
-    }
+    const clean = validation.data;
+    const amount = Math.round(clean.amount_ars);
 
-    const amount = Math.round(Number(amountArs || 0));
-    if (amount <= 0) {
-      throw new Error('El monto a transferir debe ser mayor a $0 ARS.');
+    if (!isSupabaseConfigured()) {
+      return { success: true };
     }
 
     const supabase = getServiceSupabase();
@@ -155,7 +249,7 @@ export async function transferBetweenAccounts(
     const { data: fromAcc, error: fromErr } = await supabase
       .from('treasury_accounts')
       .select('*')
-      .eq('id', fromAccountId)
+      .eq('id', clean.fromAccountId)
       .single();
 
     if (fromErr || !fromAcc) throw new Error('No se encontró la cuenta de origen.');
@@ -164,7 +258,7 @@ export async function transferBetweenAccounts(
     const { data: toAcc, error: toErr } = await supabase
       .from('treasury_accounts')
       .select('*')
-      .eq('id', toAccountId)
+      .eq('id', clean.toAccountId)
       .single();
 
     if (toErr || !toAcc) throw new Error('No se encontró la cuenta de destino.');
@@ -172,43 +266,51 @@ export async function transferBetweenAccounts(
     const currentFromBal = Number(fromAcc.balance_ars || 0);
     const currentToBal = Number(toAcc.balance_ars || 0);
 
-    // 3. Actualizar Origen (Descontar)
+    // 3. Validar disponibilidad de fondos en origen
+    if (currentFromBal < amount) {
+      throw new Error(`Saldo insuficiente en "${fromAcc.account_name}". Disponible: $${currentFromBal.toLocaleString('es-AR')} ARS.`);
+    }
+
+    // 4. Actualizar Origen (Descontar)
     const { error: updFromErr } = await supabase
       .from('treasury_accounts')
       .update({ balance_ars: currentFromBal - amount })
-      .eq('id', fromAccountId);
+      .eq('id', clean.fromAccountId);
 
     if (updFromErr) throw updFromErr;
 
-    // 4. Actualizar Destino (Acreditar) con Rollback Preventivo
+    // 5. Actualizar Destino (Acreditar) con Rollback Preventivo
     const { error: updToErr } = await supabase
       .from('treasury_accounts')
       .update({ balance_ars: currentToBal + amount })
-      .eq('id', toAccountId);
+      .eq('id', clean.toAccountId);
 
     if (updToErr) {
       // Revertir descuento en origen para preservar integridad de datos
       await supabase
         .from('treasury_accounts')
         .update({ balance_ars: currentFromBal })
-        .eq('id', fromAccountId);
+        .eq('id', clean.fromAccountId);
       throw updToErr;
     }
 
     revalidatePath('/admin/finanzas/tesoreria');
     return { success: true };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error al realizar transferencia entre cuentas:', error);
-    return { success: false, error: error.message || 'Error al transferir fondos' };
+    const msg = error instanceof Error ? error.message : 'Error al transferir fondos';
+    return { success: false, error: msg };
   }
 }
 
 /**
- * Helper interno para impactar un ingreso o egreso en una cuenta de tesorería determinada.
+ * Helper interno para impactar un ingreso en una cuenta de tesorería determinada.
  */
 export async function depositToAccount(accountId: string, amountArs: number): Promise<boolean> {
   try {
     if (!accountId || amountArs <= 0) return false;
+    if (!isSupabaseConfigured()) return true;
+
     const supabase = getServiceSupabase();
 
     const { data: acc } = await supabase
@@ -239,6 +341,8 @@ export async function depositToAccount(accountId: string, amountArs: number): Pr
 export async function withdrawFromAccount(accountId: string, amountArs: number): Promise<boolean> {
   try {
     if (!accountId || amountArs <= 0) return false;
+    if (!isSupabaseConfigured()) return true;
+
     const supabase = getServiceSupabase();
 
     const { data: acc } = await supabase

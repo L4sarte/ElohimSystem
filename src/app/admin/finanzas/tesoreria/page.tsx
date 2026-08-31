@@ -458,7 +458,8 @@ export default function TesoreriaPage() {
                   <select
                     value={fromAccountId}
                     onChange={(e) => setFromAccountId(e.target.value)}
-                    className="flex h-9 w-full rounded-lg border border-[#1B362A] bg-[#08130E] px-3 py-1 text-xs font-bold text-white focus:outline-none focus:ring-1 focus:ring-[#D0A96B]"
+                    disabled={transferSubmitting}
+                    className="flex h-9 w-full rounded-lg border border-[#1B362A] bg-[#08130E] px-3 py-1 text-xs font-bold text-white focus:outline-none focus:ring-1 focus:ring-[#D0A96B] disabled:opacity-50"
                   >
                     {accounts.map(acc => (
                       <option key={acc.id} value={acc.id}>
@@ -476,7 +477,8 @@ export default function TesoreriaPage() {
                   <select
                     value={toAccountId}
                     onChange={(e) => setToAccountId(e.target.value)}
-                    className="flex h-9 w-full rounded-lg border border-[#1B362A] bg-[#08130E] px-3 py-1 text-xs font-bold text-white focus:outline-none focus:ring-1 focus:ring-[#D0A96B]"
+                    disabled={transferSubmitting}
+                    className="flex h-9 w-full rounded-lg border border-[#1B362A] bg-[#08130E] px-3 py-1 text-xs font-bold text-white focus:outline-none focus:ring-1 focus:ring-[#D0A96B] disabled:opacity-50"
                   >
                     {accounts.map(acc => (
                       <option key={acc.id} value={acc.id}>
@@ -499,7 +501,8 @@ export default function TesoreriaPage() {
                       placeholder="Monto ARS..."
                       value={transferAmountInput}
                       onChange={(e) => setTransferAmountInput(e.target.value)}
-                      className="pl-7 bg-[#08130E] border-[#1B362A] text-white font-mono font-bold text-sm"
+                      disabled={transferSubmitting}
+                      className="pl-7 bg-[#08130E] border-[#1B362A] text-white font-mono font-bold text-sm disabled:opacity-50"
                     />
                   </div>
                 </div>
@@ -513,7 +516,8 @@ export default function TesoreriaPage() {
                     placeholder="Ej. Traspaso de saldo a Brubank para pago de insumos..."
                     value={transferNotes}
                     onChange={(e) => setTransferNotes(e.target.value)}
-                    className="bg-[#08130E] border-[#1B362A] text-xs text-white"
+                    disabled={transferSubmitting}
+                    className="bg-[#08130E] border-[#1B362A] text-xs text-white disabled:opacity-50"
                   />
                 </div>
               </CardContent>
@@ -590,7 +594,8 @@ export default function TesoreriaPage() {
                       type="number"
                       value={newBalanceInput}
                       onChange={(e) => setNewBalanceInput(e.target.value)}
-                      className="pl-7 bg-[#08130E] border-[#1B362A] text-white font-mono font-bold text-sm"
+                      disabled={adjustSubmitting}
+                      className="pl-7 bg-[#08130E] border-[#1B362A] text-white font-mono font-bold text-sm disabled:opacity-50"
                     />
                   </div>
                 </div>
@@ -603,7 +608,8 @@ export default function TesoreriaPage() {
                     placeholder="Ej. Corrección por cobro no registrado o comisión..."
                     value={adjustReason}
                     onChange={(e) => setAdjustReason(e.target.value)}
-                    className="bg-[#08130E] border-[#1B362A] text-xs text-white"
+                    disabled={adjustSubmitting}
+                    className="bg-[#08130E] border-[#1B362A] text-xs text-white disabled:opacity-50"
                   />
                 </div>
               </CardContent>
@@ -678,7 +684,8 @@ export default function TesoreriaPage() {
                     placeholder="Ej. Ualá, Banco Galicia, Naranja X 2..."
                     value={newAccountName}
                     onChange={(e) => setNewAccountName(e.target.value)}
-                    className="bg-[#08130E] border-[#1B362A] text-white text-xs font-bold"
+                    disabled={newAccountSubmitting}
+                    className="bg-[#08130E] border-[#1B362A] text-white text-xs font-bold disabled:opacity-50"
                   />
                 </div>
 
@@ -689,7 +696,8 @@ export default function TesoreriaPage() {
                   <select
                     value={newAccountType}
                     onChange={(e) => setNewAccountType(e.target.value)}
-                    className="flex h-9 w-full rounded-lg border border-[#1B362A] bg-[#08130E] px-3 py-1 text-xs font-bold text-white focus:outline-none focus:ring-1 focus:ring-[#D0A96B]"
+                    disabled={newAccountSubmitting}
+                    className="flex h-9 w-full rounded-lg border border-[#1B362A] bg-[#08130E] px-3 py-1 text-xs font-bold text-white focus:outline-none focus:ring-1 focus:ring-[#D0A96B] disabled:opacity-50"
                   >
                     <option value="wallet">💳 Billetera Virtual (Mercado Pago, Naranja X, etc.)</option>
                     <option value="bank">🏦 Banco (Brubank, BBVA, Galicia, etc.)</option>
@@ -708,7 +716,8 @@ export default function TesoreriaPage() {
                       placeholder="0"
                       value={newInitialBalance}
                       onChange={(e) => setNewInitialBalance(e.target.value)}
-                      className="pl-7 bg-[#08130E] border-[#1B362A] text-white font-mono font-bold text-sm"
+                      disabled={newAccountSubmitting}
+                      className="pl-7 bg-[#08130E] border-[#1B362A] text-white font-mono font-bold text-sm disabled:opacity-50"
                     />
                   </div>
                 </div>

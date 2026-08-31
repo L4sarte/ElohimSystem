@@ -1,8 +1,14 @@
 'use server';
 
-import { getServiceSupabase, supabase } from '@/lib/supabase';
+import { getServiceSupabase, isSupabaseConfigured } from '@/lib/supabase';
 import { UserRole } from '@/types';
 import { revalidatePath } from 'next/cache';
+import { requireAuth, requireAdmin } from '@/lib/auth-checks';
+import {
+  openCashShiftSchema,
+  closeCashShiftSchema,
+  cashMovementSchema,
+} from '@/lib/cash-validation';
 
 export interface CashShift {
   id: string;
@@ -21,7 +27,7 @@ export interface CashShift {
   notes?: string | null;
   profiles?: {
     email: string;
-  };
+  } | null;
 }
 
 export interface CashMovement {
@@ -34,64 +40,25 @@ export interface CashMovement {
   created_at: string;
 }
 
-/**
- * Resolver el ID del vendedor para desarrollo local o sesiones auth reales.
- */
-async function resolveSellerId(requestedSellerId?: string): Promise<string> {
-  const serviceClient = getServiceSupabase();
-  let sellerId = requestedSellerId;
-
-  if (!sellerId) {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      sellerId = user.id;
-    }
-  }
-
-  if (!sellerId) {
-    const { data: profiles } = await serviceClient.from('profiles').select('id').limit(1);
-    if (profiles && profiles.length > 0) {
-      sellerId = profiles[0].id;
-    } else {
-      try {
-        const email = 'dummy.seller@elohimimport.com';
-        const { data: userData, error: userError } = await serviceClient.auth.admin.createUser({
-          email,
-          password: 'dummyPassword123!',
-          email_confirm: true
-        });
-
-        if (!userError && userData.user) {
-          const dummyUserId = userData.user.id;
-          await serviceClient.from('profiles').insert({
-            id: dummyUserId,
-            email,
-            role: 'admin'
-          });
-          sellerId = dummyUserId;
-        }
-      } catch (dummyErr) {
-        console.error('Error al generar usuario dummy de desarrollo:', dummyErr);
-      }
-    }
-  }
-
-  if (!sellerId) {
-    throw new Error('No se pudo determinar el vendedor para la sesión de caja.');
-  }
-
-  return sellerId;
+interface SalePaymentMethods {
+  cash_ars?: number;
+  cash_usd?: number;
+  breakdown?: Array<{
+    method_name?: string;
+    amount_base?: number;
+    amount_usd?: number;
+  }>;
 }
 
 /**
  * Extraer únicamente las cantidades en efectivo físico (ARS y USD) descartando cobros digitales o transferencias.
  */
-function extractCashFromSale(sale: any): { cashArs: number; cashUsd: number } {
+function extractCashFromSale(sale: { payment_methods?: unknown }): { cashArs: number; cashUsd: number } {
   let cashArs = 0;
   let cashUsd = 0;
 
-  if (sale && sale.payment_methods) {
-    const pm = sale.payment_methods;
+  if (sale && sale.payment_methods && typeof sale.payment_methods === 'object') {
+    const pm = sale.payment_methods as SalePaymentMethods;
     if (typeof pm.cash_ars === 'number') {
       cashArs += pm.cash_ars;
     }
@@ -100,7 +67,7 @@ function extractCashFromSale(sale: any): { cashArs: number; cashUsd: number } {
     }
 
     if (!pm.cash_ars && !pm.cash_usd && Array.isArray(pm.breakdown)) {
-      pm.breakdown.forEach((item: any) => {
+      pm.breakdown.forEach((item) => {
         if (item.method_name && item.method_name.includes('Efectivo ARS')) {
           cashArs += Number(item.amount_base || 0);
         }
@@ -119,13 +86,17 @@ function extractCashFromSale(sale: any): { cashArs: number; cashUsd: number } {
  */
 export async function checkActiveShiftStatus(): Promise<{ isOpen: boolean; shiftId?: string }> {
   try {
+    if (!isSupabaseConfigured()) {
+      return { isOpen: true, shiftId: 'mock-shift-id' };
+    }
+
+    const currentUser = await requireAuth();
     const serviceClient = getServiceSupabase();
-    const sellerId = await resolveSellerId();
 
     const { data: shift } = await serviceClient
       .from('cash_shifts')
       .select('id')
-      .eq('seller_id', sellerId)
+      .eq('seller_id', currentUser.id)
       .eq('status', 'open')
       .maybeSingle();
 
@@ -141,8 +112,8 @@ export async function checkActiveShiftStatus(): Promise<{ isOpen: boolean; shift
       .limit(1)
       .maybeSingle();
 
-    return { isOpen: !!anyShift, shiftId: anyShift?.id };
-  } catch (error) {
+    return { isOpen: Boolean(anyShift), shiftId: anyShift?.id };
+  } catch {
     return { isOpen: false };
   }
 }
@@ -150,7 +121,7 @@ export async function checkActiveShiftStatus(): Promise<{ isOpen: boolean; shift
 /**
  * Obtener la caja activa del vendedor con el cálculo en tiempo real de ventas en efectivo y movimientos manuales.
  */
-export async function getActiveCashShift(role: UserRole): Promise<{
+export async function getActiveCashShift(role?: UserRole): Promise<{
   success: boolean;
   shift?: CashShift;
   movements?: CashMovement[];
@@ -161,14 +132,35 @@ export async function getActiveCashShift(role: UserRole): Promise<{
   error?: string;
 }> {
   try {
-    const serviceClient = getServiceSupabase();
-    const sellerId = await resolveSellerId();
+    const currentUser = await requireAuth();
 
-    // 1. Obtener turno con estado 'open'
+    if (!isSupabaseConfigured()) {
+      return {
+        success: true,
+        shift: {
+          id: 'mock-shift-1',
+          seller_id: currentUser.id,
+          opened_at: new Date().toISOString(),
+          initial_ars: 50000,
+          initial_usd: 100,
+          status: 'open',
+          notes: 'Turno de prueba local',
+        },
+        movements: [],
+        cashSalesArs: 0,
+        cashSalesUsd: 0,
+        expectedArs: 50000,
+        expectedUsd: 100,
+      };
+    }
+
+    const serviceClient = getServiceSupabase();
+
+    // 1. Obtener turno con estado 'open' para el usuario actual (o general si es admin)
     const { data: shift, error: shiftError } = await serviceClient
       .from('cash_shifts')
       .select('*')
-      .eq('seller_id', sellerId)
+      .eq('seller_id', currentUser.id)
       .eq('status', 'open')
       .order('opened_at', { ascending: false })
       .maybeSingle();
@@ -200,7 +192,7 @@ export async function getActiveCashShift(role: UserRole): Promise<{
     let cashSalesArs = 0;
     let cashSalesUsd = 0;
 
-    (sales || []).forEach(sale => {
+    (sales || []).forEach((sale) => {
       const { cashArs, cashUsd } = extractCashFromSale(sale);
       cashSalesArs += cashArs;
       cashSalesUsd += cashUsd;
@@ -212,7 +204,7 @@ export async function getActiveCashShift(role: UserRole): Promise<{
     let manualUsdIn = 0;
     let manualUsdOut = 0;
 
-    (movements || []).forEach(m => {
+    (movements || []).forEach((m) => {
       const ars = Number(m.amount_ars || 0);
       const usd = Number(m.amount_usd || 0);
       if (m.type === 'in') {
@@ -233,16 +225,17 @@ export async function getActiveCashShift(role: UserRole): Promise<{
 
     return {
       success: true,
-      shift,
-      movements: movements || [],
+      shift: shift as CashShift,
+      movements: (movements || []) as CashMovement[],
       cashSalesArs,
       cashSalesUsd,
       expectedArs,
-      expectedUsd
+      expectedUsd,
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error al obtener caja activa:', error);
-    return { success: false, error: error.message || 'Error al obtener turno de caja' };
+    const msg = error instanceof Error ? error.message : 'Error al obtener turno de caja';
+    return { success: false, error: msg };
   }
 }
 
@@ -256,14 +249,32 @@ export async function openCashShift(
   notes?: string
 ): Promise<{ success: boolean; shiftId?: string; error?: string }> {
   try {
-    const serviceClient = getServiceSupabase();
-    const sellerId = await resolveSellerId();
+    const currentUser = await requireAuth();
 
-    // Validar que no haya un turno ya abierto
+    const validation = openCashShiftSchema.safeParse({
+      initial_ars: Number(initialArs || 0),
+      initial_usd: Number(initialUsd || 0),
+      notes,
+    });
+
+    if (!validation.success) {
+      const firstError = validation.error.issues[0]?.message || 'Datos de apertura inválidos.';
+      return { success: false, error: firstError };
+    }
+
+    const { initial_ars, initial_usd, notes: cleanNotes } = validation.data;
+
+    if (!isSupabaseConfigured()) {
+      return { success: true, shiftId: 'mock-shift-id' };
+    }
+
+    const serviceClient = getServiceSupabase();
+
+    // Validar que el usuario no tenga ya un turno abierto
     const { data: existing } = await serviceClient
       .from('cash_shifts')
       .select('id')
-      .eq('seller_id', sellerId)
+      .eq('seller_id', currentUser.id)
       .eq('status', 'open')
       .maybeSingle();
 
@@ -275,15 +286,15 @@ export async function openCashShift(
       .from('cash_shifts')
       .insert([
         {
-          seller_id: sellerId,
+          seller_id: currentUser.id,
           opened_at: new Date().toISOString(),
-          initial_ars: Math.max(0, initialArs),
-          initial_usd: Math.max(0, initialUsd),
+          initial_ars: initial_ars,
+          initial_usd: initial_usd,
           status: 'open',
-          notes: notes?.trim() || null
-        }
+          notes: cleanNotes || null,
+        },
       ])
-      .select()
+      .select('id')
       .single();
 
     if (error) throw error;
@@ -291,9 +302,10 @@ export async function openCashShift(
     revalidatePath('/caja');
     revalidatePath('/');
     return { success: true, shiftId: data.id };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error al abrir turno de caja:', error);
-    return { success: false, error: error.message || 'Error al abrir la caja' };
+    const msg = error instanceof Error ? error.message : 'Error al abrir la caja';
+    return { success: false, error: msg };
   }
 }
 
@@ -309,12 +321,29 @@ export async function addCashMovement(
   description: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    if (!description || description.trim() === '') {
-      throw new Error('Debes ingresar la descripción del movimiento.');
+    await requireAuth();
+
+    const validation = cashMovementSchema.safeParse({
+      shiftId,
+      type,
+      amount_ars: Number(amountArs || 0),
+      amount_usd: Number(amountUsd || 0),
+      description,
+    });
+
+    if (!validation.success) {
+      const firstError = validation.error.issues[0]?.message || 'Datos del movimiento inválidos.';
+      return { success: false, error: firstError };
     }
 
-    if (amountArs <= 0 && amountUsd <= 0) {
-      throw new Error('Debes ingresar un monto mayor a cero en Pesos o Dólares.');
+    const clean = validation.data;
+
+    if (clean.amount_ars <= 0 && clean.amount_usd <= 0) {
+      return { success: false, error: 'Debes ingresar un monto mayor a cero en Pesos o Dólares.' };
+    }
+
+    if (!isSupabaseConfigured()) {
+      return { success: true };
     }
 
     const serviceClient = getServiceSupabase();
@@ -322,22 +351,23 @@ export async function addCashMovement(
       .from('cash_movements')
       .insert([
         {
-          shift_id: shiftId,
-          type,
-          amount_ars: Math.max(0, amountArs),
-          amount_usd: Math.max(0, amountUsd),
-          description: description.trim(),
-          created_at: new Date().toISOString()
-        }
+          shift_id: clean.shiftId,
+          type: clean.type,
+          amount_ars: clean.amount_ars,
+          amount_usd: clean.amount_usd,
+          description: clean.description,
+          created_at: new Date().toISOString(),
+        },
       ]);
 
     if (error) throw error;
 
     revalidatePath('/caja');
     return { success: true };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error al agregar movimiento de caja:', error);
-    return { success: false, error: error.message || 'Error al guardar movimiento' };
+    const msg = error instanceof Error ? error.message : 'Error al guardar movimiento';
+    return { success: false, error: msg };
   }
 }
 
@@ -353,13 +383,33 @@ export async function closeCashShift(
   notes?: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
+    await requireAuth();
+
+    const validation = closeCashShiftSchema.safeParse({
+      shiftId,
+      declared_ars: Number(declaredArs || 0),
+      declared_usd: Number(declaredUsd || 0),
+      notes,
+    });
+
+    if (!validation.success) {
+      const firstError = validation.error.issues[0]?.message || 'Datos de cierre de caja inválidos.';
+      return { success: false, error: firstError };
+    }
+
+    const clean = validation.data;
+
+    if (!isSupabaseConfigured()) {
+      return { success: true };
+    }
+
     const serviceClient = getServiceSupabase();
 
     // 1. Obtener la caja activa
     const { data: shift, error: shiftError } = await serviceClient
       .from('cash_shifts')
       .select('*')
-      .eq('id', shiftId)
+      .eq('id', clean.shiftId)
       .single();
 
     if (shiftError || !shift) {
@@ -381,7 +431,7 @@ export async function closeCashShift(
     let cashSalesArs = 0;
     let cashSalesUsd = 0;
 
-    (sales || []).forEach(sale => {
+    (sales || []).forEach((sale) => {
       const { cashArs, cashUsd } = extractCashFromSale(sale);
       cashSalesArs += cashArs;
       cashSalesUsd += cashUsd;
@@ -391,7 +441,7 @@ export async function closeCashShift(
     const { data: movements, error: movError } = await serviceClient
       .from('cash_movements')
       .select('*')
-      .eq('shift_id', shiftId);
+      .eq('shift_id', clean.shiftId);
 
     if (movError) throw movError;
 
@@ -400,7 +450,7 @@ export async function closeCashShift(
     let manualUsdIn = 0;
     let manualUsdOut = 0;
 
-    (movements || []).forEach(m => {
+    (movements || []).forEach((m) => {
       const ars = Number(m.amount_ars || 0);
       const usd = Number(m.amount_usd || 0);
       if (m.type === 'in') {
@@ -415,29 +465,33 @@ export async function closeCashShift(
     const manualNetArs = manualArsIn - manualArsOut;
     const manualNetUsd = manualUsdIn - manualUsdOut;
 
-    // 4. Calcular el saldo esperado del sistema (system_calculated)
+    // 4. Calcular saldo esperado del sistema (system_calculated)
     const systemCalculatedArs = Number(shift.initial_ars || 0) + cashSalesArs + manualNetArs;
     const systemCalculatedUsd = Number(shift.initial_usd || 0) + cashSalesUsd + manualNetUsd;
 
     // 5. Calcular la diferencia (declared - systemCalculated)
-    const differenceArs = declaredArs - systemCalculatedArs;
-    const differenceUsd = declaredUsd - systemCalculatedUsd;
+    const differenceArs = clean.declared_ars - systemCalculatedArs;
+    const differenceUsd = clean.declared_usd - systemCalculatedUsd;
 
     // 6. Actualizar el turno a 'closed'
+    const finalNotes = clean.notes
+      ? `${shift.notes ? shift.notes + ' | ' : ''}${clean.notes}`
+      : shift.notes;
+
     const { error: updateError } = await serviceClient
       .from('cash_shifts')
       .update({
         closed_at: new Date().toISOString(),
-        declared_ars: declaredArs,
-        declared_usd: declaredUsd,
+        declared_ars: clean.declared_ars,
+        declared_usd: clean.declared_usd,
         system_calculated_ars: systemCalculatedArs,
         system_calculated_usd: systemCalculatedUsd,
         difference_ars: differenceArs,
         difference_usd: differenceUsd,
         status: 'closed',
-        notes: notes ? `${shift.notes ? shift.notes + ' | ' : ''}${notes.trim()}` : shift.notes
+        notes: finalNotes,
       })
-      .eq('id', shiftId);
+      .eq('id', clean.shiftId);
 
     if (updateError) throw updateError;
 
@@ -445,19 +499,26 @@ export async function closeCashShift(
     revalidatePath('/auditoria/caja');
     revalidatePath('/');
     return { success: true };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error al cerrar turno de caja:', error);
-    return { success: false, error: error.message || 'Error al cerrar el turno' };
+    const msg = error instanceof Error ? error.message : 'Error al cerrar el turno';
+    return { success: false, error: msg };
   }
 }
 
 /**
  * Obtener el historial completo de turnos cerrados para auditoría (Exclusivo Admin).
  */
-export async function getClosedShifts(role: UserRole): Promise<{ success: boolean; data?: any[]; error?: string }> {
+export async function getClosedShifts(role?: UserRole): Promise<{
+  success: boolean;
+  data?: CashShift[];
+  error?: string;
+}> {
   try {
-    if (role !== 'admin') {
-      throw new Error('Operación no autorizada. Se requiere rol de Administrador.');
+    await requireAdmin();
+
+    if (!isSupabaseConfigured()) {
+      return { success: true, data: [] };
     }
 
     const serviceClient = getServiceSupabase();
@@ -474,9 +535,10 @@ export async function getClosedShifts(role: UserRole): Promise<{ success: boolea
 
     if (error) throw error;
 
-    return { success: true, data: data || [] };
-  } catch (error: any) {
+    return { success: true, data: (data || []) as unknown as CashShift[] };
+  } catch (error: unknown) {
     console.error('Error al obtener historial de auditoría de cajas:', error);
-    return { success: false, error: error.message || 'Error al consultar historial de cajas' };
+    const msg = error instanceof Error ? error.message : 'Error al consultar historial de cajas';
+    return { success: false, error: msg };
   }
 }
