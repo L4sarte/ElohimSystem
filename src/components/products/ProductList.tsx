@@ -16,6 +16,9 @@ import {
 
 import { toast } from 'sonner';
 import { ConfirmModal } from '@/components/ui/ConfirmModal';
+import { OlfactoryCatalogModal } from './OlfactoryCatalogModal';
+import { CatalogGeneratorModal } from './CatalogGeneratorModal';
+import { Sparkles, Crown, CheckSquare, Square } from 'lucide-react';
 
 interface ProductListProps {
   role: UserRole;
@@ -26,6 +29,11 @@ export function ProductList({ role, excludeSupplies = true }: ProductListProps) 
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  // Selección múltiple para Generador de Catálogo
+  const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
+  const [isCatalogModalOpen, setIsCatalogModalOpen] = useState(false);
+  const [isOlfactoryModalOpen, setIsOlfactoryModalOpen] = useState(false);
   
   // Filtros de búsqueda
   const [searchTerm, setSearchTerm] = useState('');
@@ -127,6 +135,22 @@ export function ProductList({ role, excludeSupplies = true }: ProductListProps) 
     return amount.toLocaleString('es-AR', { style: 'currency', currency: 'ARS' });
   };
 
+  const toggleSelectAll = () => {
+    if (selectedProductIds.length === filteredProducts.length) {
+      setSelectedProductIds([]);
+    } else {
+      setSelectedProductIds(filteredProducts.map(p => p.id));
+    }
+  };
+
+  const toggleSelectProduct = (id: string) => {
+    setSelectedProductIds(prev => 
+      prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
+    );
+  };
+
+  const selectedProductsObjects = products.filter(p => selectedProductIds.includes(p.id));
+
   // Helper para obtener precio equivalente informativo en USD
   const getUsdReference = (arsAmount: number) => {
     if (!exchangeRate) return 'u$s --';
@@ -211,15 +235,41 @@ export function ProductList({ role, excludeSupplies = true }: ProductListProps) 
           </Button>
         </div>
 
-        {/* Botón de Creación (Solo Admin) */}
-        {role === 'admin' && (
-          <Button 
-            onClick={handleCreateClick} 
-            className="bg-[#D0A96B] hover:bg-[#E5C158] text-[#08130E] font-extrabold shadow-md shadow-[#D0A96B]/20 dark:bg-violet-500 dark:hover:bg-[#D0A96B] text-[#08130E] cursor-pointer shadow-sm ml-auto sm:ml-0"
-          >
-            <Plus className="mr-2 h-4 w-4" /> Agregar Producto
-          </Button>
-        )}
+        {/* ACCIONES DE CATÁLOGO Y CREACIÓN */}
+        <div className="flex flex-wrap items-center gap-2 ml-auto sm:ml-0">
+          {/* BOTÓN GENERAR CATÁLOGO (Cuando hay selección) */}
+          {selectedProductIds.length > 0 && (
+            <Button
+              onClick={() => setIsCatalogModalOpen(true)}
+              className="bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs cursor-pointer shadow-md animate-in fade-in duration-200"
+            >
+              <Crown className="mr-1.5 h-4 w-4 text-[#D0A96B]" />
+              Generar Catálogo ({selectedProductIds.length})
+            </Button>
+          )}
+
+          {/* BOTÓN GESTOR OLFATIVO (Solo Admin) */}
+          {role === 'admin' && (
+            <Button
+              variant="outline"
+              onClick={() => setIsOlfactoryModalOpen(true)}
+              className="border-[#1B362A] bg-[#13261E] text-zinc-200 hover:bg-zinc-800 font-bold text-xs cursor-pointer"
+            >
+              <Sparkles className="mr-1.5 h-3.5 w-3.5 text-[#D0A96B]" />
+              Gestor Olfativo
+            </Button>
+          )}
+
+          {/* Botón de Creación (Solo Admin) */}
+          {role === 'admin' && (
+            <Button 
+              onClick={handleCreateClick} 
+              className="bg-[#D0A96B] hover:bg-[#E5C158] text-[#08130E] font-extrabold shadow-md shadow-[#D0A96B]/20 cursor-pointer text-xs"
+            >
+              <Plus className="mr-1.5 h-4 w-4" /> Agregar Producto
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* INFORMACIÓN DE ADVERTENCIA PARA VENDEDOR */}
@@ -269,7 +319,16 @@ export function ProductList({ role, excludeSupplies = true }: ProductListProps) 
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="border-b border-slate-200 dark:border-[#1B362A] bg-slate-50/50 dark:bg-[#13261E]/40 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400">
-                  <th className="p-4 pl-6">SKU</th>
+                  <th className="p-4 pl-4 text-center w-10">
+                    <input
+                      type="checkbox"
+                      checked={filteredProducts.length > 0 && selectedProductIds.length === filteredProducts.length}
+                      onChange={toggleSelectAll}
+                      className="rounded border-[#1B362A] bg-[#08130E] text-[#D0A96B] focus:ring-[#D0A96B] cursor-pointer"
+                      title="Seleccionar todos para el catálogo"
+                    />
+                  </th>
+                  <th className="p-4">SKU</th>
                   <th className="p-4">Tipo</th>
                   <th className="p-4">Producto</th>
                   <th className="p-4">Stock</th>
@@ -288,10 +347,22 @@ export function ProductList({ role, excludeSupplies = true }: ProductListProps) 
                 {filteredProducts.map((product) => (
                   <tr 
                     key={product.id} 
-                    className="hover:bg-slate-50/60 dark:hover:bg-[#13261E]/30 transition-colors"
+                    className={`hover:bg-slate-50/60 dark:hover:bg-[#13261E]/30 transition-colors ${
+                      selectedProductIds.includes(product.id) ? 'bg-[#13261E]/50' : ''
+                    }`}
                   >
+                    {/* CHECKBOX SELECCIÓN */}
+                    <td className="p-4 pl-4 text-center">
+                      <input
+                        type="checkbox"
+                        checked={selectedProductIds.includes(product.id)}
+                        onChange={() => toggleSelectProduct(product.id)}
+                        className="rounded border-[#1B362A] bg-[#08130E] text-[#D0A96B] focus:ring-[#D0A96B] cursor-pointer"
+                      />
+                    </td>
+
                     {/* SKU */}
-                    <td className="p-4 pl-6 font-mono text-xs font-semibold text-slate-700 dark:text-zinc-300">
+                    <td className="p-4 font-mono text-xs font-semibold text-slate-700 dark:text-zinc-300">
                       {product.sku}
                     </td>
 
@@ -443,6 +514,21 @@ export function ProductList({ role, excludeSupplies = true }: ProductListProps) 
         bottle={selectedBottle}
         role={role}
       />
+      {/* MODAL DE GESTOR OLFATIVO (FAMILIAS Y NOTAS) */}
+      <OlfactoryCatalogModal
+        isOpen={isOlfactoryModalOpen}
+        onClose={() => setIsOlfactoryModalOpen(false)}
+        onRefreshForm={fetchProductsList}
+      />
+
+      {/* MODAL DE GENERADOR DE CATÁLOGO EXPORTABLE */}
+      <CatalogGeneratorModal
+        isOpen={isCatalogModalOpen}
+        onClose={() => setIsCatalogModalOpen(false)}
+        selectedProducts={selectedProductsObjects}
+        exchangeRateUsd={exchangeRate || 1570}
+      />
+
       {/* MODAL DE CONFIRMACIÓN DE ELIMINACIÓN DE PRODUCTO */}
       <ConfirmModal
         isOpen={Boolean(deleteProductInfo)}

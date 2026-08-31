@@ -246,14 +246,15 @@ export default function UsuariosPage() {
                             {isUpdating ? (
                               <RefreshCw className="h-4 w-4 animate-spin text-[#D0A96B]" />
                             ) : (
-                              <select
-                                value={userItem.role}
-                                onChange={(e) => handleRoleChange(userItem.id, e.target.value as 'admin' | 'seller')}
-                                className="bg-[#08130E] border border-[#1B362A] text-white text-xs font-bold rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-[#D0A96B] cursor-pointer"
-                              >
-                                <option value="seller">👤 Asignar Vendedor</option>
-                                <option value="admin">👑 Asignar Administrador</option>
-                              </select>
+                            <select
+                              value={userItem.role}
+                              disabled={updatingUserId !== null}
+                              onChange={(e) => handleRoleChange(userItem.id, e.target.value as 'admin' | 'seller')}
+                              className="bg-[#08130E] border border-[#1B362A] text-white text-xs font-bold rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-[#D0A96B] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              <option value="seller">👤 Asignar Vendedor</option>
+                              <option value="admin">👑 Asignar Administrador</option>
+                            </select>
                             )}
                           </div>
                         </td>

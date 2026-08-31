@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { X, Save, RefreshCw, AlertCircle, Sparkles, Wand2 } from 'lucide-react';
 import { extractPerfumeData } from '@/app/actions/aiPerfume';
+import { getOlfactoryFamilies, getOlfactoryNotes } from '@/app/actions/olfactory';
 import { toast } from 'sonner';
 
 interface ProductFormModalProps {
@@ -34,6 +35,10 @@ export function ProductFormModal({ isOpen, onClose, onSuccess, product, role = '
   const [basePriceArs, setBasePriceArs] = useState('');
   const [stockQuantity, setStockQuantity] = useState('');
   const [volumeMl, setVolumeMl] = useState('');
+
+  // Catálogo Olfativo Dinámico
+  const [dynamicFamilies, setDynamicFamilies] = useState<string[]>([]);
+  const [dynamicNotes, setDynamicNotes] = useState<string[]>([]);
 
   // Estados de carga y error
   const [loading, setLoading] = useState(false);
@@ -399,15 +404,11 @@ export function ProductFormModal({ isOpen, onClose, onSuccess, product, role = '
                     className="flex h-9 w-full rounded-lg border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus:outline-none focus:ring-1 focus:ring-ring dark:border-input/40 dark:bg-input/10 dark:text-white"
                   >
                     <option value="">Seleccionar familia...</option>
-                    <option value="Cítrico">Cítrico</option>
-                    <option value="Amaderado">Amaderado</option>
-                    <option value="Gourmand">Gourmand</option>
-                    <option value="Floral">Floral</option>
-                    <option value="Oriental">Oriental</option>
-                    <option value="Cuero">Cuero</option>
-                    <option value="Aromático">Aromático</option>
-                    <option value="Fougère">Fougère</option>
-                    <option value="Especiado">Especiado</option>
+                    {(dynamicFamilies.length > 0 ? dynamicFamilies : [
+                      'Cítrico', 'Amaderado', 'Gourmand', 'Floral', 'Oriental', 'Cuero', 'Aromático', 'Fougère', 'Especiado'
+                    ]).map((fam, idx) => (
+                      <option key={idx} value={fam}>{fam}</option>
+                    ))}
                   </select>
                 </div>
               ) : (
@@ -425,9 +426,9 @@ export function ProductFormModal({ isOpen, onClose, onSuccess, product, role = '
               )}
             </div>
 
-            {/* NOTAS OLFATIVAS (Solo Perfumes y Decants) */}
+            {/* NOTAS OLFATIVAS CON CHIPS INTERACTIVOS (Solo Perfumes y Decants) */}
             {type !== 'supply' && (
-              <div className="space-y-1.5">
+              <div className="space-y-2">
                 <label className="text-xs font-bold uppercase tracking-wider text-[#D0A96B]">
                   Notas Olfativas (separadas por coma)
                 </label>
@@ -437,9 +438,41 @@ export function ProductFormModal({ isOpen, onClose, onSuccess, product, role = '
                   onChange={(e) => setOlfactoryNotesText(e.target.value)}
                   className="border-[#1B362A] focus-visible:ring-[#D0A96B]"
                 />
-                <p className="text-[10px] text-zinc-500">
-                  Carga las notas aromáticas clave del perfume para alimentar el algoritmo de Match Olfativo del CRM.
-                </p>
+                
+                {/* SUGERENCIAS RÁPIDAS EN CHIPS */}
+                {dynamicNotes.length > 0 && (
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-bold text-zinc-400">Clic para agregar notas del catálogo:</span>
+                    <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto p-1 bg-[#08130E]/50 rounded-lg border border-[#1B362A]">
+                      {dynamicNotes.slice(0, 15).map((note, idx) => {
+                        const isSelected = olfactoryNotesText.toLowerCase().includes(note.toLowerCase());
+                        return (
+                          <button
+                            key={idx}
+                            type="button"
+                            onClick={() => {
+                              const currentNotes = olfactoryNotesText
+                                ? olfactoryNotesText.split(',').map(s => s.trim()).filter(Boolean)
+                                : [];
+                              if (isSelected) {
+                                setOlfactoryNotesText(currentNotes.filter(n => n.toLowerCase() !== note.toLowerCase()).join(', '));
+                              } else {
+                                setOlfactoryNotesText([...currentNotes, note].join(', '));
+                              }
+                            }}
+                            className={`text-[9px] px-2 py-0.5 rounded-md font-semibold transition-all cursor-pointer ${
+                              isSelected
+                                ? 'bg-[#D0A96B] text-[#08130E] font-bold'
+                                : 'bg-[#13261E] text-zinc-300 hover:text-white border border-[#1B362A]'
+                            }`}
+                          >
+                            {isSelected ? `✓ ${note}` : `+ ${note}`}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 

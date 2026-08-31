@@ -8,8 +8,9 @@ import {
   ShoppingBag, LayoutGrid, Users, CreditCard, Package, Archive, 
   PackageX, Globe, BarChart3, Coins, DollarSign, TrendingUp, 
   ShieldCheck, Menu, X, Sparkles, ChevronRight, Home, Percent, Landmark,
-  Truck, Settings, Printer, Calculator
+  Truck, Settings, Printer, Calculator, LogOut
 } from 'lucide-react';
+import { logoutAction } from '@/app/actions/auth';
 
 interface SidebarProps {
   children?: React.ReactNode;
@@ -144,14 +145,23 @@ export function Sidebar() {
       </div>
 
       {/* PIE DEL SIDEBAR */}
-      <div className="p-4 border-t border-[#1B362A] bg-[#08130E]/60 text-[10px] text-zinc-400 flex items-center justify-between">
+      <div className="p-3 border-t border-[#1B362A] bg-[#08130E]/60 text-[10px] text-zinc-400 flex items-center justify-between">
         <div>
           <div className="font-bold text-white font-serif">Elohim Import ERP</div>
           <div className="text-zinc-500 font-mono">v2.5 Enterprise</div>
         </div>
-        <kbd className="px-1.5 py-0.5 rounded bg-[#13261E] border border-[#1B362A] text-[#D0A96B] font-mono text-[9px]">
-          ⌘K
-        </kbd>
+        <div className="flex items-center gap-2">
+          <kbd className="px-1.5 py-0.5 rounded bg-[#13261E] border border-[#1B362A] text-[#D0A96B] font-mono text-[9px]">
+            ⌘K
+          </kbd>
+          <button
+            onClick={() => logoutAction()}
+            title="Cerrar Sesión Segura"
+            className="p-1.5 rounded-lg bg-[#13261E] border border-[#1B362A] text-zinc-400 hover:text-rose-400 hover:border-rose-500/30 transition-colors cursor-pointer"
+          >
+            <LogOut className="h-3.5 w-3.5" />
+          </button>
+        </div>
       </div>
 
     </div>
