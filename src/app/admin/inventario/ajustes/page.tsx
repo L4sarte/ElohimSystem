@@ -224,14 +224,16 @@ export default function AjustesInventarioPage() {
                       placeholder="Buscar por nombre, marca o SKU..."
                       value={searchProduct}
                       onChange={(e) => setSearchProduct(e.target.value)}
-                      className="bg-[#08130E] border-[#1B362A] text-xs"
+                      disabled={submitting}
+                      className="bg-[#08130E] border-[#1B362A] text-xs disabled:opacity-50"
                     />
 
                     <select
                       required
                       value={selectedProductId}
                       onChange={(e) => setSelectedProductId(e.target.value)}
-                      className="flex h-10 w-full rounded-xl border border-[#1B362A] bg-[#08130E] px-3 py-1 text-xs text-white focus:outline-none focus:ring-1 focus:ring-amber-500"
+                      disabled={submitting}
+                      className="flex h-10 w-full rounded-xl border border-[#1B362A] bg-[#08130E] px-3 py-1 text-xs text-white focus:outline-none focus:ring-1 focus:ring-amber-500 disabled:opacity-50"
                     >
                       <option value="">-- Selecciona producto del catálogo --</option>
                       {filteredProducts.map(p => (
@@ -261,7 +263,8 @@ export default function AjustesInventarioPage() {
                     <select
                       value={adjType}
                       onChange={(e) => setAdjType(e.target.value)}
-                      className="flex h-10 w-full rounded-xl border border-[#1B362A] bg-[#08130E] px-3 py-1 text-xs text-white focus:outline-none focus:ring-1 focus:ring-amber-500"
+                      disabled={submitting}
+                      className="flex h-10 w-full rounded-xl border border-[#1B362A] bg-[#08130E] px-3 py-1 text-xs text-white focus:outline-none focus:ring-1 focus:ring-amber-500 disabled:opacity-50"
                     >
                       {ADJUSTMENT_TYPES.map(t => (
                         <option key={t.value} value={t.value}>{t.label}</option>
@@ -282,7 +285,8 @@ export default function AjustesInventarioPage() {
                       placeholder="Ej. -10 (para restar 10 ml/uds por merma)"
                       value={quantity}
                       onChange={(e) => setQuantity(e.target.value)}
-                      className="bg-[#08130E] border-amber-900/40 text-amber-300 font-mono font-bold focus-visible:ring-amber-500"
+                      disabled={submitting}
+                      className="bg-[#08130E] border-amber-900/40 text-amber-300 font-mono font-bold focus-visible:ring-amber-500 disabled:opacity-50"
                     />
                   </div>
 
@@ -300,7 +304,8 @@ export default function AjustesInventarioPage() {
                   placeholder="Ej. Se rompió frasco de 100ml durante empaque o derrame accidental al fraccionar decant"
                   value={reason}
                   onChange={(e) => setReason(e.target.value)}
-                  className="flex w-full rounded-xl border border-[#1B362A] bg-[#08130E] px-3 py-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-amber-500 placeholder:text-zinc-600"
+                  disabled={submitting}
+                  className="flex w-full rounded-xl border border-[#1B362A] bg-[#08130E] px-3 py-2 text-xs text-white focus:outline-none focus:ring-1 focus:ring-amber-500 placeholder:text-zinc-600 disabled:opacity-50"
                 />
               </div>
 
