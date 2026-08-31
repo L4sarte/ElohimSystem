@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useUserStore } from '@/hooks/use-user-store';
 import { useExchangeRate } from '@/hooks/use-exchange-rate';
-import { getClientsDetailed, createClient, updateClient, getClientPurchaseHistory } from '@/app/actions/clients';
+import { getClientsDetailed, createClient, updateClient, getClientPurchaseHistory, ClientRecord, ClientSaleHistoryRecord } from '@/app/actions/clients';
 import { getOlfactoryMatchForClient, OlfactoryMatchResult } from '@/app/actions/crm';
 import { usePosStore } from '@/hooks/use-pos-store';
 import { useRouter } from 'next/navigation';
@@ -30,7 +30,7 @@ export default function ClientesPage() {
   const router = useRouter();
   const addItemToCart = usePosStore((state) => state.addItem);
 
-  const [clients, setClients] = useState<any[]>([]);
+  const [clients, setClients] = useState<ClientRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -39,15 +39,15 @@ export default function ClientesPage() {
 
   // Modales Formulario
   const [isFormOpen, setIsFormOpen] = useState(false);
-  const [editingClient, setEditingClient] = useState<any | null>(null);
+  const [editingClient, setEditingClient] = useState<ClientRecord | null>(null);
   
   // Panel Lateral (Sheet)
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
-  const [historyClient, setHistoryClient] = useState<any | null>(null);
+  const [historyClient, setHistoryClient] = useState<ClientRecord | null>(null);
   const [activeTab, setActiveTab] = useState<'purchases' | 'match'>('purchases');
   
   // Historial de compras
-  const [purchaseHistory, setPurchaseHistory] = useState<any[]>([]);
+  const [purchaseHistory, setPurchaseHistory] = useState<ClientSaleHistoryRecord[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
 
   // Match Olfativo
@@ -423,7 +423,8 @@ export default function ClientesPage() {
                     placeholder="Ej. Juan Pérez"
                     value={formName}
                     onChange={(e) => setFormName(e.target.value)}
-                    className="bg-[#13261E] border-[#1B362A]"
+                    disabled={submitting}
+                    className="bg-[#13261E] border-[#1B362A] disabled:opacity-50"
                   />
                 </div>
 
@@ -434,7 +435,8 @@ export default function ClientesPage() {
                       placeholder="+54 9..."
                       value={formPhone}
                       onChange={(e) => setFormPhone(e.target.value)}
-                      className="bg-[#13261E] border-[#1B362A]"
+                      disabled={submitting}
+                      className="bg-[#13261E] border-[#1B362A] disabled:opacity-50"
                     />
                   </div>
                   <div className="space-y-1">
@@ -444,7 +446,8 @@ export default function ClientesPage() {
                       placeholder="perez@mail.com"
                       value={formEmail}
                       onChange={(e) => setFormEmail(e.target.value)}
-                      className="bg-[#13261E] border-[#1B362A]"
+                      disabled={submitting}
+                      className="bg-[#13261E] border-[#1B362A] disabled:opacity-50"
                     />
                   </div>
                 </div>
@@ -461,8 +464,9 @@ export default function ClientesPage() {
                         <button
                           key={note}
                           type="button"
+                          disabled={submitting}
                           onClick={() => handleToggleNote(note)}
-                          className={`flex items-center justify-between text-xs px-2.5 py-1.5 rounded-lg border transition-all cursor-pointer text-left ${
+                          className={`flex items-center justify-between text-xs px-2.5 py-1.5 rounded-lg border transition-all cursor-pointer text-left disabled:opacity-50 ${
                             selected
                               ? 'bg-[#D0A96B] text-[#08130E] border-violet-500 text-white font-bold shadow-sm shadow-violet-600/30'
                               : 'bg-[#08130E] border-[#1B362A] text-zinc-400 hover:border-[#1B362A] hover:text-white'

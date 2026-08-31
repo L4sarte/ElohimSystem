@@ -1,8 +1,9 @@
 'use server';
 
-import { getServiceSupabase } from '@/lib/supabase';
+import { getServiceSupabase, isSupabaseConfigured } from '@/lib/supabase';
 import { UserRole, Product } from '@/types';
 import { getProducts } from '@/app/actions/products';
+import { requireAuth } from '@/lib/auth-checks';
 
 export interface OlfactoryMatchResult {
   product: Product;
@@ -23,16 +24,24 @@ export interface ClientMatchRecommendation {
   whatsAppUrl: string;
 }
 
+export interface PointsHistoryRecord {
+  id: string;
+  client_id: string;
+  points_change: number;
+  reason: string;
+  created_at: string;
+}
+
 // Diccionario por defecto de notas olfativas según la familia del perfume
 const DEFAULT_FAMILY_NOTES: Record<string, string[]> = {
-  'Cítrico': ['Bergamota', 'Limón', 'Mandarina', 'Pomelo', 'Neroli'],
-  'Amaderado': ['Sándalo', 'Cedro', 'Vetiver', 'Oud', 'Pachulí'],
-  'Gourmand': ['Vainilla', 'Caramelo', 'Cacao', 'Habas Tonka', 'Almendra'],
-  'Floral': ['Jazmín', 'Rosa', 'Flor de Azahar', 'Violeta', 'Ylang-Ylang'],
-  'Oriental': ['Ámbar', 'Especias', 'Canela', 'Incienso', 'Vainilla'],
-  'Cuero': ['Cuero', 'Tabaco', 'Gamuza', 'Humo', 'Abedul'],
-  'Aromático': ['Lavanda', 'Salvia', 'Romero', 'Menta', 'Tomillo'],
-  'Especiado': ['Pimienta Negra', 'Cardamomo', 'Nuez Moscada', 'Clavo', 'Canela']
+  Cítrico: ['Bergamota', 'Limón', 'Mandarina', 'Pomelo', 'Neroli'],
+  Amaderado: ['Sándalo', 'Cedro', 'Vetiver', 'Oud', 'Pachulí'],
+  Gourmand: ['Vainilla', 'Caramelo', 'Cacao', 'Habas Tonka', 'Almendra'],
+  Floral: ['Jazmín', 'Rosa', 'Flor de Azahar', 'Violeta', 'Ylang-Ylang'],
+  Oriental: ['Ámbar', 'Especias', 'Canela', 'Incienso', 'Vainilla'],
+  Cuero: ['Cuero', 'Tabaco', 'Gamuza', 'Humo', 'Abedul'],
+  Aromático: ['Lavanda', 'Salvia', 'Romero', 'Menta', 'Tomillo'],
+  Especiado: ['Pimienta Negra', 'Cardamomo', 'Nuez Moscada', 'Clavo', 'Canela'],
 };
 
 /**
@@ -51,13 +60,28 @@ export async function getOlfactoryMatchForClient(
   error?: string;
 }> {
   try {
+    await requireAuth();
+
+    if (!clientId || !clientId.trim()) {
+      throw new Error('ID de cliente requerido.');
+    }
+
+    if (!isSupabaseConfigured()) {
+      return {
+        success: true,
+        data: [],
+        preferredNotes: [],
+        clientName: 'Cliente Demo',
+      };
+    }
+
     const supabase = getServiceSupabase();
 
     // 1. Obtener cliente y sus notas preferidas
     const { data: client, error: clientError } = await supabase
       .from('clients')
       .select('id, name, preferred_notes')
-      .eq('id', clientId)
+      .eq('id', clientId.trim())
       .single();
 
     if (clientError || !client) {
@@ -71,7 +95,7 @@ export async function getOlfactoryMatchForClient(
         success: true,
         data: [],
         preferredNotes: [],
-        clientName: client.name
+        clientName: client.name,
       };
     }
 
@@ -82,14 +106,14 @@ export async function getOlfactoryMatchForClient(
     }
 
     // 3. Filtrar ESTRICTAMENTE fragancias/perfumes con stock > 0 (Excluyendo insumos de packaging)
-    const fragranceProducts = productsRes.data.filter(p => 
-      (p.type === 'bottle' || p.type === 'decant_liquid') && Number(p.stock_quantity || 0) > 0
+    const fragranceProducts = productsRes.data.filter(
+      (p) => (p.type === 'bottle' || p.type === 'decant_liquid') && Number(p.stock_quantity || 0) > 0
     );
 
     const matches: OlfactoryMatchResult[] = [];
 
     // 4. Calcular el match olfativo para cada fragancia
-    fragranceProducts.forEach(product => {
+    fragranceProducts.forEach((product) => {
       let notes: string[] = [];
       if (Array.isArray(product.olfactory_notes) && product.olfactory_notes.length > 0) {
         notes = product.olfactory_notes;
@@ -100,8 +124,8 @@ export async function getOlfactoryMatchForClient(
       if (notes.length === 0) return;
 
       // Encontrar coincidencias (case-insensitive)
-      const matchingNotes = notes.filter(note =>
-        preferredNotes.some(pn => pn.toLowerCase().trim() === note.toLowerCase().trim())
+      const matchingNotes = notes.filter((note) =>
+        preferredNotes.some((pn) => pn.toLowerCase().trim() === note.toLowerCase().trim())
       );
 
       if (matchingNotes.length > 0) {
@@ -110,7 +134,7 @@ export async function getOlfactoryMatchForClient(
           matchingNotes,
           allNotes: notes,
           matchScore: matchingNotes.length,
-          isDecantLiquid: product.type === 'decant_liquid'
+          isDecantLiquid: product.type === 'decant_liquid',
         });
       }
     });
@@ -128,12 +152,34 @@ export async function getOlfactoryMatchForClient(
       success: true,
       data: matches,
       preferredNotes,
-      clientName: client.name
+      clientName: client.name,
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error al calcular Match Olfativo:', error);
-    return { success: false, error: error.message || 'Error en algoritmo de match olfativo' };
+    const msg = error instanceof Error ? error.message : 'Error en algoritmo de match olfativo';
+    return { success: false, error: msg };
   }
+}
+
+interface SaleItemWithRelations {
+  quantity: number;
+  sale_id: string;
+  sales?: {
+    created_at: string;
+    client_id: string;
+    clients?: {
+      id: string;
+      name: string;
+      phone?: string | null;
+    } | null;
+  } | null;
+  products?: {
+    id: string;
+    name: string;
+    brand: string;
+    olfactory_family?: string | null;
+    olfactory_notes?: string[] | null;
+  } | null;
 }
 
 /**
@@ -152,22 +198,38 @@ export async function matchNewArrivalsToClients(
   error?: string;
 }> {
   try {
+    await requireAuth();
+
+    if (!newProductId || !newProductId.trim()) {
+      throw new Error('ID de producto objetivo requerido.');
+    }
+
+    if (!isSupabaseConfigured()) {
+      return {
+        success: true,
+        recommendations: [],
+      };
+    }
+
     const supabase = getServiceSupabase();
 
     // 1. Obtener producto objetivo
     const { data: targetProduct, error: prodErr } = await supabase
       .from('products')
       .select('*')
-      .eq('id', newProductId)
+      .eq('id', newProductId.trim())
       .single();
 
     if (prodErr || !targetProduct) {
       throw new Error('Producto de lanzamiento no encontrado.');
     }
 
-    const newNotes: string[] = Array.isArray(targetProduct.olfactory_notes) && targetProduct.olfactory_notes.length > 0
-      ? targetProduct.olfactory_notes
-      : (targetProduct.olfactory_family && DEFAULT_FAMILY_NOTES[targetProduct.olfactory_family] ? DEFAULT_FAMILY_NOTES[targetProduct.olfactory_family] : ['Vainilla', 'Bergamota', 'Cedro']);
+    const newNotes: string[] =
+      Array.isArray(targetProduct.olfactory_notes) && targetProduct.olfactory_notes.length > 0
+        ? targetProduct.olfactory_notes
+        : targetProduct.olfactory_family && DEFAULT_FAMILY_NOTES[targetProduct.olfactory_family]
+        ? DEFAULT_FAMILY_NOTES[targetProduct.olfactory_family]
+        : ['Vainilla', 'Bergamota', 'Cedro'];
 
     // 2. Obtener el historial de ventas con productos comprados y clientes asociados mediante JOIN relacional
     const { data: salesItems, error: salesErr } = await supabase
@@ -197,35 +259,45 @@ export async function matchNewArrivalsToClients(
     if (salesErr) throw salesErr;
 
     // 3. Procesar y agrupar por cliente
-    const clientMatchesMap = new Map<string, {
-      clientName: string;
-      clientPhone?: string;
-      previousPerfumeName: string;
-      matchingNotes: Set<string>;
-      matchScore: number;
-    }>();
+    const clientMatchesMap = new Map<
+      string,
+      {
+        clientName: string;
+        clientPhone?: string;
+        previousPerfumeName: string;
+        matchingNotes: Set<string>;
+        matchScore: number;
+      }
+    >();
 
-    (salesItems || []).forEach(item => {
-      const sale = item.sales as any;
-      const product = item.products as any;
-      const client = sale?.clients as any;
+    const rows = (salesItems || []) as unknown as SaleItemWithRelations[];
+
+    rows.forEach((item) => {
+      const sale = item.sales;
+      const product = item.products;
+      const client = sale?.clients;
 
       // Fallback de protección: omitir si no hay datos de cliente o si el cliente fue eliminado
       if (!sale || !client || !client.name || !product || product.id === newProductId) return;
 
       const clientName = client.name.trim();
       const clientPhone = client.phone || '';
-      const boughtNotes: string[] = Array.isArray(product.olfactory_notes) && product.olfactory_notes.length > 0
-        ? product.olfactory_notes
-        : (product.olfactory_family && DEFAULT_FAMILY_NOTES[product.olfactory_family] ? DEFAULT_FAMILY_NOTES[product.olfactory_family] : []);
+      const boughtNotes: string[] =
+        Array.isArray(product.olfactory_notes) && product.olfactory_notes.length > 0
+          ? product.olfactory_notes
+          : product.olfactory_family && DEFAULT_FAMILY_NOTES[product.olfactory_family]
+          ? DEFAULT_FAMILY_NOTES[product.olfactory_family]
+          : [];
 
       // Calcular coincidencias olfativas con el nuevo producto
-      const sharedNotes = boughtNotes.filter(bn =>
-        newNotes.some(nn => nn.toLowerCase().trim() === bn.toLowerCase().trim())
+      const sharedNotes = boughtNotes.filter((bn) =>
+        newNotes.some((nn) => nn.toLowerCase().trim() === bn.toLowerCase().trim())
       );
 
       // Si comparte notas o la misma familia olfativa
-      const sameFamily = product.olfactory_family && targetProduct.olfactory_family &&
+      const sameFamily =
+        product.olfactory_family &&
+        targetProduct.olfactory_family &&
         product.olfactory_family.toLowerCase() === targetProduct.olfactory_family.toLowerCase();
 
       if (sharedNotes.length >= 1 || sameFamily) {
@@ -233,7 +305,7 @@ export async function matchNewArrivalsToClients(
         const existing = clientMatchesMap.get(key);
 
         const currentNotes = existing ? existing.matchingNotes : new Set<string>();
-        sharedNotes.forEach(sn => currentNotes.add(sn));
+        sharedNotes.forEach((sn) => currentNotes.add(sn));
 
         const score = currentNotes.size + (sameFamily ? 1 : 0);
 
@@ -243,7 +315,7 @@ export async function matchNewArrivalsToClients(
             clientPhone,
             previousPerfumeName: product.name,
             matchingNotes: currentNotes,
-            matchScore: score
+            matchScore: score,
           });
         }
       }
@@ -252,9 +324,12 @@ export async function matchNewArrivalsToClients(
     // 4. Convertir mapa a array y construir mensajes de WhatsApp personalizados
     const recommendations: ClientMatchRecommendation[] = [];
 
-    clientMatchesMap.forEach(val => {
+    clientMatchesMap.forEach((val) => {
       const notesList = Array.from(val.matchingNotes);
-      const notesFormatted = notesList.length > 0 ? notesList.join(', ') : (targetProduct.olfactory_family || 'notas especiadas');
+      const notesFormatted =
+        notesList.length > 0
+          ? notesList.join(', ')
+          : targetProduct.olfactory_family || 'notas especiadas';
 
       const messageText = `Hola ${val.clientName}! 👋 Vimos que compraste ${val.previousPerfumeName} y nos acordamos de vos. Acaba de ingresar a Elohim Import el nuevo ${targetProduct.name} de ${targetProduct.brand}, que comparte notas olfativas de ${notesFormatted}. ¡Tenemos decants disponibles para que lo pruebes! ¿Te reservamos uno? 🛍️✨`;
 
@@ -262,7 +337,9 @@ export async function matchNewArrivalsToClients(
       if (rawPhone && !rawPhone.startsWith('54')) {
         rawPhone = '549' + rawPhone;
       }
-      const whatsAppUrl = rawPhone ? `https://wa.me/${rawPhone}?text=${encodeURIComponent(messageText)}` : `https://wa.me/?text=${encodeURIComponent(messageText)}`;
+      const whatsAppUrl = rawPhone
+        ? `https://wa.me/${rawPhone}?text=${encodeURIComponent(messageText)}`
+        : `https://wa.me/?text=${encodeURIComponent(messageText)}`;
 
       recommendations.push({
         clientName: val.clientName,
@@ -271,7 +348,7 @@ export async function matchNewArrivalsToClients(
         matchingNotes: notesList,
         matchScore: val.matchScore,
         whatsAppMessage: messageText,
-        whatsAppUrl
+        whatsAppUrl,
       });
     });
 
@@ -280,12 +357,13 @@ export async function matchNewArrivalsToClients(
 
     return {
       success: true,
-      newProduct: targetProduct,
-      recommendations
+      newProduct: targetProduct as unknown as Product,
+      recommendations,
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error al generar recomendaciones de lanzamientos:', error);
-    return { success: false, error: error.message || 'Error al procesar recomendaciones.' };
+    const msg = error instanceof Error ? error.message : 'Error al procesar recomendaciones.';
+    return { success: false, error: msg };
   }
 }
 
@@ -295,20 +373,31 @@ export async function matchNewArrivalsToClients(
 export async function getClientPointsHistory(
   role: UserRole,
   clientId: string
-): Promise<{ success: boolean; data?: any[]; error?: string }> {
+): Promise<{ success: boolean; data?: PointsHistoryRecord[]; error?: string }> {
   try {
+    await requireAuth();
+
+    if (!clientId || !clientId.trim()) {
+      throw new Error('ID de cliente requerido.');
+    }
+
+    if (!isSupabaseConfigured()) {
+      return { success: true, data: [] };
+    }
+
     const supabase = getServiceSupabase();
     const { data, error } = await supabase
       .from('client_points_history')
       .select('*')
-      .eq('client_id', clientId)
+      .eq('client_id', clientId.trim())
       .order('created_at', { ascending: false });
 
     if (error) throw error;
 
-    return { success: true, data: data || [] };
-  } catch (error: any) {
+    return { success: true, data: (data || []) as unknown as PointsHistoryRecord[] };
+  } catch (error: unknown) {
     console.error('Error al consultar historial de puntos:', error);
-    return { success: false, error: error.message || 'Error al obtener historial de VibePoints' };
+    const msg = error instanceof Error ? error.message : 'Error al obtener historial de VibePoints';
+    return { success: false, error: msg };
   }
 }

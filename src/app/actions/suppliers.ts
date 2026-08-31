@@ -1,22 +1,57 @@
 'use server';
 
-import { getServiceSupabase } from '@/lib/supabase';
+import { getServiceSupabase, isSupabaseConfigured } from '@/lib/supabase';
 import { UserRole } from '@/types';
 import { revalidatePath } from 'next/cache';
+import { requireAuth, requireAdmin } from '@/lib/auth-checks';
+import { supplierInputSchema } from '@/lib/purchase-validation';
 
 export interface SupplierInput {
   name: string;
-  contact_name?: string;
-  phone?: string;
-  email?: string;
-  notes?: string;
+  contact_name?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  notes?: string | null;
+}
+
+export interface SupplierRecord {
+  id: string;
+  name: string;
+  contact_name?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  notes?: string | null;
+  created_at: string;
 }
 
 /**
  * Obtener la lista completa de proveedores.
  */
-export async function getSuppliers(role: UserRole): Promise<{ success: boolean; data?: any[]; error?: string }> {
+export async function getSuppliers(role?: UserRole): Promise<{
+  success: boolean;
+  data?: SupplierRecord[];
+  error?: string;
+}> {
   try {
+    await requireAuth();
+
+    if (!isSupabaseConfigured()) {
+      return {
+        success: true,
+        data: [
+          {
+            id: 'mock-sup-1',
+            name: 'Distribuidora Fragance SA',
+            contact_name: 'Roberto Gómez',
+            phone: '+54 11 4455-6677',
+            email: 'ventas@fragancesa.com',
+            notes: 'Proveedor oficial Creed y Lattafa',
+            created_at: new Date().toISOString(),
+          },
+        ],
+      };
+    }
+
     const supabase = getServiceSupabase();
     const { data, error } = await supabase
       .from('suppliers')
@@ -27,10 +62,11 @@ export async function getSuppliers(role: UserRole): Promise<{ success: boolean; 
       throw error;
     }
 
-    return { success: true, data: data || [] };
-  } catch (error: any) {
+    return { success: true, data: (data || []) as unknown as SupplierRecord[] };
+  } catch (error: unknown) {
     console.error('Error al obtener proveedores:', error);
-    return { success: false, error: error.message || 'Error al obtener proveedores' };
+    const msg = error instanceof Error ? error.message : 'Error al obtener proveedores';
+    return { success: false, error: msg };
   }
 }
 
@@ -40,14 +76,31 @@ export async function getSuppliers(role: UserRole): Promise<{ success: boolean; 
 export async function createSupplier(
   role: UserRole,
   supplierData: SupplierInput
-): Promise<{ success: boolean; data?: any; error?: string }> {
+): Promise<{ success: boolean; data?: SupplierRecord; error?: string }> {
   try {
-    if (role !== 'admin') {
-      throw new Error('Operación no autorizada. Se requiere rol de Administrador.');
+    await requireAdmin();
+
+    const validation = supplierInputSchema.safeParse(supplierData);
+    if (!validation.success) {
+      const firstError = validation.error.issues[0]?.message || 'Datos del proveedor inválidos.';
+      return { success: false, error: firstError };
     }
 
-    if (!supplierData.name || supplierData.name.trim() === '') {
-      throw new Error('El nombre del proveedor o razón social es obligatorio.');
+    const clean = validation.data;
+
+    if (!isSupabaseConfigured()) {
+      return {
+        success: true,
+        data: {
+          id: 'mock-sup-new',
+          name: clean.name,
+          contact_name: clean.contact_name || null,
+          phone: clean.phone || null,
+          email: clean.email || null,
+          notes: clean.notes || null,
+          created_at: new Date().toISOString(),
+        },
+      };
     }
 
     const supabase = getServiceSupabase();
@@ -55,12 +108,12 @@ export async function createSupplier(
       .from('suppliers')
       .insert([
         {
-          name: supplierData.name.trim(),
-          contact_name: supplierData.contact_name?.trim() || null,
-          phone: supplierData.phone?.trim() || null,
-          email: supplierData.email?.trim() || null,
-          notes: supplierData.notes?.trim() || null
-        }
+          name: clean.name,
+          contact_name: clean.contact_name || null,
+          phone: clean.phone || null,
+          email: clean.email || null,
+          notes: clean.notes || null,
+        },
       ])
       .select()
       .single();
@@ -72,9 +125,10 @@ export async function createSupplier(
     revalidatePath('/compras');
     revalidatePath('/compras/proveedores');
     revalidatePath('/compras/nueva');
-    return { success: true, data };
-  } catch (error: any) {
+    return { success: true, data: data as unknown as SupplierRecord };
+  } catch (error: unknown) {
     console.error('Error al crear proveedor:', error);
-    return { success: false, error: error.message || 'Error al crear el proveedor' };
+    const msg = error instanceof Error ? error.message : 'Error al crear el proveedor';
+    return { success: false, error: msg };
   }
 }

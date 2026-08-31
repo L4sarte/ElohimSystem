@@ -1,8 +1,10 @@
 'use server';
 
-import { getServiceSupabase } from '@/lib/supabase';
+import { getServiceSupabase, isSupabaseConfigured } from '@/lib/supabase';
 import { UserRole } from '@/types';
 import { revalidatePath } from 'next/cache';
+import { requireAuth } from '@/lib/auth-checks';
+import { receivablePaymentSchema } from '@/lib/client-validation';
 
 export interface AccountReceivable {
   id: string;
@@ -17,24 +19,52 @@ export interface AccountReceivable {
   updated_at?: string;
   clients?: {
     name: string;
-    phone?: string;
-    email?: string;
-  };
+    phone?: string | null;
+    email?: string | null;
+  } | null;
   sales?: {
     created_at: string;
     total_ars: number;
-  };
+  } | null;
+}
+
+interface DbReceivableRow {
+  id: string;
+  client_id: string;
+  sale_id?: string;
+  total_amount_ars: number;
+  paid_amount_ars: number;
+  due_date: string;
+  status: 'pending' | 'paid' | 'overdue';
+  notes?: string;
+  created_at: string;
+  updated_at?: string;
+  clients?: {
+    name: string;
+    phone?: string | null;
+    email?: string | null;
+  } | null;
+  sales?: {
+    created_at: string;
+    total_ars: number;
+  } | null;
 }
 
 /**
  * Obtener el listado de Cuentas por Cobrar (Fiados / Señas) con clientes e historial.
  */
-export async function getAccountsReceivable(role: UserRole): Promise<{
+export async function getAccountsReceivable(role?: UserRole): Promise<{
   success: boolean;
   data?: AccountReceivable[];
   error?: string;
 }> {
   try {
+    await requireAuth();
+
+    if (!isSupabaseConfigured()) {
+      return { success: true, data: [] };
+    }
+
     const supabase = getServiceSupabase();
     const { data, error } = await supabase
       .from('accounts_receivable')
@@ -54,16 +84,18 @@ export async function getAccountsReceivable(role: UserRole): Promise<{
 
     if (error) throw error;
 
-    const list: AccountReceivable[] = (data || []).map((item: any) => ({
+    const rows = (data || []) as unknown as DbReceivableRow[];
+    const list: AccountReceivable[] = rows.map((item) => ({
       ...item,
-      total_amount_ars: Number(item.total_amount_ars),
-      paid_amount_ars: Number(item.paid_amount_ars),
+      total_amount_ars: Number(item.total_amount_ars || 0),
+      paid_amount_ars: Number(item.paid_amount_ars || 0),
     }));
 
     return { success: true, data: list };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error al obtener cuentas por cobrar:', error);
-    return { success: false, error: error.message || 'Error al obtener deudas' };
+    const msg = error instanceof Error ? error.message : 'Error al obtener deudas';
+    return { success: false, error: msg };
   }
 }
 
@@ -79,8 +111,23 @@ export async function registerDebtPayment(
   notes?: string
 ): Promise<{ success: boolean; newPaid?: number; status?: string; error?: string }> {
   try {
-    if (!receivableId || amountPaid <= 0) {
-      throw new Error('El monto ingresado debe ser mayor a $0.');
+    await requireAuth();
+
+    const validation = receivablePaymentSchema.safeParse({
+      receivable_id: receivableId,
+      amount_paid: amountPaid,
+      notes,
+    });
+
+    if (!validation.success) {
+      const firstError = validation.error.issues[0]?.message || 'Datos de pago inválidos.';
+      return { success: false, error: firstError };
+    }
+
+    const clean = validation.data;
+
+    if (!isSupabaseConfigured()) {
+      return { success: true, newPaid: clean.amount_paid, status: 'paid' };
     }
 
     const supabase = getServiceSupabase();
@@ -89,7 +136,7 @@ export async function registerDebtPayment(
     const { data: receivable, error: recError } = await supabase
       .from('accounts_receivable')
       .select('*, clients(name)')
-      .eq('id', receivableId)
+      .eq('id', clean.receivable_id)
       .single();
 
     if (recError || !receivable) {
@@ -98,7 +145,7 @@ export async function registerDebtPayment(
 
     const currentPaid = Number(receivable.paid_amount_ars || 0);
     const totalAmount = Number(receivable.total_amount_ars || 0);
-    const newPaid = currentPaid + Number(amountPaid);
+    const newPaid = currentPaid + Number(clean.amount_paid);
     const newStatus = newPaid >= totalAmount ? 'paid' : 'pending';
     const clientName = receivable.clients?.name || 'Cliente';
 
@@ -108,10 +155,10 @@ export async function registerDebtPayment(
       .update({
         paid_amount_ars: newPaid,
         status: newStatus,
-        notes: notes ? `${receivable.notes || ''} | ${notes}` : receivable.notes,
-        updated_at: new Date().toISOString()
+        notes: clean.notes ? `${receivable.notes || ''} | ${clean.notes}` : receivable.notes,
+        updated_at: new Date().toISOString(),
       })
-      .eq('id', receivableId);
+      .eq('id', clean.receivable_id);
 
     if (updateError) throw updateError;
 
@@ -126,15 +173,13 @@ export async function registerDebtPayment(
       .maybeSingle();
 
     if (openShift) {
-      const { error: moveError } = await supabase
-        .from('cash_movements')
-        .insert({
-          shift_id: openShift.id,
-          type: 'in',
-          amount_ars: Number(amountPaid),
-          amount_usd: 0,
-          description: `Cobro Cta Cte - Cliente: ${clientName} (Deuda #${receivableId.split('-')[0].toUpperCase()})`
-        });
+      const { error: moveError } = await supabase.from('cash_movements').insert({
+        shift_id: openShift.id,
+        type: 'in',
+        amount_ars: Number(clean.amount_paid),
+        amount_usd: 0,
+        description: `Cobro Cta Cte - Cliente: ${clientName} (Deuda #${clean.receivable_id.split('-')[0].toUpperCase()})`,
+      });
 
       if (moveError) {
         console.warn('No se pudo insertar el movimiento de caja automático:', moveError);
@@ -145,9 +190,10 @@ export async function registerDebtPayment(
     revalidatePath('/caja');
     revalidatePath('/clientes');
     return { success: true, newPaid, status: newStatus };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error al registrar pago de deuda:', error);
-    return { success: false, error: error.message || 'Error al procesar el abono' };
+    const msg = error instanceof Error ? error.message : 'Error al procesar el abono';
+    return { success: false, error: msg };
   }
 }
 
@@ -163,17 +209,36 @@ export interface DebtorReportItem {
   created_at: string;
 }
 
+interface DbDebtorReportRow {
+  id: string;
+  total_amount_ars: number;
+  paid_amount_ars: number;
+  due_date?: string | null;
+  status: string;
+  created_at: string;
+  clients?: {
+    name: string;
+    phone?: string | null;
+  } | null;
+}
+
 /**
  * Consulta de datos para la generación del PDF de Cuentas por Cobrar (Deudores).
  * Filtra los registros donde status sea 'pending' u 'overdue' con datos de clientes.
  */
-export async function getDebtorsForReport(role: UserRole): Promise<{
+export async function getDebtorsForReport(role?: UserRole): Promise<{
   success: boolean;
   data?: DebtorReportItem[];
   totalOutstandingArs?: number;
   error?: string;
 }> {
   try {
+    await requireAuth();
+
+    if (!isSupabaseConfigured()) {
+      return { success: true, data: [], totalOutstandingArs: 0 };
+    }
+
     const supabase = getServiceSupabase();
     const { data, error } = await supabase
       .from('accounts_receivable')
@@ -195,13 +260,15 @@ export async function getDebtorsForReport(role: UserRole): Promise<{
     if (error) throw error;
 
     let totalOutstandingArs = 0;
-    const list: DebtorReportItem[] = (data || []).map((item: any) => {
+    const rows = (data || []) as unknown as DbDebtorReportRow[];
+    const list: DebtorReportItem[] = rows.map((item) => {
       const total = Number(item.total_amount_ars || 0);
       const paid = Number(item.paid_amount_ars || 0);
       const balance = Math.max(0, total - paid);
       totalOutstandingArs += balance;
 
-      const isOverdue = item.status === 'overdue' || (item.due_date && new Date(item.due_date) < new Date());
+      const isOverdue =
+        item.status === 'overdue' || (item.due_date ? new Date(item.due_date) < new Date() : false);
 
       return {
         id: item.id,
@@ -212,21 +279,21 @@ export async function getDebtorsForReport(role: UserRole): Promise<{
         total_amount_ars: total,
         paid_amount_ars: paid,
         balance_ars: balance,
-        created_at: item.created_at
+        created_at: item.created_at,
       };
     });
 
     return {
       success: true,
       data: list,
-      totalOutstandingArs: Math.round(totalOutstandingArs)
+      totalOutstandingArs: Math.round(totalOutstandingArs),
     };
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('Error al consultar deudores para reporte:', err);
+    const msg = err instanceof Error ? err.message : 'Error al consultar datos de deudores';
     return {
       success: false,
-      error: err.message || 'Error al consultar datos de deudores'
+      error: msg,
     };
   }
 }
-

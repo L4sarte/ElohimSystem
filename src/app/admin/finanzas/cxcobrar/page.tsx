@@ -556,7 +556,8 @@ export default function CxCobrarPage() {
                       placeholder="Monto a ingresar hoy..."
                       value={amountPaidInput}
                       onChange={(e) => setAmountPaidInput(e.target.value)}
-                      className="pl-7 bg-[#08130E] border-[#1B362A] text-white font-mono font-bold text-sm"
+                      disabled={submitting}
+                      className="pl-7 bg-[#08130E] border-[#1B362A] text-white font-mono font-bold text-sm disabled:opacity-50"
                     />
                   </div>
                 </div>
@@ -569,7 +570,8 @@ export default function CxCobrarPage() {
                   <select
                     value={paymentMethod}
                     onChange={(e) => setPaymentMethod(e.target.value)}
-                    className="flex h-9 w-full rounded-lg border border-[#1B362A] bg-[#08130E] px-3 py-1 text-xs font-bold text-white focus:outline-none focus:ring-1 focus:ring-[#D0A96B]"
+                    disabled={submitting}
+                    className="flex h-9 w-full rounded-lg border border-[#1B362A] bg-[#08130E] px-3 py-1 text-xs font-bold text-white focus:outline-none focus:ring-1 focus:ring-[#D0A96B] disabled:opacity-50"
                   >
                     <option value="Efectivo ARS">💵 Efectivo ARS</option>
                     <option value="Transferencia / Alias">🏛️ Transferencia / Alias</option>

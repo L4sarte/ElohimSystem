@@ -397,7 +397,8 @@ export default function ComisionesConfigPage() {
                     placeholder="Ej. MercadoPago - 3 Cuotas / Crédito 1 Pago"
                     value={formMethodName}
                     onChange={(e) => setFormMethodName(e.target.value)}
-                    className="bg-[#08130E] border-[#1B362A] text-white"
+                    disabled={submitting}
+                    className="bg-[#08130E] border-[#1B362A] text-white disabled:opacity-50"
                   />
                 </div>
 
@@ -414,7 +415,8 @@ export default function ComisionesConfigPage() {
                         placeholder="15.00"
                         value={formFeePercentage}
                         onChange={(e) => setFormFeePercentage(parseFloat(e.target.value) || 0)}
-                        className="bg-[#08130E] border-[#1B362A] text-white pr-7 font-mono font-bold text-right"
+                        disabled={submitting}
+                        className="bg-[#08130E] border-[#1B362A] text-white pr-7 font-mono font-bold text-right disabled:opacity-50"
                       />
                       <Percent className="absolute right-2.5 top-2.5 h-3.5 w-3.5 text-zinc-500" />
                     </div>
@@ -432,7 +434,8 @@ export default function ComisionesConfigPage() {
                         placeholder="0"
                         value={formFixedFeeArs}
                         onChange={(e) => setFormFixedFeeArs(parseFloat(e.target.value) || 0)}
-                        className="bg-[#08130E] border-[#1B362A] text-white pl-6 font-mono font-bold"
+                        disabled={submitting}
+                        className="bg-[#08130E] border-[#1B362A] text-white pl-6 font-mono font-bold disabled:opacity-50"
                       />
                     </div>
                   </div>
@@ -450,7 +453,8 @@ export default function ComisionesConfigPage() {
                       id="pass_fee_checkbox"
                       checked={formPassFeeToCustomer}
                       onChange={(e) => setFormPassFeeToCustomer(e.target.checked)}
-                      className="h-4 w-4 rounded border-[#1B362A] bg-[#13261E] text-[#D0A96B] focus:ring-[#D0A96B] cursor-pointer"
+                      disabled={submitting}
+                      className="h-4 w-4 rounded border-[#1B362A] bg-[#13261E] text-[#D0A96B] focus:ring-[#D0A96B] cursor-pointer disabled:opacity-50"
                     />
                     <label htmlFor="pass_fee_checkbox" className="text-xs font-semibold text-white cursor-pointer select-none">
                       Recargar costo financiero al cliente (+ Total POS)
@@ -476,7 +480,8 @@ export default function ComisionesConfigPage() {
                     id="is_active_checkbox"
                     checked={formActive}
                     onChange={(e) => setFormActive(e.target.checked)}
-                    className="h-4 w-4 rounded border-[#1B362A] bg-[#13261E] text-[#D0A96B] focus:ring-[#D0A96B] cursor-pointer"
+                    disabled={submitting}
+                    className="h-4 w-4 rounded border-[#1B362A] bg-[#13261E] text-[#D0A96B] focus:ring-[#D0A96B] cursor-pointer disabled:opacity-50"
                   />
                   <label htmlFor="is_active_checkbox" className="text-xs font-bold text-zinc-300 cursor-pointer">
                     Método de Pago Activo (Disponible en POS)

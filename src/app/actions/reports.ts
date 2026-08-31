@@ -1,15 +1,35 @@
 'use server';
 
-import { getServiceSupabase } from '@/lib/supabase';
+import { getServiceSupabase, isSupabaseConfigured } from '@/lib/supabase';
 import { UserRole } from '@/types';
+import { requireAdmin } from '@/lib/auth-checks';
+
+export interface AuditLogRecord {
+  id: string;
+  action: string;
+  details: string | Record<string, unknown>;
+  created_at: string;
+  created_by?: string;
+  products?: {
+    name: string;
+    brand: string;
+    sku: string;
+  } | null;
+}
 
 /**
  * Obtener todos los logs de auditoría (Exclusivo Administrador).
  */
-export async function getAuditLogs(role: UserRole): Promise<{ success: boolean; data?: any[]; error?: string }> {
+export async function getAuditLogs(role?: UserRole): Promise<{
+  success: boolean;
+  data?: AuditLogRecord[];
+  error?: string;
+}> {
   try {
-    if (role !== 'admin') {
-      throw new Error('Operación no autorizada. Se requiere rol de Administrador.');
+    await requireAdmin();
+
+    if (!isSupabaseConfigured()) {
+      return { success: true, data: [] };
     }
 
     const supabase = getServiceSupabase();
@@ -34,21 +54,60 @@ export async function getAuditLogs(role: UserRole): Promise<{ success: boolean; 
       throw error;
     }
 
-    return { success: true, data: data || [] };
-  } catch (error: any) {
+    return { success: true, data: (data || []) as unknown as AuditLogRecord[] };
+  } catch (error: unknown) {
     console.error('Error al obtener logs de auditoría:', error);
-    return { success: false, error: error.message || 'Error al obtener logs de auditoría' };
+    const msg = error instanceof Error ? error.message : 'Error al obtener logs de auditoría';
+    return { success: false, error: msg };
   }
 }
 
-interface DashboardData {
+export interface CriticalStockItem {
+  id: string;
+  name: string;
+  brand: string;
+  sku: string;
+  type: string;
+  stock_quantity: number;
+}
+
+export interface RecentSaleItem {
+  id: string;
+  created_at: string;
+  total_ars: number;
+  client_name: string;
+}
+
+export interface DashboardData {
   totalRevenueArs: number;
   totalRevenueUsd: number;
   estimatedProfitArs: number;
   estimatedProfitUsd: number;
-  salesByDate: Array<{ date: string; Ventas: number; Ganancias: number }>;
-  criticalStock: any[];
-  recentSales: any[];
+  salesByDate: Array<{ date: string; Ventas: number; Ganancias: number; VentasMesAnterior: number }>;
+  criticalStock: CriticalStockItem[];
+  recentSales: RecentSaleItem[];
+}
+
+interface DbSaleRow {
+  id: string;
+  total_ars: number;
+  total_usd_equivalent: number;
+  exchange_rate_used: number;
+  created_at: string;
+  status: string;
+  clients?: {
+    name: string;
+  } | null;
+}
+
+interface DbSaleItemRow {
+  sale_id: string;
+  quantity: number;
+  price_ars_at_moment: number;
+  price_usd_at_moment: number;
+  products?: {
+    base_cost_ars: number;
+  } | null;
 }
 
 /**
@@ -56,16 +115,33 @@ interface DashboardData {
  * Incluye KPIs financieros, ventas agrupadas para gráficos, productos con stock crítico (< 3)
  * y el feed de las últimas 5 ventas con el nombre del cliente.
  */
-export async function getDashboardData(role: UserRole): Promise<{ success: boolean; data?: DashboardData; error?: string }> {
+export async function getDashboardData(role?: UserRole): Promise<{
+  success: boolean;
+  data?: DashboardData;
+  error?: string;
+}> {
   try {
-    if (role !== 'admin') {
-      throw new Error('Operación no autorizada. Se requiere rol de Administrador.');
+    await requireAdmin();
+
+    if (!isSupabaseConfigured()) {
+      return {
+        success: true,
+        data: {
+          totalRevenueArs: 0,
+          totalRevenueUsd: 0,
+          estimatedProfitArs: 0,
+          estimatedProfitUsd: 0,
+          salesByDate: [],
+          criticalStock: [],
+          recentSales: [],
+        },
+      };
     }
 
     const supabase = getServiceSupabase();
 
     // 1. Obtener todas las ventas activas (excluyendo anuladas) para KPIs y gráfico
-    const { data: sales, error: salesError } = await supabase
+    const { data: salesData, error: salesError } = await supabase
       .from('sales')
       .select('id, total_ars, total_usd_equivalent, exchange_rate_used, created_at, status')
       .neq('status', 'voided')
@@ -73,10 +149,11 @@ export async function getDashboardData(role: UserRole): Promise<{ success: boole
 
     if (salesError) throw salesError;
 
-    const validSaleIds = (sales || []).map(s => s.id);
+    const sales = (salesData || []) as unknown as DbSaleRow[];
+    const validSaleIds = sales.map((s) => s.id);
 
     // 2. Obtener los ítems de ventas activas con costo para rentabilidad
-    let saleItems: any[] = [];
+    let saleItems: DbSaleItemRow[] = [];
     if (validSaleIds.length > 0) {
       const { data: itemsData, error: itemsError } = await supabase
         .from('sale_items')
@@ -92,11 +169,11 @@ export async function getDashboardData(role: UserRole): Promise<{ success: boole
         .in('sale_id', validSaleIds);
 
       if (itemsError) throw itemsError;
-      saleItems = itemsData || [];
+      saleItems = (itemsData || []) as unknown as DbSaleItemRow[];
     }
 
     // 3. Obtener alertas de stock crítico (< 3 botellas comerciales o frascos vacíos)
-    const { data: criticalStock, error: stockError } = await supabase
+    const { data: stockData, error: stockError } = await supabase
       .from('products')
       .select('id, name, brand, sku, type, stock_quantity')
       .in('type', ['bottle', 'supply'])
@@ -106,8 +183,10 @@ export async function getDashboardData(role: UserRole): Promise<{ success: boole
 
     if (stockError) throw stockError;
 
+    const criticalStock = (stockData || []) as unknown as CriticalStockItem[];
+
     // 4. Obtener las últimas 5 ventas completadas (excluyendo anuladas)
-    const { data: recentSales, error: recentError } = await supabase
+    const { data: recentData, error: recentError } = await supabase
       .from('sales')
       .select(`
         id,
@@ -124,13 +203,15 @@ export async function getDashboardData(role: UserRole): Promise<{ success: boole
 
     if (recentError) throw recentError;
 
+    const recentSalesDb = (recentData || []) as unknown as DbSaleRow[];
+
     // --- Procesamiento de métricas ---
     let totalRevenueArs = 0;
     let totalRevenueUsd = 0;
     let estimatedProfitArs = 0;
     const itemProfitMap: Record<string, number> = {};
 
-    (saleItems || []).forEach((item: any) => {
+    saleItems.forEach((item) => {
       const qty = Number(item.quantity || 0);
       const priceArs = Number(item.price_ars_at_moment || 0);
       const costArs = item.products ? Number(item.products.base_cost_ars || 0) : 0;
@@ -144,8 +225,7 @@ export async function getDashboardData(role: UserRole): Promise<{ success: boole
       itemProfitMap[item.sale_id] += itemProfit;
     });
 
-    const totalSales = sales || [];
-    totalSales.forEach((sale: any) => {
+    sales.forEach((sale) => {
       totalRevenueArs += Number(sale.total_ars || 0);
       totalRevenueUsd += Number(sale.total_usd_equivalent || 0);
     });
@@ -154,10 +234,10 @@ export async function getDashboardData(role: UserRole): Promise<{ success: boole
 
     // Agrupar ventas para gráfico (últimas 10 fechas activas)
     const salesGrouped: Record<string, { total: number; profit: number }> = {};
-    totalSales.forEach((sale: any) => {
+    sales.forEach((sale) => {
       const dateStr = new Date(sale.created_at).toLocaleDateString('es-AR', {
         day: '2-digit',
-        month: '2-digit'
+        month: '2-digit',
       });
       const saleProfit = itemProfitMap[sale.id] || 0;
 
@@ -168,14 +248,14 @@ export async function getDashboardData(role: UserRole): Promise<{ success: boole
       salesGrouped[dateStr].profit += saleProfit;
     });
 
-    const salesByDate = Object.keys(salesGrouped).map(date => {
+    const salesByDate = Object.keys(salesGrouped).map((date) => {
       const currentTotal = Math.round(salesGrouped[date].total);
       const prevMonthTotal = Math.round(currentTotal * 0.82);
       return {
         date,
         Ventas: currentTotal,
         Ganancias: Math.round(salesGrouped[date].profit),
-        VentasMesAnterior: prevMonthTotal
+        VentasMesAnterior: prevMonthTotal,
       };
     });
 
@@ -187,18 +267,19 @@ export async function getDashboardData(role: UserRole): Promise<{ success: boole
         estimatedProfitArs,
         estimatedProfitUsd,
         salesByDate: salesByDate.slice(-10),
-        criticalStock: criticalStock || [],
-        recentSales: (recentSales || []).map((sale: any) => ({
+        criticalStock,
+        recentSales: recentSalesDb.map((sale) => ({
           id: sale.id,
           created_at: sale.created_at,
           total_ars: Number(sale.total_ars),
-          client_name: sale.clients?.name || 'Consumidor Final'
-        }))
-      }
+          client_name: sale.clients?.name || 'Consumidor Final',
+        })),
+      },
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error al generar datos del dashboard:', error);
-    return { success: false, error: error.message || 'Error al compilar datos del dashboard' };
+    const msg = error instanceof Error ? error.message : 'Error al compilar datos del dashboard';
+    return { success: false, error: msg };
   }
 }
 
@@ -218,13 +299,39 @@ export interface RetailKPIsData {
   topBestSellers: BestSellerProduct[];
 }
 
+interface DbRetailItemRow {
+  product_id: string;
+  quantity: number;
+  price_ars_at_moment: number;
+  products?: {
+    id: string;
+    name: string;
+    brand: string;
+    sku: string;
+  } | null;
+}
+
 /**
  * Obtiene los KPIs de Retail del mes en curso: Ticket Promedio (AOV) y Top 3 Best Sellers.
  */
-export async function getRetailKPIs(role: UserRole): Promise<{ success: boolean; data?: RetailKPIsData; error?: string }> {
+export async function getRetailKPIs(role?: UserRole): Promise<{
+  success: boolean;
+  data?: RetailKPIsData;
+  error?: string;
+}> {
   try {
-    if (role !== 'admin') {
-      throw new Error('Operación no autorizada. Se requiere rol de Administrador.');
+    await requireAdmin();
+
+    if (!isSupabaseConfigured()) {
+      return {
+        success: true,
+        data: {
+          totalSalesCount: 0,
+          totalRevenueArs: 0,
+          averageOrderValueArs: 0,
+          topBestSellers: [],
+        },
+      };
     }
 
     const supabase = getServiceSupabase();
@@ -240,16 +347,17 @@ export async function getRetailKPIs(role: UserRole): Promise<{ success: boolean;
 
     if (salesError) throw salesError;
 
-    const totalSalesCount = (monthSales || []).length;
-    const totalRevenueArs = (monthSales || []).reduce((sum, s) => sum + Number(s.total_ars || 0), 0);
+    const salesList = (monthSales || []) as unknown as Array<{ id: string; total_ars: number }>;
+    const totalSalesCount = salesList.length;
+    const totalRevenueArs = salesList.reduce((sum, s) => sum + Number(s.total_ars || 0), 0);
     const averageOrderValueArs = totalSalesCount > 0 ? Math.round(totalRevenueArs / totalSalesCount) : 0;
 
-    const monthSaleIds = (monthSales || []).map(s => s.id);
+    const monthSaleIds = salesList.map((s) => s.id);
     let topBestSellers: BestSellerProduct[] = [];
 
     if (monthSaleIds.length > 0) {
       // 2. Consultar ítems vendidos en el mes
-      const { data: items, error: itemsError } = await supabase
+      const { data: itemsData, error: itemsError } = await supabase
         .from('sale_items')
         .select(`
           product_id,
@@ -266,9 +374,10 @@ export async function getRetailKPIs(role: UserRole): Promise<{ success: boolean;
 
       if (itemsError) throw itemsError;
 
+      const items = (itemsData || []) as unknown as DbRetailItemRow[];
       const productGroupMap: Record<string, BestSellerProduct> = {};
 
-      (items || []).forEach((item: any) => {
+      items.forEach((item) => {
         const pId = item.product_id;
         const qty = Number(item.quantity || 0);
         const revenue = qty * Number(item.price_ars_at_moment || 0);
@@ -281,7 +390,7 @@ export async function getRetailKPIs(role: UserRole): Promise<{ success: boolean;
             brand: pInfo?.brand || 'Elohim',
             sku: pInfo?.sku || 'SKU-N/A',
             units_sold: 0,
-            total_revenue_ars: 0
+            total_revenue_ars: 0,
           };
         }
 
@@ -300,11 +409,12 @@ export async function getRetailKPIs(role: UserRole): Promise<{ success: boolean;
         totalSalesCount,
         totalRevenueArs,
         averageOrderValueArs,
-        topBestSellers
-      }
+        topBestSellers,
+      },
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error al calcular KPIs de Retail:', error);
-    return { success: false, error: error.message || 'Error al obtener KPIs de Retail' };
+    const msg = error instanceof Error ? error.message : 'Error al obtener KPIs de Retail';
+    return { success: false, error: msg };
   }
 }

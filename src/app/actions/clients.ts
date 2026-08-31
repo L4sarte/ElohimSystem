@@ -1,14 +1,73 @@
 'use server';
 
-import { getServiceSupabase } from '@/lib/supabase';
+import { getServiceSupabase, isSupabaseConfigured } from '@/lib/supabase';
 import { UserRole } from '@/types';
 import { revalidatePath } from 'next/cache';
+import { requireAuth } from '@/lib/auth-checks';
+import { clientInputSchema } from '@/lib/client-validation';
+
+export interface ClientRecord {
+  id: string;
+  name: string;
+  phone?: string | null;
+  email?: string | null;
+  preferred_notes?: string[] | null;
+  total_spent_ars: number;
+  points_balance?: number;
+  created_at: string;
+}
+
+export interface ClientSaleHistoryRecord {
+  id: string;
+  created_at: string;
+  total_ars: number;
+  total_usd_equivalent: number;
+  exchange_rate_used: number;
+  payment_methods?: string[];
+  sale_items: Array<{
+    id: string;
+    quantity: number;
+    price_ars_at_moment: number;
+    price_usd_at_moment: number;
+    products?: {
+      id: string;
+      name: string;
+      brand: string;
+      sku: string;
+      type: string;
+    } | null;
+  }>;
+}
 
 /**
  * Obtener todos los clientes con su detalle.
  */
-export async function getClientsDetailed(role: UserRole): Promise<{ success: boolean; data?: any[]; error?: string }> {
+export async function getClientsDetailed(role?: UserRole): Promise<{
+  success: boolean;
+  data?: ClientRecord[];
+  error?: string;
+}> {
   try {
+    await requireAuth();
+
+    if (!isSupabaseConfigured()) {
+      return {
+        success: true,
+        data: [
+          {
+            id: 'mock-client-1',
+            name: 'Juan Pérez',
+            phone: '+54 9 11 1234-5678',
+            email: 'juan.perez@example.com',
+            preferred_notes: ['Cítrico', 'Amaderado'],
+            total_spent_ars: 45000,
+            points_balance: 450,
+            created_at: new Date().toISOString(),
+          },
+        ],
+      };
+    }
+
     const supabase = getServiceSupabase();
     const { data, error } = await supabase
       .from('clients')
@@ -19,10 +78,11 @@ export async function getClientsDetailed(role: UserRole): Promise<{ success: boo
       throw error;
     }
 
-    return { success: true, data: data || [] };
-  } catch (error: any) {
+    return { success: true, data: (data || []) as unknown as ClientRecord[] };
+  } catch (error: unknown) {
     console.error('Error al obtener clientes detallado:', error);
-    return { success: false, error: error.message || 'Error al obtener clientes' };
+    const msg = error instanceof Error ? error.message : 'Error al obtener clientes';
+    return { success: false, error: msg };
   }
 }
 
@@ -34,19 +94,29 @@ export async function createClient(
   clientData: { name: string; phone?: string; email?: string; preferred_notes?: string[] }
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    if (!clientData.name || clientData.name.trim() === '') {
-      throw new Error('El nombre del cliente es obligatorio.');
+    await requireAuth();
+
+    const validation = clientInputSchema.safeParse(clientData);
+    if (!validation.success) {
+      const firstError = validation.error.issues[0]?.message || 'Datos de cliente inválidos.';
+      return { success: false, error: firstError };
+    }
+
+    const clean = validation.data;
+
+    if (!isSupabaseConfigured()) {
+      return { success: true };
     }
 
     const supabase = getServiceSupabase();
     const { error } = await supabase.from('clients').insert([
       {
-        name: clientData.name.trim(),
-        phone: clientData.phone?.trim() || null,
-        email: clientData.email?.trim() || null,
-        preferred_notes: clientData.preferred_notes || [],
-        total_spent_ars: 0
-      }
+        name: clean.name,
+        phone: clean.phone || null,
+        email: clean.email || null,
+        preferred_notes: clean.preferred_notes || [],
+        total_spent_ars: 0,
+      },
     ]);
 
     if (error) {
@@ -55,9 +125,10 @@ export async function createClient(
 
     revalidatePath('/clientes');
     return { success: true };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error al crear cliente:', error);
-    return { success: false, error: error.message || 'Error al crear cliente' };
+    const msg = error instanceof Error ? error.message : 'Error al crear cliente';
+    return { success: false, error: msg };
   }
 }
 
@@ -70,20 +141,34 @@ export async function updateClient(
   clientData: { name: string; phone?: string; email?: string; preferred_notes?: string[] }
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    if (!clientData.name || clientData.name.trim() === '') {
-      throw new Error('El nombre del cliente es obligatorio.');
+    await requireAuth();
+
+    if (!id || !id.trim()) {
+      throw new Error('ID de cliente obligatorio.');
+    }
+
+    const validation = clientInputSchema.safeParse(clientData);
+    if (!validation.success) {
+      const firstError = validation.error.issues[0]?.message || 'Datos de cliente inválidos.';
+      return { success: false, error: firstError };
+    }
+
+    const clean = validation.data;
+
+    if (!isSupabaseConfigured()) {
+      return { success: true };
     }
 
     const supabase = getServiceSupabase();
     const { error } = await supabase
       .from('clients')
       .update({
-        name: clientData.name.trim(),
-        phone: clientData.phone?.trim() || null,
-        email: clientData.email?.trim() || null,
-        preferred_notes: clientData.preferred_notes || []
+        name: clean.name,
+        phone: clean.phone || null,
+        email: clean.email || null,
+        preferred_notes: clean.preferred_notes || [],
       })
-      .eq('id', id);
+      .eq('id', id.trim());
 
     if (error) {
       throw error;
@@ -91,9 +176,10 @@ export async function updateClient(
 
     revalidatePath('/clientes');
     return { success: true };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error al actualizar cliente:', error);
-    return { success: false, error: error.message || 'Error al actualizar cliente' };
+    const msg = error instanceof Error ? error.message : 'Error al actualizar cliente';
+    return { success: false, error: msg };
   }
 }
 
@@ -103,10 +189,20 @@ export async function updateClient(
 export async function getClientPurchaseHistory(
   role: UserRole,
   clientId: string
-): Promise<{ success: boolean; data?: any[]; error?: string }> {
+): Promise<{ success: boolean; data?: ClientSaleHistoryRecord[]; error?: string }> {
   try {
+    await requireAuth();
+
+    if (!clientId || !clientId.trim()) {
+      throw new Error('ID de cliente obligatorio.');
+    }
+
+    if (!isSupabaseConfigured()) {
+      return { success: true, data: [] };
+    }
+
     const supabase = getServiceSupabase();
-    
+
     // Consulta con joins anidados en Supabase
     const { data, error } = await supabase
       .from('sales')
@@ -131,16 +227,17 @@ export async function getClientPurchaseHistory(
           )
         )
       `)
-      .eq('client_id', clientId)
+      .eq('client_id', clientId.trim())
       .order('created_at', { ascending: false });
 
     if (error) {
       throw error;
     }
 
-    return { success: true, data: data || [] };
-  } catch (error: any) {
+    return { success: true, data: (data || []) as unknown as ClientSaleHistoryRecord[] };
+  } catch (error: unknown) {
     console.error('Error al obtener historial de compras:', error);
-    return { success: false, error: error.message || 'Error al obtener el historial de compras' };
+    const msg = error instanceof Error ? error.message : 'Error al obtener el historial de compras';
+    return { success: false, error: msg };
   }
 }

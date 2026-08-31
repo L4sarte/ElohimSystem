@@ -1,9 +1,10 @@
 'use server';
 
-import { getServiceSupabase, supabase } from '@/lib/supabase';
+import { getServiceSupabase, isSupabaseConfigured } from '@/lib/supabase';
 import { UserRole } from '@/types';
 import { revalidatePath } from 'next/cache';
-
+import { requireAdmin } from '@/lib/auth-checks';
+import { operatingExpenseInputSchema } from '@/lib/expense-validation';
 import { withdrawFromAccount, getTreasuryAccounts } from '@/app/actions/treasury';
 
 export interface OperatingExpense {
@@ -23,37 +24,22 @@ export interface OperatingExpenseInput {
   amount_usd?: number;
   description: string;
   expense_date: string;
-  treasury_account_id?: string;
-}
-
-import { createClient } from '@/utils/supabase/server';
-
-/**
- * Resolver ID de usuario para desarrollo local o auth real con SSR cookies.
- */
-async function resolveUserId(): Promise<string> {
-  const serviceClient = getServiceSupabase();
-  try {
-    const serverSupabase = await createClient();
-    const { data: { user } } = await serverSupabase.auth.getUser();
-    if (user) return user.id;
-  } catch (err) {
-    // Si falla auth por cookies, intentar fallback a perfil
-  }
-
-  const { data: profiles } = await serviceClient.from('profiles').select('id').limit(1);
-  if (profiles && profiles.length > 0) return profiles[0].id;
-
-  return '00000000-0000-0000-0000-000000000000';
+  treasury_account_id?: string | null;
 }
 
 /**
  * Obtener lista completa de gastos operativos (Exclusivo Admin).
  */
-export async function getExpenses(role: UserRole): Promise<{ success: boolean; data?: OperatingExpense[]; error?: string }> {
+export async function getExpenses(role?: UserRole): Promise<{
+  success: boolean;
+  data?: OperatingExpense[];
+  error?: string;
+}> {
   try {
-    if (role !== 'admin') {
-      throw new Error('Operación no autorizada. Se requiere rol de Administrador.');
+    await requireAdmin();
+
+    if (!isSupabaseConfigured()) {
+      return { success: true, data: [] };
     }
 
     const serviceClient = getServiceSupabase();
@@ -64,47 +50,61 @@ export async function getExpenses(role: UserRole): Promise<{ success: boolean; d
 
     if (error) throw error;
 
-    return { success: true, data: data || [] };
-  } catch (error: any) {
+    return { success: true, data: (data || []) as unknown as OperatingExpense[] };
+  } catch (error: unknown) {
     console.error('Error al obtener gastos operativos:', error);
-    return { success: false, error: error.message || 'Error al obtener gastos operativos' };
+    const msg = error instanceof Error ? error.message : 'Error al obtener gastos operativos';
+    return { success: false, error: msg };
   }
 }
 
 /**
- * Registrar un nuevo gasto operativo.
+ * Registrar un nuevo gasto operativo (Exclusivo Admin).
  */
 export async function createExpense(
   role: UserRole,
   input: OperatingExpenseInput
 ): Promise<{ success: boolean; data?: OperatingExpense; error?: string }> {
   try {
-    if (role !== 'admin') {
-      throw new Error('Operación no autorizada. Se requiere rol de Administrador.');
+    const adminUser = await requireAdmin();
+
+    const validation = operatingExpenseInputSchema.safeParse(input);
+    if (!validation.success) {
+      const firstError = validation.error.issues[0]?.message || 'Datos de gasto inválidos.';
+      return { success: false, error: firstError };
     }
 
-    if (!input.description || input.description.trim() === '') {
-      throw new Error('La descripción del gasto es obligatoria.');
+    const clean = validation.data;
+
+    if (!isSupabaseConfigured()) {
+      return {
+        success: true,
+        data: {
+          id: 'mock-exp-new',
+          category: clean.category,
+          amount_ars: clean.amount_ars,
+          amount_usd: clean.amount_usd,
+          description: clean.description,
+          expense_date: clean.expense_date,
+          created_by: adminUser.id,
+          created_at: new Date().toISOString(),
+        },
+      };
     }
 
-    if (input.amount_ars <= 0) {
-      throw new Error('El monto en ARS debe ser mayor a cero.');
-    }
-
-    const userId = await resolveUserId();
     const serviceClient = getServiceSupabase();
 
     const { data, error } = await serviceClient
       .from('operating_expenses')
       .insert([
         {
-          category: input.category || 'Varios',
-          amount_ars: Math.max(0, input.amount_ars),
-          amount_usd: Math.max(0, input.amount_usd || 0),
-          description: input.description.trim(),
-          expense_date: input.expense_date || new Date().toISOString().split('T')[0],
-          created_by: userId
-        }
+          category: clean.category,
+          amount_ars: clean.amount_ars,
+          amount_usd: clean.amount_usd,
+          description: clean.description,
+          expense_date: clean.expense_date,
+          created_by: adminUser.id,
+        },
       ])
       .select()
       .single();
@@ -112,7 +112,7 @@ export async function createExpense(
     if (error) throw error;
 
     // Descontar automáticamente el dinero de la cuenta de tesorería seleccionada
-    let targetAccId = input.treasury_account_id;
+    let targetAccId = clean.treasury_account_id;
     if (!targetAccId) {
       const resAcc = await getTreasuryAccounts();
       if (resAcc.success && resAcc.data && resAcc.data.length > 0) {
@@ -121,21 +121,22 @@ export async function createExpense(
     }
 
     if (targetAccId) {
-      await withdrawFromAccount(targetAccId, Math.max(0, input.amount_ars));
+      await withdrawFromAccount(targetAccId, clean.amount_ars);
     }
 
     revalidatePath('/admin/gastos');
     revalidatePath('/admin/finanzas/tesoreria');
     revalidatePath('/admin/reportes');
-    return { success: true, data };
-  } catch (error: any) {
+    return { success: true, data: data as unknown as OperatingExpense };
+  } catch (error: unknown) {
     console.error('Error al crear gasto operativo:', error);
-    return { success: false, error: error.message || 'Error al registrar el gasto' };
+    const msg = error instanceof Error ? error.message : 'Error al registrar el gasto';
+    return { success: false, error: msg };
   }
 }
 
 /**
- * Actualizar un gasto operativo existente.
+ * Actualizar un gasto operativo existente (Exclusivo Admin).
  */
 export async function updateExpense(
   role: UserRole,
@@ -143,21 +144,46 @@ export async function updateExpense(
   input: OperatingExpenseInput
 ): Promise<{ success: boolean; data?: OperatingExpense; error?: string }> {
   try {
-    if (role !== 'admin') {
-      throw new Error('Operación no autorizada.');
+    await requireAdmin();
+
+    if (!id || !id.trim()) {
+      throw new Error('ID de gasto obligatorio.');
+    }
+
+    const validation = operatingExpenseInputSchema.safeParse(input);
+    if (!validation.success) {
+      const firstError = validation.error.issues[0]?.message || 'Datos de gasto inválidos.';
+      return { success: false, error: firstError };
+    }
+
+    const clean = validation.data;
+
+    if (!isSupabaseConfigured()) {
+      return {
+        success: true,
+        data: {
+          id: id.trim(),
+          category: clean.category,
+          amount_ars: clean.amount_ars,
+          amount_usd: clean.amount_usd,
+          description: clean.description,
+          expense_date: clean.expense_date,
+          created_at: new Date().toISOString(),
+        },
+      };
     }
 
     const serviceClient = getServiceSupabase();
     const { data, error } = await serviceClient
       .from('operating_expenses')
       .update({
-        category: input.category || 'Varios',
-        amount_ars: Math.max(0, input.amount_ars),
-        amount_usd: Math.max(0, input.amount_usd || 0),
-        description: input.description.trim(),
-        expense_date: input.expense_date
+        category: clean.category,
+        amount_ars: clean.amount_ars,
+        amount_usd: clean.amount_usd,
+        description: clean.description,
+        expense_date: clean.expense_date,
       })
-      .eq('id', id)
+      .eq('id', id.trim())
       .select()
       .single();
 
@@ -165,35 +191,46 @@ export async function updateExpense(
 
     revalidatePath('/admin/gastos');
     revalidatePath('/admin/reportes');
-    return { success: true, data };
-  } catch (error: any) {
+    return { success: true, data: data as unknown as OperatingExpense };
+  } catch (error: unknown) {
     console.error('Error al actualizar gasto:', error);
-    return { success: false, error: error.message || 'Error al actualizar el gasto' };
+    const msg = error instanceof Error ? error.message : 'Error al actualizar el gasto';
+    return { success: false, error: msg };
   }
 }
 
 /**
- * Eliminar un gasto operativo.
+ * Eliminar un gasto operativo (Exclusivo Admin).
  */
-export async function deleteExpense(role: UserRole, id: string): Promise<{ success: boolean; error?: string }> {
+export async function deleteExpense(
+  role: UserRole,
+  id: string
+): Promise<{ success: boolean; error?: string }> {
   try {
-    if (role !== 'admin') {
-      throw new Error('Operación no autorizada.');
+    await requireAdmin();
+
+    if (!id || !id.trim()) {
+      throw new Error('ID de gasto obligatorio.');
+    }
+
+    if (!isSupabaseConfigured()) {
+      return { success: true };
     }
 
     const serviceClient = getServiceSupabase();
     const { error } = await serviceClient
       .from('operating_expenses')
       .delete()
-      .eq('id', id);
+      .eq('id', id.trim());
 
     if (error) throw error;
 
     revalidatePath('/admin/gastos');
     revalidatePath('/admin/reportes');
     return { success: true };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error al eliminar gasto:', error);
-    return { success: false, error: error.message || 'Error al eliminar el gasto' };
+    const msg = error instanceof Error ? error.message : 'Error al eliminar el gasto';
+    return { success: false, error: msg };
   }
 }

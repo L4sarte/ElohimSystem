@@ -163,7 +163,8 @@ export default function ConfiguracionPage() {
                     placeholder="Ej. Elohim Perfumería & Decants"
                     value={storeName}
                     onChange={(e) => setStoreName(e.target.value)}
-                    className="bg-[#08130E] border-[#1B362A] text-white font-semibold focus:ring-1 focus:ring-[#D0A96B]"
+                    disabled={saving}
+                    className="bg-[#08130E] border-[#1B362A] text-white font-semibold focus:ring-1 focus:ring-[#D0A96B] disabled:opacity-50"
                   />
                   <p className="text-[11px] text-zinc-400">
                     Nombre oficial del establecimiento mostrado en la cabecera de tickets y reportes.
@@ -181,7 +182,8 @@ export default function ConfiguracionPage() {
                     placeholder="Ej. ¡Gracias por elegir Elohim Perfumería! Conserva este ticket para cambios de producto."
                     value={receiptFooterText}
                     onChange={(e) => setReceiptFooterText(e.target.value)}
-                    className="w-full rounded-lg border border-[#1B362A] bg-[#08130E] p-3 text-xs text-white focus:outline-none focus:ring-1 focus:ring-[#D0A96B] leading-relaxed"
+                    disabled={saving}
+                    className="w-full rounded-lg border border-[#1B362A] bg-[#08130E] p-3 text-xs text-white focus:outline-none focus:ring-1 focus:ring-[#D0A96B] leading-relaxed disabled:opacity-50"
                   />
                   <p className="text-[11px] text-zinc-400">
                     Mensaje o política de cambios al final de cada ticket impreso o digital.
@@ -203,8 +205,9 @@ export default function ConfiguracionPage() {
                   {/* Switch toggle custom */}
                   <button
                     type="button"
+                    disabled={saving}
                     onClick={() => setEnableAutoStockAlerts(!enableAutoStockAlerts)}
-                    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none disabled:opacity-50 ${
                       enableAutoStockAlerts ? 'bg-emerald-500' : 'bg-zinc-700'
                     }`}
                   >

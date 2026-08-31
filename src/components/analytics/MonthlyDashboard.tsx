@@ -15,9 +15,15 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 
+interface BarTooltipProps {
+  active?: boolean;
+  payload?: Array<{ value: number }>;
+  label?: string;
+}
+
 // TOOLTIP PERSONALIZADO DARK MODE & GOLD PARA BAR CHART
-const CustomBarTooltip = ({ active, payload, label }: any) => {
-  if (active && payload && payload.length) {
+const CustomBarTooltip = ({ active, payload, label }: BarTooltipProps) => {
+  if (active && payload && payload.length >= 2) {
     return (
       <div className="bg-[#08130E]/95 border border-[#1B362A] p-3.5 rounded-xl shadow-2xl text-xs space-y-2 backdrop-blur-md">
         <p className="font-serif font-bold text-[#D0A96B] border-b border-[#1B362A] pb-1 uppercase tracking-wider">
@@ -43,8 +49,19 @@ const CustomBarTooltip = ({ active, payload, label }: any) => {
   return null;
 };
 
+interface PieTooltipProps {
+  active?: boolean;
+  payload?: Array<{
+    payload: {
+      name: string;
+      value: number;
+      amountArs: number;
+    };
+  }>;
+}
+
 // TOOLTIP PERSONALIZADO PARA PIE CHART / DONUT
-const CustomPieTooltip = ({ active, payload }: any) => {
+const CustomPieTooltip = ({ active, payload }: PieTooltipProps) => {
   if (active && payload && payload.length) {
     const data = payload[0].payload;
     return (

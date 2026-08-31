@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useUserStore } from '@/hooks/use-user-store';
 import { useExchangeRate } from '@/hooks/use-exchange-rate';
-import { getKanbanOrders, createKanbanOrder, updateOrderStatus, deleteKanbanOrder, KanbanOrder } from '@/app/actions/kanban';
+import { getKanbanOrders, createKanbanOrder, updateOrderStatus, deleteKanbanOrder, KanbanOrder, KanbanOrderStatus } from '@/app/actions/kanban';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -37,7 +37,7 @@ export default function KanbanPage() {
   const [clientName, setClientName] = useState('');
   const [productDetails, setProductDetails] = useState('');
   const [totalArs, setTotalArs] = useState('');
-  const [status, setStatus] = useState('pending');
+  const [status, setStatus] = useState<KanbanOrderStatus>('pending');
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -93,7 +93,7 @@ export default function KanbanPage() {
     }
   };
 
-  const handleStatusChange = async (orderId: string, newStatus: any) => {
+  const handleStatusChange = async (orderId: string, newStatus: KanbanOrderStatus) => {
     // Actualización optimista local
     setOrders((prev) =>
       prev.map((o) => (o.id === orderId ? { ...o, status: newStatus } : o))
@@ -260,7 +260,7 @@ export default function KanbanPage() {
                           {/* Selector Rápido de Estado */}
                           <select
                             value={order.status}
-                            onChange={(e) => handleStatusChange(order.id, e.target.value)}
+                            onChange={(e) => handleStatusChange(order.id, e.target.value as KanbanOrderStatus)}
                             className="bg-[#13261E] border border-[#1B362A] text-white text-[10px] font-bold rounded-md px-2 py-1 focus:outline-none focus:ring-1 focus:ring-[#D0A96B]"
                           >
                             <option value="pending">⏳ Por Cobrar</option>
@@ -325,7 +325,8 @@ export default function KanbanPage() {
                     placeholder="Ej. Juan Pérez (WhatsApp 11-2233-4455)"
                     value={clientName}
                     onChange={(e) => setClientName(e.target.value)}
-                    className="bg-[#08130E] border-[#1B362A] text-white"
+                    disabled={saving}
+                    className="bg-[#08130E] border-[#1B362A] text-white disabled:opacity-50"
                   />
                 </div>
 
@@ -338,7 +339,8 @@ export default function KanbanPage() {
                     placeholder="Ej. 1x Bleau Chanel 100ml + 1x Decant Sauvage 10ml"
                     value={productDetails}
                     onChange={(e) => setProductDetails(e.target.value)}
-                    className="w-full rounded-lg border border-[#1B362A] bg-[#08130E] p-3 text-xs text-white focus:outline-none focus:ring-1 focus:ring-[#D0A96B]"
+                    disabled={saving}
+                    className="w-full rounded-lg border border-[#1B362A] bg-[#08130E] p-3 text-xs text-white focus:outline-none focus:ring-1 focus:ring-[#D0A96B] disabled:opacity-50"
                   />
                 </div>
 
@@ -352,7 +354,8 @@ export default function KanbanPage() {
                       placeholder="Ej. 75000"
                       value={totalArs}
                       onChange={(e) => setTotalArs(e.target.value)}
-                      className="bg-[#08130E] border-[#1B362A] text-[#D0A96B] font-mono font-bold"
+                      disabled={saving}
+                      className="bg-[#08130E] border-[#1B362A] text-[#D0A96B] font-mono font-bold disabled:opacity-50"
                     />
                   </div>
 
@@ -362,8 +365,9 @@ export default function KanbanPage() {
                     </label>
                     <select
                       value={status}
-                      onChange={(e) => setStatus(e.target.value)}
-                      className="flex h-9 w-full rounded-lg border border-[#1B362A] bg-[#08130E] px-3 py-1 text-xs text-white focus:outline-none focus:ring-1 focus:ring-[#D0A96B]"
+                      onChange={(e) => setStatus(e.target.value as KanbanOrderStatus)}
+                      disabled={saving}
+                      className="flex h-9 w-full rounded-lg border border-[#1B362A] bg-[#08130E] px-3 py-1 text-xs text-white focus:outline-none focus:ring-1 focus:ring-[#D0A96B] disabled:opacity-50"
                     >
                       <option value="pending">⏳ Por Cobrar</option>
                       <option value="processing">📦 Armando Paquete</option>
@@ -381,7 +385,8 @@ export default function KanbanPage() {
                     placeholder="Ej. Pasa a retirar hoy 18hs por Palermo"
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
-                    className="bg-[#08130E] border-[#1B362A] text-zinc-300"
+                    disabled={saving}
+                    className="bg-[#08130E] border-[#1B362A] text-zinc-300 disabled:opacity-50"
                   />
                 </div>
 

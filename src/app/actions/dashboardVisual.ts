@@ -1,7 +1,8 @@
 'use server';
 
-import { getServiceSupabase } from '@/lib/supabase';
+import { getServiceSupabase, isSupabaseConfigured } from '@/lib/supabase';
 import { UserRole } from '@/types';
+import { requireAdmin } from '@/lib/auth-checks';
 
 export interface VisualDashboardData {
   monthlyRevenueData: Array<{
@@ -27,20 +28,56 @@ export interface VisualDashboardData {
 
 const MONTH_NAMES_SHORT = [
   'Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun',
-  'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'
+  'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic',
 ];
+
+interface DbVisualSaleRow {
+  id: string;
+  total_ars: number;
+  payment_methods?: Record<string, unknown> | null;
+  status: string;
+  created_at: string;
+}
+
+interface DbVisualItemRow {
+  product_id: string;
+  quantity: number;
+  unit_price_ars: number;
+  subtotal_ars?: number | null;
+  products?: {
+    name?: string;
+    brand?: string;
+    base_cost_ars?: number;
+  } | null;
+}
+
+interface PaymentBreakdownItem {
+  final_amount?: number;
+  amount_base?: number;
+  method_name?: string;
+}
 
 /**
  * Recolectar y procesar información real de la base de datos de Supabase para el Dashboard Visual.
  */
-export async function getVisualDashboardData(role: UserRole): Promise<{
+export async function getVisualDashboardData(role?: UserRole): Promise<{
   success: boolean;
   data?: VisualDashboardData;
   error?: string;
 }> {
   try {
-    if (role !== 'admin') {
-      throw new Error('Operación no autorizada. Se requiere rol de Administrador.');
+    await requireAdmin();
+
+    if (!isSupabaseConfigured()) {
+      return {
+        success: true,
+        data: {
+          monthlyRevenueData: [],
+          paymentMethodDistribution: [],
+          topSellingProducts: [],
+          totalCurrentMonthGross: 0,
+        },
+      };
     }
 
     const supabase = getServiceSupabase();
@@ -62,7 +99,7 @@ export async function getVisualDashboardData(role: UserRole): Promise<{
       const isoEnd = monthEnd.toISOString();
 
       // Consultar ventas activas del mes
-      const { data: sales, error: salesErr } = await supabase
+      const { data: salesData, error: salesErr } = await supabase
         .from('sales')
         .select('id, total_ars, status')
         .gte('created_at', isoStart)
@@ -71,10 +108,11 @@ export async function getVisualDashboardData(role: UserRole): Promise<{
 
       if (salesErr) throw salesErr;
 
+      const sales = (salesData || []) as unknown as DbVisualSaleRow[];
       let monthGross = 0;
       const saleIds: string[] = [];
 
-      (sales || []).forEach((s: any) => {
+      sales.forEach((s) => {
         monthGross += Number(s.total_ars || 0);
         saleIds.push(s.id);
       });
@@ -82,12 +120,13 @@ export async function getVisualDashboardData(role: UserRole): Promise<{
       // Calcular COGS real del mes si hay ventas
       let monthCogs = 0;
       if (saleIds.length > 0) {
-        const { data: items } = await supabase
+        const { data: itemsData } = await supabase
           .from('sale_items')
           .select('quantity, unit_price_ars, product_id, products(base_cost_ars)')
           .in('sale_id', saleIds);
 
-        (items || []).forEach((item: any) => {
+        const items = (itemsData || []) as unknown as DbVisualItemRow[];
+        items.forEach((item) => {
           const qty = Number(item.quantity || 1);
           const cost = Number(item.products?.base_cost_ars || 0);
           monthCogs += qty * cost;
@@ -102,7 +141,7 @@ export async function getVisualDashboardData(role: UserRole): Promise<{
       monthlyRevenueData.push({
         month: label,
         ingresosBrutos: Math.round(monthGross),
-        gananciaNeta: monthNet
+        gananciaNeta: monthNet,
       });
     }
 
@@ -112,7 +151,7 @@ export async function getVisualDashboardData(role: UserRole): Promise<{
     const curMonthStart = new Date(currentYear, currentMonth0, 1, 0, 0, 0).toISOString();
     const curMonthEnd = new Date(currentYear, currentMonth0 + 1, 0, 23, 59, 59).toISOString();
 
-    const { data: curSales, error: curSalesErr } = await supabase
+    const { data: curSalesData, error: curSalesErr } = await supabase
       .from('sales')
       .select('id, total_ars, payment_methods, created_at')
       .gte('created_at', curMonthStart)
@@ -121,18 +160,20 @@ export async function getVisualDashboardData(role: UserRole): Promise<{
 
     if (curSalesErr) throw curSalesErr;
 
+    const curSales = (curSalesData || []) as unknown as DbVisualSaleRow[];
+
     let sumTransfer = 0;
     let sumDigital = 0;
     let sumCashArs = 0;
     let sumCashUsd = 0;
     let totalCurMonthGross = 0;
 
-    (curSales || []).forEach((sale: any) => {
+    curSales.forEach((sale) => {
       totalCurMonthGross += Number(sale.total_ars || 0);
-      const pm = sale.payment_methods || {};
+      const pm = (sale.payment_methods || {}) as Record<string, unknown>;
 
       if (pm.breakdown && Array.isArray(pm.breakdown) && pm.breakdown.length > 0) {
-        pm.breakdown.forEach((b: any) => {
+        (pm.breakdown as PaymentBreakdownItem[]).forEach((b) => {
           const amt = Number(b.final_amount || b.amount_base || 0);
           const mName = String(b.method_name || '').toLowerCase();
 
@@ -170,44 +211,45 @@ export async function getVisualDashboardData(role: UserRole): Promise<{
         name: 'Transferencia / Alias',
         value: Math.round((sumTransfer / totalMethods) * 100),
         amountArs: Math.round(sumTransfer),
-        color: '#D0A96B' // Dorado
+        color: '#D0A96B', // Dorado
       },
       {
         name: 'Mercado Pago / Tarjetas',
         value: Math.round((sumDigital / totalMethods) * 100),
         amountArs: Math.round(sumDigital),
-        color: '#2E5C47' // Esmeralda
+        color: '#2E5C47', // Esmeralda
       },
       {
         name: 'Efectivo ARS',
         value: Math.round((sumCashArs / totalMethods) * 100),
         amountArs: Math.round(sumCashArs),
-        color: '#F59E0B' // Amber
+        color: '#F59E0B', // Amber
       },
       {
         name: 'Dólares Billete',
         value: Math.round((sumCashUsd / totalMethods) * 100),
         amountArs: Math.round(sumCashUsd),
-        color: '#6366F1' // Indigo
-      }
+        color: '#6366F1', // Indigo
+      },
     ];
 
     // =========================================================================
     // C. TOP 5 FRAGANCIAS MÁS VENDIDAS (RANKING MES ACTUAL)
     // =========================================================================
-    const curSaleIds = (curSales || []).map((s: any) => s.id);
+    const curSaleIds = curSales.map((s) => s.id);
     const topSellingProducts: Array<{ rank: number; name: string; brand: string; salesCount: number; totalRevenueArs: number }> = [];
 
     if (curSaleIds.length > 0) {
-      const { data: items, error: itemsErr } = await supabase
+      const { data: itemsData, error: itemsErr } = await supabase
         .from('sale_items')
         .select('product_id, quantity, unit_price_ars, subtotal_ars, products(name, brand)')
         .in('sale_id', curSaleIds);
 
-      if (!itemsErr && items) {
+      if (!itemsErr && itemsData) {
+        const items = (itemsData || []) as unknown as DbVisualItemRow[];
         const productMap = new Map<string, { name: string; brand: string; salesCount: number; totalRevenueArs: number }>();
 
-        items.forEach((item: any) => {
+        items.forEach((item) => {
           const pId = item.product_id;
           const qty = Number(item.quantity || 1);
           const rev = Number(item.subtotal_ars || (Number(item.unit_price_ars || 0) * qty));
@@ -224,7 +266,7 @@ export async function getVisualDashboardData(role: UserRole): Promise<{
               name: pName,
               brand: pBrand,
               salesCount: qty,
-              totalRevenueArs: rev
+              totalRevenueArs: rev,
             });
           }
         });
@@ -239,7 +281,7 @@ export async function getVisualDashboardData(role: UserRole): Promise<{
             name: prod.name,
             brand: prod.brand,
             salesCount: prod.salesCount,
-            totalRevenueArs: Math.round(prod.totalRevenueArs)
+            totalRevenueArs: Math.round(prod.totalRevenueArs),
           });
         });
       }
@@ -251,14 +293,15 @@ export async function getVisualDashboardData(role: UserRole): Promise<{
         monthlyRevenueData,
         paymentMethodDistribution,
         topSellingProducts,
-        totalCurrentMonthGross: Math.round(totalCurMonthGross)
-      }
+        totalCurrentMonthGross: Math.round(totalCurMonthGross),
+      },
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error al generar Dashboard Visual:', error);
+    const msg = error instanceof Error ? error.message : 'Error al recuperar métricas del Dashboard Visual';
     return {
       success: false,
-      error: error.message || 'Error al recuperar métricas del Dashboard Visual'
+      error: msg,
     };
   }
 }

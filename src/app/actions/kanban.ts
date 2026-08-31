@@ -1,29 +1,50 @@
 'use server';
 
-import { getServiceSupabase } from '@/lib/supabase';
+import { getServiceSupabase, isSupabaseConfigured } from '@/lib/supabase';
 import { UserRole } from '@/types';
 import { revalidatePath } from 'next/cache';
+import { requireAuth } from '@/lib/auth-checks';
+import { kanbanOrderInputSchema, kanbanStatusEnum } from '@/lib/logistics-validation';
+
+export type KanbanOrderStatus = 'pending' | 'processing' | 'ready' | 'delivered';
 
 export interface KanbanOrder {
   id: string;
   client_name: string;
-  product_details?: string;
+  product_details?: string | null;
   total_ars: number;
-  status: 'pending' | 'processing' | 'ready' | 'delivered';
-  notes?: string;
+  status: KanbanOrderStatus;
+  notes?: string | null;
   created_at: string;
-  updated_at?: string;
+  updated_at?: string | null;
+}
+
+interface DbKanbanRow {
+  id: string;
+  client_name: string;
+  product_details?: string | null;
+  total_ars: number;
+  status: KanbanOrderStatus;
+  notes?: string | null;
+  created_at: string;
+  updated_at?: string | null;
 }
 
 /**
  * Obtener todas las tarjetas de pedidos del tablero Kanban.
  */
-export async function getKanbanOrders(role: UserRole): Promise<{
+export async function getKanbanOrders(role?: UserRole): Promise<{
   success: boolean;
   data?: KanbanOrder[];
   error?: string;
 }> {
   try {
+    await requireAuth();
+
+    if (!isSupabaseConfigured()) {
+      return { success: true, data: [] };
+    }
+
     const supabase = getServiceSupabase();
     const { data, error } = await supabase
       .from('kanban_orders')
@@ -32,15 +53,17 @@ export async function getKanbanOrders(role: UserRole): Promise<{
 
     if (error) throw error;
 
-    const list: KanbanOrder[] = (data || []).map((item: any) => ({
+    const rows = (data || []) as unknown as DbKanbanRow[];
+    const list: KanbanOrder[] = rows.map((item) => ({
       ...item,
-      total_ars: Number(item.total_ars || 0)
+      total_ars: Number(item.total_ars || 0),
     }));
 
     return { success: true, data: list };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error al consultar pedidos Kanban:', error);
-    return { success: false, error: error.message || 'Error al obtener pedidos' };
+    const msg = error instanceof Error ? error.message : 'Error al obtener pedidos';
+    return { success: false, error: msg };
   }
 }
 
@@ -58,17 +81,27 @@ export async function createKanbanOrder(
   }
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    if (!orderData.client_name || orderData.client_name.trim() === '') {
-      throw new Error('El nombre del cliente es obligatorio.');
+    await requireAuth();
+
+    const validation = kanbanOrderInputSchema.safeParse(orderData);
+    if (!validation.success) {
+      const firstError = validation.error.issues[0]?.message || 'Datos de pedido inválidos.';
+      return { success: false, error: firstError };
+    }
+
+    const clean = validation.data;
+
+    if (!isSupabaseConfigured()) {
+      return { success: true };
     }
 
     const supabase = getServiceSupabase();
     const { error } = await supabase.from('kanban_orders').insert({
-      client_name: orderData.client_name.trim(),
-      product_details: orderData.product_details?.trim() || null,
-      total_ars: orderData.total_ars || 0,
-      status: orderData.status || 'pending',
-      notes: orderData.notes?.trim() || null
+      client_name: clean.client_name,
+      product_details: clean.product_details || null,
+      total_ars: clean.total_ars,
+      status: clean.status,
+      notes: clean.notes || null,
     });
 
     if (error) throw error;
@@ -77,9 +110,10 @@ export async function createKanbanOrder(
     revalidatePath('/gestion/pedidos');
     revalidatePath('/');
     return { success: true };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error al crear pedido en Kanban:', error);
-    return { success: false, error: error.message || 'Error al registrar pedido' };
+    const msg = error instanceof Error ? error.message : 'Error al registrar pedido';
+    return { success: false, error: msg };
   }
 }
 
@@ -89,17 +123,32 @@ export async function createKanbanOrder(
 export async function updateOrderStatus(
   role: UserRole,
   id: string,
-  newStatus: 'pending' | 'processing' | 'ready' | 'delivered'
+  newStatus: KanbanOrderStatus
 ): Promise<{ success: boolean; error?: string }> {
   try {
+    await requireAuth();
+
+    if (!id || !id.trim()) {
+      throw new Error('ID de pedido requerido.');
+    }
+
+    const statusValidation = kanbanStatusEnum.safeParse(newStatus);
+    if (!statusValidation.success) {
+      throw new Error('Estado de pedido inválido.');
+    }
+
+    if (!isSupabaseConfigured()) {
+      return { success: true };
+    }
+
     const supabase = getServiceSupabase();
     const { error } = await supabase
       .from('kanban_orders')
       .update({
-        status: newStatus,
-        updated_at: new Date().toISOString()
+        status: statusValidation.data,
+        updated_at: new Date().toISOString(),
       })
-      .eq('id', id);
+      .eq('id', id.trim());
 
     if (error) throw error;
 
@@ -107,9 +156,10 @@ export async function updateOrderStatus(
     revalidatePath('/gestion/pedidos');
     revalidatePath('/');
     return { success: true };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error al actualizar estado del pedido:', error);
-    return { success: false, error: error.message || 'Error al mover pedido' };
+    const msg = error instanceof Error ? error.message : 'Error al mover pedido';
+    return { success: false, error: msg };
   }
 }
 
@@ -121,11 +171,21 @@ export async function deleteKanbanOrder(
   id: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
+    await requireAuth();
+
+    if (!id || !id.trim()) {
+      throw new Error('ID de pedido requerido.');
+    }
+
+    if (!isSupabaseConfigured()) {
+      return { success: true };
+    }
+
     const supabase = getServiceSupabase();
     const { error } = await supabase
       .from('kanban_orders')
       .delete()
-      .eq('id', id);
+      .eq('id', id.trim());
 
     if (error) throw error;
 
@@ -133,8 +193,9 @@ export async function deleteKanbanOrder(
     revalidatePath('/gestion/pedidos');
     revalidatePath('/');
     return { success: true };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error al eliminar pedido del Kanban:', error);
-    return { success: false, error: error.message || 'Error al eliminar pedido' };
+    const msg = error instanceof Error ? error.message : 'Error al eliminar pedido';
+    return { success: false, error: msg };
   }
 }

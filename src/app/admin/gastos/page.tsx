@@ -378,7 +378,8 @@ export default function GastosPage() {
                     <select
                       value={selectedTreasuryAccountId}
                       onChange={(e) => setSelectedTreasuryAccountId(e.target.value)}
-                      className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-1 text-xs shadow-sm transition-colors focus:outline-none focus:ring-1 focus:ring-ring dark:border-[#1B362A] dark:bg-[#08130E] dark:text-white font-bold"
+                      disabled={submitting}
+                      className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-1 text-xs shadow-sm transition-colors focus:outline-none focus:ring-1 focus:ring-ring dark:border-[#1B362A] dark:bg-[#08130E] dark:text-white font-bold disabled:opacity-50"
                     >
                       {treasuryAccounts.map(acc => (
                         <option key={acc.id} value={acc.id}>
@@ -395,7 +396,8 @@ export default function GastosPage() {
                     <select
                       value={category}
                       onChange={(e) => setCategory(e.target.value)}
-                      className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus:outline-none focus:ring-1 focus:ring-ring dark:border-input/40 dark:bg-input/10 dark:text-white font-semibold"
+                      disabled={submitting}
+                      className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus:outline-none focus:ring-1 focus:ring-ring dark:border-input/40 dark:bg-input/10 dark:text-white font-semibold disabled:opacity-50"
                     >
                       {CATEGORIES.map(c => (
                         <option key={c} value={c}>{c}</option>
@@ -410,7 +412,8 @@ export default function GastosPage() {
                       required
                       value={expenseDate}
                       onChange={(e) => setExpenseDate(e.target.value)}
-                      className="h-10 text-xs font-mono"
+                      disabled={submitting}
+                      className="h-10 text-xs font-mono disabled:opacity-50"
                     />
                   </div>
                 </div>
@@ -426,7 +429,8 @@ export default function GastosPage() {
                       placeholder="0.00"
                       value={amountArs}
                       onChange={(e) => setAmountArs(e.target.value)}
-                      className="h-10 font-mono text-sm font-bold"
+                      disabled={submitting}
+                      className="h-10 font-mono text-sm font-bold disabled:opacity-50"
                     />
                   </div>
 
@@ -439,7 +443,8 @@ export default function GastosPage() {
                       placeholder="0.00"
                       value={amountUsd}
                       onChange={(e) => setAmountUsd(e.target.value)}
-                      className="h-10 font-mono text-sm"
+                      disabled={submitting}
+                      className="h-10 font-mono text-sm disabled:opacity-50"
                     />
                   </div>
                 </div>
@@ -451,7 +456,8 @@ export default function GastosPage() {
                     placeholder="Ej. Campaña publicitaria Instagram / Alquiler local..."
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
-                    className="h-10 text-xs"
+                    disabled={submitting}
+                    className="h-10 text-xs disabled:opacity-50"
                   />
                 </div>
 

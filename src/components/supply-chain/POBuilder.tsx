@@ -191,8 +191,9 @@ export function POBuilder({ onSuccess }: POBuilderProps) {
       await createPurchaseOrder(payload);
       setIsSubmitting(false);
       if (onSuccess) onSuccess();
-    } catch (err: any) {
-      setLocalError(err.message || 'Error al crear la orden de compra.');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Error al crear la orden de compra.';
+      setLocalError(msg);
       setIsSubmitting(false);
     }
   };

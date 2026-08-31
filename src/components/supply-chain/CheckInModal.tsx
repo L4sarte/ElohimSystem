@@ -65,8 +65,9 @@ export function CheckInModal({ order, isOpen, onClose }: CheckInModalProps) {
       setTimeout(() => {
         onClose();
       }, 1500);
-    } catch (err: any) {
-      setErrorMsg(err.message || 'Error al ejecutar el check-in de mercadería.');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Error al ejecutar el check-in de mercadería.';
+      setErrorMsg(msg);
     }
   };
 

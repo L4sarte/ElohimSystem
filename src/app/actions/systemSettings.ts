@@ -1,8 +1,10 @@
 'use server';
 
-import { getServiceSupabase } from '@/lib/supabase';
+import { getServiceSupabase, isSupabaseConfigured } from '@/lib/supabase';
 import { UserRole } from '@/types';
 import { revalidatePath } from 'next/cache';
+import { requireAdmin } from '@/lib/auth-checks';
+import { systemSettingsSchema } from '@/lib/settings-validation';
 
 export interface SystemSettingsData {
   id?: string;
@@ -12,10 +14,18 @@ export interface SystemSettingsData {
   updated_at?: string;
 }
 
+interface DbSettingsRow {
+  id: string;
+  store_name?: string | null;
+  receipt_footer_text?: string | null;
+  enable_auto_stock_alerts?: boolean | null;
+  updated_at?: string | null;
+}
+
 const DEFAULT_SETTINGS: SystemSettingsData = {
   store_name: 'Elohim Perfumería & Decants',
   receipt_footer_text: '¡Gracias por elegir Elohim Perfumería! Conserva este ticket para cambios.',
-  enable_auto_stock_alerts: true
+  enable_auto_stock_alerts: true,
 };
 
 /**
@@ -27,6 +37,10 @@ export async function getSystemSettings(): Promise<{
   error?: string;
 }> {
   try {
+    if (!isSupabaseConfigured()) {
+      return { success: true, data: DEFAULT_SETTINGS };
+    }
+
     const supabase = getServiceSupabase();
     const { data, error } = await supabase
       .from('system_settings')
@@ -43,17 +57,19 @@ export async function getSystemSettings(): Promise<{
       return { success: true, data: DEFAULT_SETTINGS };
     }
 
+    const row = data as unknown as DbSettingsRow;
+
     return {
       success: true,
       data: {
-        id: data.id,
-        store_name: data.store_name || DEFAULT_SETTINGS.store_name,
-        receipt_footer_text: data.receipt_footer_text || DEFAULT_SETTINGS.receipt_footer_text,
-        enable_auto_stock_alerts: data.enable_auto_stock_alerts ?? DEFAULT_SETTINGS.enable_auto_stock_alerts,
-        updated_at: data.updated_at
-      }
+        id: row.id,
+        store_name: row.store_name || DEFAULT_SETTINGS.store_name,
+        receipt_footer_text: row.receipt_footer_text || DEFAULT_SETTINGS.receipt_footer_text,
+        enable_auto_stock_alerts: row.enable_auto_stock_alerts ?? DEFAULT_SETTINGS.enable_auto_stock_alerts,
+        updated_at: row.updated_at || undefined,
+      },
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error al consultar configuración del sistema:', error);
     return { success: true, data: DEFAULT_SETTINGS };
   }
@@ -68,8 +84,18 @@ export async function updateSystemSettings(
   settings: SystemSettingsData
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    if (role !== 'admin') {
-      throw new Error('Operación no autorizada. Solo administradores pueden guardar la configuración del sistema.');
+    await requireAdmin();
+
+    const validation = systemSettingsSchema.safeParse(settings);
+    if (!validation.success) {
+      const firstError = validation.error.issues[0]?.message || 'Datos de configuración inválidos.';
+      return { success: false, error: firstError };
+    }
+
+    const clean = validation.data;
+
+    if (!isSupabaseConfigured()) {
+      return { success: true };
     }
 
     const supabase = getServiceSupabase();
@@ -82,10 +108,10 @@ export async function updateSystemSettings(
       .maybeSingle();
 
     const payload = {
-      store_name: settings.store_name.trim() || DEFAULT_SETTINGS.store_name,
-      receipt_footer_text: settings.receipt_footer_text.trim() || DEFAULT_SETTINGS.receipt_footer_text,
-      enable_auto_stock_alerts: Boolean(settings.enable_auto_stock_alerts),
-      updated_at: new Date().toISOString()
+      store_name: clean.store_name,
+      receipt_footer_text: clean.receipt_footer_text,
+      enable_auto_stock_alerts: clean.enable_auto_stock_alerts,
+      updated_at: new Date().toISOString(),
     };
 
     let error;
@@ -110,8 +136,9 @@ export async function updateSystemSettings(
     revalidatePath('/');
 
     return { success: true };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error al actualizar configuración del sistema:', error);
-    return { success: false, error: error.message || 'Error al guardar la configuración' };
+    const msg = error instanceof Error ? error.message : 'Error al guardar la configuración';
+    return { success: false, error: msg };
   }
 }

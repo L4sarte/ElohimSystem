@@ -1,8 +1,10 @@
 'use server';
 
-import { getServiceSupabase, supabase } from '@/lib/supabase';
+import { getServiceSupabase, isSupabaseConfigured } from '@/lib/supabase';
 import { UserRole } from '@/types';
 import { revalidatePath } from 'next/cache';
+import { requireAdmin } from '@/lib/auth-checks';
+import { purchaseInputSchema } from '@/lib/purchase-validation';
 
 export interface PurchaseItemInput {
   product_id: string;
@@ -20,84 +22,87 @@ export interface PurchaseInput {
   items: PurchaseItemInput[];
 }
 
+export interface PurchaseRecord {
+  id: string;
+  total_ars: number;
+  total_usd: number;
+  status: string;
+  payment_status: string;
+  created_at: string;
+  suppliers?: {
+    id: string;
+    name: string;
+    contact_name?: string | null;
+  } | null;
+  purchase_items?: Array<{
+    id: string;
+    quantity: number;
+    unit_cost_ars: number;
+    products?: {
+      id: string;
+      name: string;
+      brand: string;
+      sku: string;
+    } | null;
+  }>;
+}
+
+export interface AccountPayableRecord {
+  id: string;
+  total_amount_ars: number;
+  paid_amount_ars: number;
+  due_date?: string | null;
+  status: string;
+  created_at: string;
+  suppliers?: {
+    id: string;
+    name: string;
+  } | null;
+  purchases?: {
+    id: string;
+    created_at: string;
+    total_ars: number;
+  } | null;
+}
+
 /**
- * Procesar una nueva compra B2B registrando el ingreso de stock e inventario mediante la RPC de Supabase.
+ * Procesar una nueva compra B2B registrando el ingreso de stock e inventario mediante RPC transaccional (Solo Admin).
  */
 export async function submitPurchase(
   role: UserRole,
   purchaseData: PurchaseInput
 ): Promise<{ success: boolean; purchaseId?: string; error?: string }> {
   try {
-    if (role !== 'admin') {
-      throw new Error('Operación no autorizada. Se requiere rol de Administrador.');
+    const adminUser = await requireAdmin();
+
+    const validation = purchaseInputSchema.safeParse(purchaseData);
+    if (!validation.success) {
+      const firstError = validation.error.issues[0]?.message || 'Datos de compra inválidos.';
+      return { success: false, error: firstError };
     }
 
-    if (!purchaseData.supplier_id) {
-      throw new Error('Debes seleccionar un proveedor.');
-    }
+    const clean = validation.data;
 
-    if (!purchaseData.items || purchaseData.items.length === 0) {
-      throw new Error('La orden de compra debe contener al menos un producto.');
+    if (!isSupabaseConfigured()) {
+      return { success: true, purchaseId: 'mock-po-' + Math.random().toString(36).substring(2, 7) };
     }
 
     const serviceClient = getServiceSupabase();
 
-    // 1. Obtener o resolver el ID de administrador (Bypass de desarrollo)
-    let adminId = purchaseData.admin_id;
-    if (!adminId) {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        adminId = user.id;
-      }
-    }
-
-    if (!adminId) {
-      const { data: profiles } = await serviceClient.from('profiles').select('id').limit(1);
-      if (profiles && profiles.length > 0) {
-        adminId = profiles[0].id;
-      } else {
-        // Crear usuario y perfil dummy si la base de datos no contiene administradores aún
-        try {
-          const email = 'dummy.seller@elohimimport.com';
-          const { data: userData, error: userError } = await serviceClient.auth.admin.createUser({
-            email,
-            password: 'dummyPassword123!',
-            email_confirm: true
-          });
-
-          if (!userError && userData.user) {
-            const dummyUserId = userData.user.id;
-            await serviceClient.from('profiles').insert({
-              id: dummyUserId,
-              email,
-              role: 'admin'
-            });
-            adminId = dummyUserId;
-          }
-        } catch (dummyErr) {
-          console.error('Error al generar admin dummy de desarrollo:', dummyErr);
-        }
-      }
-    }
-
-    if (!adminId) {
-      throw new Error('No se pudo resolver el usuario administrador para procesar la transacción.');
-    }
-
     // Formatear la fecha de vencimiento (null si está pagada o no se especifica)
-    const formattedDueDate = purchaseData.payment_status === 'unpaid' && purchaseData.due_date 
-      ? purchaseData.due_date 
+    const formattedDueDate = clean.payment_status === 'unpaid' && clean.due_date
+      ? clean.due_date
       : null;
 
     // Invocar la función RPC transaccional en Supabase
     const { data, error } = await serviceClient.rpc('register_purchase_transaction', {
-      p_supplier_id: purchaseData.supplier_id,
-      p_admin_id: adminId,
-      p_total_ars: purchaseData.total_ars,
-      p_total_usd: purchaseData.total_usd,
-      p_payment_status: purchaseData.payment_status,
+      p_supplier_id: clean.supplier_id,
+      p_admin_id: adminUser.id,
+      p_total_ars: clean.total_ars,
+      p_total_usd: clean.total_usd,
+      p_payment_status: clean.payment_status,
       p_due_date: formattedDueDate,
-      p_items: purchaseData.items
+      p_items: clean.items,
     });
 
     if (error) {
@@ -111,20 +116,27 @@ export async function submitPurchase(
     revalidatePath('/compras/proveedores');
     revalidatePath('/');
 
-    return { success: true, purchaseId: data };
-  } catch (error: any) {
+    return { success: true, purchaseId: data as string };
+  } catch (error: unknown) {
     console.error('Error al registrar transacción de compra:', error);
-    return { success: false, error: error.message || 'Error al procesar la compra' };
+    const msg = error instanceof Error ? error.message : 'Error al procesar la compra';
+    return { success: false, error: msg };
   }
 }
 
 /**
- * Obtener historial de compras registradas.
+ * Obtener historial de compras registradas (Solo Admin).
  */
-export async function getPurchases(role: UserRole): Promise<{ success: boolean; data?: any[]; error?: string }> {
+export async function getPurchases(role?: UserRole): Promise<{
+  success: boolean;
+  data?: PurchaseRecord[];
+  error?: string;
+}> {
   try {
-    if (role !== 'admin') {
-      throw new Error('Operación no autorizada.');
+    await requireAdmin();
+
+    if (!isSupabaseConfigured()) {
+      return { success: true, data: [] };
     }
 
     const supabase = getServiceSupabase();
@@ -160,20 +172,27 @@ export async function getPurchases(role: UserRole): Promise<{ success: boolean; 
       throw error;
     }
 
-    return { success: true, data: data || [] };
-  } catch (error: any) {
+    return { success: true, data: (data || []) as unknown as PurchaseRecord[] };
+  } catch (error: unknown) {
     console.error('Error al obtener compras:', error);
-    return { success: false, error: error.message || 'Error al recuperar compras' };
+    const msg = error instanceof Error ? error.message : 'Error al recuperar compras';
+    return { success: false, error: msg };
   }
 }
 
 /**
- * Obtener listado de Cuentas por Pagar (Accounts Payable).
+ * Obtener listado de Cuentas por Pagar (Accounts Payable) (Solo Admin).
  */
-export async function getAccountsPayable(role: UserRole): Promise<{ success: boolean; data?: any[]; error?: string }> {
+export async function getAccountsPayable(role?: UserRole): Promise<{
+  success: boolean;
+  data?: AccountPayableRecord[];
+  error?: string;
+}> {
   try {
-    if (role !== 'admin') {
-      throw new Error('Operación no autorizada.');
+    await requireAdmin();
+
+    if (!isSupabaseConfigured()) {
+      return { success: true, data: [] };
     }
 
     const supabase = getServiceSupabase();
@@ -202,9 +221,10 @@ export async function getAccountsPayable(role: UserRole): Promise<{ success: boo
       throw error;
     }
 
-    return { success: true, data: data || [] };
-  } catch (error: any) {
+    return { success: true, data: (data || []) as unknown as AccountPayableRecord[] };
+  } catch (error: unknown) {
     console.error('Error al obtener cuentas por pagar:', error);
-    return { success: false, error: error.message || 'Error al recuperar cuentas por pagar' };
+    const msg = error instanceof Error ? error.message : 'Error al recuperar cuentas por pagar';
+    return { success: false, error: msg };
   }
 }

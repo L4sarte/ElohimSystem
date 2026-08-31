@@ -114,7 +114,8 @@ export function ShippingManager({
               <select
                 value={provider}
                 onChange={(e) => setProvider(e.target.value)}
-                className="flex h-9 w-full rounded-lg border border-[#1B362A] bg-[#08130E] px-3 py-1 text-xs font-bold text-white focus:outline-none focus:ring-1 focus:ring-[#D0A96B]"
+                disabled={saving}
+                className="flex h-9 w-full rounded-lg border border-[#1B362A] bg-[#08130E] px-3 py-1 text-xs font-bold text-white focus:outline-none focus:ring-1 focus:ring-[#D0A96B] disabled:opacity-50"
               >
                 <option value="Ninguno">🚫 Sin Envío (Retiro en Local)</option>
                 <option value="Andreani">🚚 Andreani</option>
@@ -130,8 +131,9 @@ export function ShippingManager({
               </label>
               <select
                 value={status}
-                onChange={(e) => setStatus(e.target.value as any)}
-                className="flex h-9 w-full rounded-lg border border-[#1B362A] bg-[#08130E] px-3 py-1 text-xs font-bold text-white focus:outline-none focus:ring-1 focus:ring-[#D0A96B]"
+                onChange={(e) => setStatus(e.target.value as 'pending' | 'shipped' | 'delivered')}
+                disabled={saving}
+                className="flex h-9 w-full rounded-lg border border-[#1B362A] bg-[#08130E] px-3 py-1 text-xs font-bold text-white focus:outline-none focus:ring-1 focus:ring-[#D0A96B] disabled:opacity-50"
               >
                 <option value="pending">⏳ Pendiente de Despacho</option>
                 <option value="shipped">🚚 Despachado / En Tránsito</option>
@@ -150,7 +152,8 @@ export function ShippingManager({
               placeholder="Ej: AND123456789AR"
               value={trackingNumber}
               onChange={(e) => setTrackingNumber(e.target.value)}
-              className="bg-[#08130E] border-[#1B362A] text-white font-mono text-xs font-bold"
+              disabled={saving}
+              className="bg-[#08130E] border-[#1B362A] text-white font-mono text-xs font-bold disabled:opacity-50"
             />
           </div>
 
