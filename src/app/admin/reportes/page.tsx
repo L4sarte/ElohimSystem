@@ -14,7 +14,7 @@ import { ExchangeRateWidget } from '@/components/rates/ExchangeRateWidget';
 import { 
   ArrowLeft, ShieldAlert, RefreshCw, AlertCircle, TrendingUp, 
   TrendingDown, DollarSign, PieChart as PieChartIcon, BarChart3, 
-  Percent, Coins, Layers, CreditCard, ShoppingBag, Download, FileText, RotateCcw 
+  Percent, Coins, Layers, CreditCard, ShoppingBag, Download, FileText, RotateCcw, FileSpreadsheet 
 } from 'lucide-react';
 import Link from 'next/link';
 import { 
@@ -28,8 +28,7 @@ import { RetailKPIsWidget } from '@/components/dashboard/RetailKPIsWidget';
 import { ExchangeRatesWidget } from '@/components/rates/ExchangeRatesWidget';
 
 import { toast } from 'sonner';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
+import { generateFinancialReportPDF, exportFinancialReportToCsv } from '@/lib/pdf-financial-report';
 
 const COLORS = ['#e11d48', '#8b5cf6', '#3b82f6', '#10b981', '#f59e0b', '#64748b'];
 
@@ -105,6 +104,15 @@ export default function ReportesPage() {
   const chartAreaRef = useRef<HTMLDivElement>(null);
   const [generatingPdf, setGeneratingPdf] = useState(false);
 
+  const getPeriodLabel = (goalsData?: any) => {
+    if (goalsData?.monthName) return goalsData.monthName;
+    if (timeRange === 'custom') return `Desde ${startDate} hasta ${endDate}`;
+    if (timeRange === 'current_month') return 'Mes Actual';
+    if (timeRange === 'previous_month') return 'Mes Anterior';
+    if (timeRange === 'last_30_days') return 'Últimos 30 días';
+    return 'Año en Curso';
+  };
+
   const handleDownloadPDF = async () => {
     if (!report) {
       toast.error('No hay datos analíticos disponibles para exportar.');
@@ -113,233 +121,57 @@ export default function ReportesPage() {
 
     try {
       setGeneratingPdf(true);
-      toast.info('Generando reporte analítico híbrido (PDF Nativo + Gráficos)...');
+      toast.info('Generando reporte contable oficial en PDF...');
 
-      // 1. Obtener métricas adicionales en paralelo (Metas, Inventario, KPIs)
+      // 1. Obtener métricas adicionales en paralelo
       const [invRes, retailRes, goalsRes] = await Promise.all([
         getInventoryValuation(role),
-        getRetailKPIs(role),
-        getMonthlyProjection(role, startDate, endDate)
+        getRetailKPIs(role, startDate, endDate),
+        getMonthlyProjection(role, startDate, endDate),
       ]);
 
       const inventoryData = invRes.success ? invRes.data : null;
       const retailData = retailRes.success ? retailRes.data : null;
       const goalsData = goalsRes.success ? goalsRes.data : null;
 
-      // 2. Inicialización de jsPDF A4 (595 x 842 pt)
-      const doc = new jsPDF('p', 'pt', 'a4');
-      const pageWidth = doc.internal.pageSize.getWidth();
+      const periodLabel = getPeriodLabel(goalsData);
 
-      // Formateador de moneda local ARS
-      const formatARS = (valor: number) =>
-        new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(valor || 0);
-
-      // 3. Encabezado Corporativo Nativo
-      doc.setFillColor(255, 255, 255);
-      doc.rect(0, 0, pageWidth, 842, 'F');
-
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(18);
-      doc.setTextColor(8, 19, 14); // Verde marca Elohim [8, 19, 14]
-      doc.text('ELOHIM IMPORT - REPORTE FINANCIERO', 40, 40);
-
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(9);
-      doc.setTextColor(71, 85, 105);
-
-      // Sincronización Dinámica de Período
-      const periodText = goalsData?.monthName || (timeRange === 'custom'
-        ? `Desde ${startDate} hasta ${endDate}`
-        : timeRange === 'current_month' ? 'Mes Actual' : timeRange === 'previous_month' ? 'Mes Anterior' : timeRange === 'last_30_days' ? 'Últimos 30 días' : 'Año en Curso');
-
-      doc.text(`Período: ${periodText}  |  Fecha de Generación: ${new Date().toLocaleDateString('es-AR')}`, 40, 56);
-
-      // Línea separadora
-      doc.setDrawColor(226, 232, 240);
-      doc.setLineWidth(1);
-      doc.line(40, 66, pageWidth - 40, 66);
-
-      // Opciones visuales estandarizadas para autoTable
-      const autoTableOptions = {
-        theme: 'grid' as const,
-        headStyles: { fillColor: [8, 19, 14] as [number, number, number], textColor: [255, 255, 255] as [number, number, number], fontStyle: 'bold' as const, fontSize: 9 },
-        bodyStyles: { textColor: [30, 41, 59] as [number, number, number], fontSize: 9 },
-        alternateRowStyles: { fillColor: [248, 250, 252] as [number, number, number] },
-        margin: { left: 40, right: 40 },
-        styles: { cellPadding: 6 }
-      };
-
-      // --- TABLA 1: ESTADO DE RESULTADOS ---
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(11);
-      doc.setTextColor(8, 19, 14);
-      doc.text('Estado de Resultados', 40, 85);
-
-      const estadoResultadosBody = [
-        ['Ingresos Brutos', formatARS(report.grossRevenue)],
-        ['Costo Mercadería (COGS)', formatARS(-report.cogs)],
-        ['Comisiones Pasarelas (Costo Bancario)', formatARS(-report.gatewayFeeArs)],
-        ['Gastos Operativos (OPEX)', formatARS(-report.opex)],
-        ['Ganancia Neta del Período', `${formatARS(report.netProfit)} (${report.profitMarginPercent}% Margen)`]
-      ];
-
-      autoTable(doc, {
-        ...autoTableOptions,
-        startY: 93,
-        head: [['Concepto', 'Monto (ARS)']],
-        body: estadoResultadosBody
+      const doc = generateFinancialReportPDF({
+        report,
+        retailData,
+        goalsData,
+        inventoryData,
+        periodLabel,
+        storeName: 'Elohim Import ERP',
       });
 
-      let currentY = (doc as any).lastAutoTable?.finalY || 180;
-
-      // --- TABLA 2: MONITOREO DE OBJETIVOS MENSUALES ---
-      if (goalsData) {
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(11);
-        doc.setTextColor(8, 19, 14);
-        doc.text('Monitoreo de Objetivos Mensuales', 40, currentY + 22);
-
-        const metasBody = [
-          [
-            'Facturación / Ingresos Brutos',
-            formatARS(goalsData.currentRevenueArs),
-            formatARS(goalsData.revenueGoalArs),
-            `${goalsData.revenueProgressPercent}%`
-          ],
-          [
-            'Ganancia Neta Estimada',
-            formatARS(goalsData.currentNetProfitArs),
-            formatARS(goalsData.netProfitGoalArs),
-            `${goalsData.profitProgressPercent}%`
-          ]
-        ];
-
-        autoTable(doc, {
-          ...autoTableOptions,
-          startY: currentY + 30,
-          head: [['Indicador', 'Logrado (ARS)', 'Objetivo (ARS)', 'Avance (%)']],
-          body: metasBody
-        });
-
-        currentY = (doc as any).lastAutoTable?.finalY || currentY + 100;
-      }
-
-      // --- TABLA 3: DESGLOSE DE GASTOS OPERATIVOS (OPEX) ---
-      if (report.categoryBreakdown && report.categoryBreakdown.length > 0) {
-        if (currentY > 650) {
-          doc.addPage();
-          currentY = 40;
-        }
-
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(11);
-        doc.setTextColor(8, 19, 14);
-        doc.text('Desglose de Gastos Operativos (OPEX)', 40, currentY + 22);
-
-        const opexBody = report.categoryBreakdown.map(cat => [
-          cat.name,
-          formatARS(cat.value),
-          `${report.opex > 0 ? ((cat.value / report.opex) * 100).toFixed(1) : '0'}%`
-        ]);
-
-        autoTable(doc, {
-          ...autoTableOptions,
-          startY: currentY + 30,
-          head: [['Categoría de Gasto', 'Monto Invertido (ARS)', 'Participación %']],
-          body: opexBody
-        });
-
-        currentY = (doc as any).lastAutoTable?.finalY || currentY + 100;
-      }
-
-      // --- TABLA 4: TOP BEST SELLERS Y KPIS RETAIL ---
-      if (retailData) {
-        if (currentY > 650) {
-          doc.addPage();
-          currentY = 40;
-        }
-
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(11);
-        doc.setTextColor(8, 19, 14);
-        doc.text('Top 3 Best Sellers y KPIs Retail', 40, currentY + 22);
-
-        const topSellersBody: (string | number)[][] = [];
-
-        if (retailData.topBestSellers && retailData.topBestSellers.length > 0) {
-          retailData.topBestSellers.forEach(item => {
-            topSellersBody.push([
-              `${item.name} (${item.brand})`,
-              `${item.units_sold} unidades`,
-              formatARS(item.total_revenue_ars)
-            ]);
-          });
-        } else {
-          topSellersBody.push(['Sin datos registrados', '0 unidades', '$0 ARS']);
-        }
-
-        autoTable(doc, {
-          ...autoTableOptions,
-          startY: currentY + 30,
-          head: [['Producto', 'Unidades Vendidas', 'Facturado']],
-          body: topSellersBody
-        });
-
-        currentY = (doc as any).lastAutoTable?.finalY || currentY + 100;
-      }
-
-      // --- INTEGRACIÓN HÍBRIDA DE GRÁFICOS (toPng + doc.addImage) ---
-      if (chartAreaRef.current) {
-        try {
-          const { toPng } = await import('html-to-image');
-
-          const filter = (node: HTMLElement) => {
-            if (node.tagName === 'IMG') {
-              const img = node as HTMLImageElement;
-              if (!img.complete || img.naturalWidth === 0 || img.style.display === 'none') {
-                return false;
-              }
-            }
-            return true;
-          };
-
-          const chartImg = await toPng(chartAreaRef.current, {
-            backgroundColor: '#08130E',
-            cacheBust: true,
-            filter: filter
-          });
-
-          // Agregar página exclusiva para analítica visual
-          doc.addPage();
-
-          doc.setFont('helvetica', 'bold');
-          doc.setFontSize(14);
-          doc.setTextColor(8, 19, 14);
-          doc.text('Analítica Visual de Tendencias y Distribución (Recharts)', 40, 40);
-
-          doc.addImage(chartImg, 'PNG', 40, 55, 515, 250);
-        } catch (chartErr) {
-          console.warn('[PDF_HYBRID_CHART_WARN] No se pudo capturar el gráfico visual:', chartErr);
-        }
-      }
-
-      // Pie de página corporativo en todas las páginas
-      const totalPages = (doc as any).internal.getNumberOfPages();
-      for (let i = 1; i <= totalPages; i++) {
-        doc.setPage(i);
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(8);
-        doc.setTextColor(148, 163, 184);
-        doc.text(`Elohim Import ERP • Reporte Financiero Analítico — Página ${i} de ${totalPages}`, 40, 820);
-      }
-
       doc.save(`Reporte_Financiero_Elohim_${new Date().toISOString().slice(0, 10)}.pdf`);
-      toast.success('Reporte PDF analítico híbrido generado exitosamente');
-    } catch (error: any) {
-      console.error('[ERROR_GENERACION_PDF_HIBRIDO]:', error);
+      toast.success('Reporte PDF analítico descargado exitosamente');
+    } catch (error: unknown) {
+      console.error('[ERROR_GENERACION_PDF]:', error);
       toast.error('Ocurrió un error al generar el PDF analítico.');
     } finally {
       setGeneratingPdf(false);
+    }
+  };
+
+  const handleDownloadCSV = () => {
+    if (!report) {
+      toast.error('No hay datos analíticos disponibles para exportar.');
+      return;
+    }
+
+    try {
+      const periodLabel = getPeriodLabel();
+      exportFinancialReportToCsv({
+        report,
+        periodLabel,
+        storeName: 'Elohim Import ERP',
+      });
+      toast.success('Libro contable CSV descargado exitosamente');
+    } catch (error: unknown) {
+      console.error('[ERROR_GENERACION_CSV]:', error);
+      toast.error('Error al exportar los datos contables.');
     }
   };
 
@@ -471,6 +303,7 @@ export default function ReportesPage() {
               </Button>
             </Link>
 
+            {/* BOTÓN EXPORTAR REPORTE PDF */}
             <Button
               variant="outline"
               onClick={handleDownloadPDF}
@@ -483,6 +316,17 @@ export default function ReportesPage() {
                 <Download className="h-3.5 w-3.5 text-[#D0A96B]" />
               )}
               <span>{generatingPdf ? 'Generando...' : 'Descargar PDF'}</span>
+            </Button>
+
+            {/* BOTÓN EXPORTAR EXCEL / CSV */}
+            <Button
+              variant="outline"
+              onClick={handleDownloadCSV}
+              disabled={loading}
+              className="border-emerald-500/40 text-emerald-400 hover:bg-emerald-950/40 hover:text-white cursor-pointer font-bold text-xs flex items-center gap-1.5 h-9 bg-[#13261E] shadow-md"
+            >
+              <FileSpreadsheet className="h-3.5 w-3.5 text-emerald-400" />
+              <span>Exportar Excel (CSV)</span>
             </Button>
 
             {/* PRESETS DE RANGO DE FECHAS */}
@@ -611,7 +455,7 @@ export default function ReportesPage() {
 
           {/* WIDGET DE KPIS RETAIL: TICKET PROMEDIO Y TOP 3 BEST SELLERS */}
           <div className="w-full">
-            <RetailKPIsWidget />
+            <RetailKPIsWidget startDate={startDate} endDate={endDate} />
           </div>
 
           {/* MONITOR DE COTIZACIONES EN VIVO */}

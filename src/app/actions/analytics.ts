@@ -2,10 +2,15 @@
 
 import { getServiceSupabase } from '@/lib/supabase';
 import { UserRole } from '@/types';
+import { requireAdmin } from '@/lib/auth-checks';
+import { calculateFinancialTotals } from '@/lib/financial-calculations';
+import Decimal from 'decimal.js';
 
 export interface FinancialReportData {
   grossRevenue: number;
   cogs: number;
+  grossMargin: number;
+  grossMarginPercent: number;
   financialCost: number;
   gatewayFeeArs: number;
   totalAmountDueArs: number;
@@ -24,6 +29,31 @@ export interface FinancialReportData {
   }>;
 }
 
+interface SaleRow {
+  id: string;
+  total_ars?: number | null;
+  payment_methods?: any;
+  created_at?: string | null;
+  status?: string | null;
+  gateway_fee_ars?: number | null;
+}
+
+interface SaleItemRow {
+  sale_id: string;
+  quantity?: number | null;
+  price_ars_at_moment?: number | null;
+  unit_price_ars?: number | null;
+  products?: {
+    base_cost_ars?: number | null;
+  } | null;
+}
+
+interface ExpenseRow {
+  category?: string | null;
+  amount_ars?: number | null;
+  expense_date?: string | null;
+}
+
 /**
  * Generar Reporte Financiero Completo y Estado de Resultados para Administradores.
  */
@@ -34,9 +64,7 @@ export async function getFinancialReport(
   customEndDate?: string
 ): Promise<{ success: boolean; data?: FinancialReportData; error?: string }> {
   try {
-    if (role !== 'admin') {
-      throw new Error('Operación no autorizada. Se requiere rol de Administrador.');
-    }
+    await requireAdmin();
 
     const serviceClient = getServiceSupabase();
     const now = new Date();
@@ -50,16 +78,16 @@ export async function getFinancialReport(
       startDate = new Date(sYear, sMonth - 1, sDay, 0, 0, 0);
       endDate = new Date(eYear, eMonth - 1, eDay, 23, 59, 59);
     } else if (range === 'current_month') {
-      startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+      startDate = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0);
       endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
     } else if (range === 'previous_month') {
-      startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1, 0, 0, 0);
       endDate = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
     } else if (range === 'last_30_days') {
       startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
       endDate = new Date();
     } else if (range === 'current_year') {
-      startDate = new Date(now.getFullYear(), 0, 1);
+      startDate = new Date(now.getFullYear(), 0, 1, 0, 0, 0);
       endDate = new Date(now.getFullYear(), 11, 31, 23, 59, 59);
     }
 
@@ -68,8 +96,8 @@ export async function getFinancialReport(
     const dateStartString = startDate.toISOString().split('T')[0];
     const dateEndString = endDate.toISOString().split('T')[0];
 
-    // 1. Consultar ventas activas/completadas del periodo (excluyendo anuladas)
-    const { data: sales, error: salesError } = await serviceClient
+    // 1. Consultar ventas activas del período (excluyendo voided)
+    const { data: salesData, error: salesError } = await serviceClient
       .from('sales')
       .select('id, total_ars, payment_methods, created_at, status, gateway_fee_ars')
       .gte('created_at', isoStart)
@@ -78,144 +106,196 @@ export async function getFinancialReport(
       .order('created_at', { ascending: true });
 
     if (salesError) throw salesError;
+    const sales = (salesData || []) as unknown as SaleRow[];
 
-    // 2. Consultar ítems de ventas para calcular el COGS
-    const saleIds = (sales || []).map(s => s.id);
-    let cogs = 0;
+    // 2. Consultar ítems de ventas para calcular el COGS real usando products(base_cost_ars)
+    const saleIds = sales.map((s) => s.id);
+    let totalCogsDecimal = new Decimal(0);
+    const saleCogsMap: Record<string, Decimal> = {};
 
     if (saleIds.length > 0) {
-      const { data: saleItems, error: itemsError } = await serviceClient
+      const { data: saleItemsData, error: itemsError } = await serviceClient
         .from('sale_items')
         .select(`
+          sale_id,
           quantity,
           price_ars_at_moment,
+          unit_price_ars,
           products (
-            base_price_ars
+            base_cost_ars
           )
         `)
         .in('sale_id', saleIds);
 
-      if (!itemsError && saleItems) {
-        saleItems.forEach((item: any) => {
-          const qty = Number(item.quantity || 1);
-          const basePrice = Number(item.products?.base_price_ars || item.price_ars_at_moment || 0);
-          // Estimación del costo directo de reposición al 50% del precio base de catálogo
-          cogs += qty * (basePrice * 0.50);
+      if (!itemsError && saleItemsData) {
+        const saleItems = saleItemsData as unknown as SaleItemRow[];
+        saleItems.forEach((item) => {
+          const qty = new Decimal(item.quantity || 1);
+          const cost = new Decimal(item.products?.base_cost_ars || 0);
+          const itemTotalCost = cost.times(qty);
+
+          totalCogsDecimal = totalCogsDecimal.plus(itemTotalCost);
+
+          if (!saleCogsMap[item.sale_id]) {
+            saleCogsMap[item.sale_id] = new Decimal(0);
+          }
+          saleCogsMap[item.sale_id] = saleCogsMap[item.sale_id].plus(itemTotalCost);
         });
       }
     }
 
     // 3. Consultar gastos operativos (OPEX)
-    const { data: expenses, error: expError } = await serviceClient
+    const { data: expensesData, error: expError } = await serviceClient
       .from('operating_expenses')
       .select('category, amount_ars, expense_date')
       .gte('expense_date', dateStartString)
       .lte('expense_date', dateEndString);
 
     if (expError) throw expError;
+    const expenses = (expensesData || []) as unknown as ExpenseRow[];
 
-    // 4. Calcular Totales Financieros
-    let grossRevenue = 0;
-    let financialCost = 0;
-    let gatewayFeeTotal = 0;
-    const dailyMap: Record<string, { ingresos: number; ganancia: number }> = {};
+    // 4. Procesar ventas diarias y comisiones de pasarela
+    let grossRevenueDecimal = new Decimal(0);
+    let gatewayFeeDecimal = new Decimal(0);
+    const dailyMap: Record<string, { ingresos: Decimal; cogs: Decimal; fees: Decimal; opex: Decimal }> = {};
 
-    (sales || []).forEach(s => {
-      const totalArs = Number(s.total_ars || 0);
-      grossRevenue += totalArs;
+    sales.forEach((s) => {
+      const totalArs = new Decimal(s.total_ars || 0);
+      grossRevenueDecimal = grossRevenueDecimal.plus(totalArs);
 
-      // Extraer comisiones/recargos de pasarelas
-      let feeForSale = Number(s.gateway_fee_ars || 0);
-      if (feeForSale === 0 && s.payment_methods) {
+      // Extraer comisiones de pasarela
+      let feeForSale = new Decimal(s.gateway_fee_ars || 0);
+      if (feeForSale.isZero() && s.payment_methods) {
         const pm = s.payment_methods;
         if (typeof pm.gateway_fee_ars === 'number') {
-          feeForSale = pm.gateway_fee_ars;
+          feeForSale = new Decimal(pm.gateway_fee_ars);
         } else if (typeof pm.surcharge_applied_ars === 'number') {
-          feeForSale = pm.surcharge_applied_ars;
+          feeForSale = new Decimal(pm.surcharge_applied_ars);
         } else if (Array.isArray(pm.breakdown)) {
           pm.breakdown.forEach((b: any) => {
-            feeForSale += Number(b.gateway_fee_ars || b.surcharge_applied || 0);
+            feeForSale = feeForSale.plus(new Decimal(b.gateway_fee_ars || b.surcharge_applied || 0));
           });
         }
       }
-      gatewayFeeTotal += feeForSale;
-      financialCost += feeForSale;
+      gatewayFeeDecimal = gatewayFeeDecimal.plus(feeForSale);
 
       // Agrupar por día para gráfico de tendencia
       const createdDate = s.created_at ? new Date(s.created_at) : new Date();
-      const dayKey = isNaN(createdDate.getTime()) 
-        ? 'Hoy' 
+      const dayKey = isNaN(createdDate.getTime())
+        ? 'Hoy'
         : createdDate.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' });
+
       if (!dailyMap[dayKey]) {
-        dailyMap[dayKey] = { ingresos: 0, ganancia: 0 };
+        dailyMap[dayKey] = {
+          ingresos: new Decimal(0),
+          cogs: new Decimal(0),
+          fees: new Decimal(0),
+          opex: new Decimal(0),
+        };
       }
-      dailyMap[dayKey].ingresos += totalArs;
-      // Ganancia estimada diaria
-      dailyMap[dayKey].ganancia += totalArs * 0.40; // ~40% margen aproximado
+
+      const saleCogs = saleCogsMap[s.id] || new Decimal(0);
+      dailyMap[dayKey].ingresos = dailyMap[dayKey].ingresos.plus(totalArs);
+      dailyMap[dayKey].cogs = dailyMap[dayKey].cogs.plus(saleCogs);
+      dailyMap[dayKey].fees = dailyMap[dayKey].fees.plus(feeForSale);
     });
 
-    let opex = 0;
-    const catMap: Record<string, number> = {};
+    // Procesar gastos operativos (OPEX) por categoría y fecha
+    let opexDecimal = new Decimal(0);
+    const catMap: Record<string, Decimal> = {};
 
-    (expenses || []).forEach(e => {
-      const amt = Number(e.amount_ars || 0);
-      opex += amt;
+    expenses.forEach((e) => {
+      const amt = new Decimal(e.amount_ars || 0);
+      opexDecimal = opexDecimal.plus(amt);
+
       const cat = e.category || 'Varios';
-      catMap[cat] = (catMap[cat] || 0) + amt;
+      if (!catMap[cat]) {
+        catMap[cat] = new Decimal(0);
+      }
+      catMap[cat] = catMap[cat].plus(amt);
+
+      // Asignar OPEX al mapa diario si corresponde
+      if (e.expense_date) {
+        const [eY, eM, eD] = e.expense_date.split('-').map(Number);
+        const expDate = new Date(eY, eM - 1, eD);
+        const dayKey = expDate.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' });
+        if (dailyMap[dayKey]) {
+          dailyMap[dayKey].opex = dailyMap[dayKey].opex.plus(amt);
+        }
+      }
     });
 
-    // 5. Calcular Ganancia Neta
-    const netProfit = grossRevenue - cogs - financialCost - opex;
-    const profitMarginPercent = grossRevenue > 0 ? (netProfit / grossRevenue) * 100 : 0;
-
-    // 6. Consultar Cuentas por Cobrar globales (Dinero en la calle)
+    // 5. Consultar Cuentas por Cobrar globales (Dinero en la calle)
     const { data: pendingSalesData } = await serviceClient
       .from('sales')
       .select('amount_due_ars')
       .neq('status', 'voided')
       .gt('amount_due_ars', 0);
 
-    const totalAmountDueGlobal = (pendingSalesData || []).reduce((sum: number, s: any) => sum + Number(s.amount_due_ars || 0), 0);
+    const totalAmountDueGlobal = (pendingSalesData || []).reduce(
+      (sum: number, s: any) => sum + Number(s.amount_due_ars || 0),
+      0
+    );
 
-    // 7. Consultar Devoluciones del Período
+    // 6. Consultar Devoluciones del Período
     const { data: returnsData } = await serviceClient
       .from('returns')
       .select('refund_amount_ars')
       .gte('created_at', isoStart)
       .lte('created_at', isoEnd);
 
-    const totalRefundsArs = (returnsData || []).reduce((sum: number, r: any) => sum + Number(r.refund_amount_ars || 0), 0);
+    const totalRefundsArs = (returnsData || []).reduce(
+      (sum: number, r: any) => sum + Number(r.refund_amount_ars || 0),
+      0
+    );
 
-    // 8. Formatear datos para gráficos Recharts
-    const trendData = Object.keys(dailyMap).map(date => ({
-      date,
-      ingresos: Math.round(dailyMap[date].ingresos),
-      ganancia: Math.round(dailyMap[date].ganancia)
-    }));
+    // 7. Calcular Totales con el helper centralizado
+    const totals = calculateFinancialTotals({
+      grossRevenue: grossRevenueDecimal.toNumber(),
+      cogs: totalCogsDecimal.toNumber(),
+      gatewayFees: gatewayFeeDecimal.toNumber(),
+      opex: opexDecimal.toNumber(),
+      refunds: totalRefundsArs,
+    });
 
-    const categoryBreakdown = Object.keys(catMap).map(name => ({
+    // 8. Formatear datos para gráficos Recharts (ganancia diaria calculada exactamente)
+    const trendData = Object.keys(dailyMap).map((date) => {
+      const day = dailyMap[date];
+      const dailyGross = day.ingresos;
+      const dailyNet = dailyGross.minus(day.cogs).minus(day.fees).minus(day.opex);
+      return {
+        date,
+        ingresos: Math.round(dailyGross.toNumber()),
+        ganancia: Math.round(dailyNet.toNumber()),
+      };
+    });
+
+    const categoryBreakdown = Object.keys(catMap).map((name) => ({
       name,
-      value: Math.round(catMap[name])
+      value: Math.round(catMap[name].toNumber()),
     }));
 
     return {
       success: true,
       data: {
-        grossRevenue: Math.round(grossRevenue),
-        cogs: Math.round(cogs),
-        financialCost: Math.round(financialCost),
-        gatewayFeeArs: Math.round(gatewayFeeTotal),
+        grossRevenue: totals.grossRevenue,
+        cogs: totals.cogs,
+        grossMargin: totals.grossMargin,
+        grossMarginPercent: totals.grossMarginPercent,
+        financialCost: totals.gatewayFees,
+        gatewayFeeArs: totals.gatewayFees,
         totalAmountDueArs: Math.round(totalAmountDueGlobal),
-        totalRefundsArs: Math.round(totalRefundsArs),
-        opex: Math.round(opex),
-        netProfit: Math.round(netProfit),
-        profitMarginPercent: Number(profitMarginPercent.toFixed(2)),
+        totalRefundsArs: totals.refunds,
+        opex: totals.opex,
+        netProfit: totals.netProfit,
+        profitMarginPercent: totals.netMarginPercent,
         trendData,
-        categoryBreakdown
-      }
+        categoryBreakdown,
+      },
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error al generar reporte financiero:', error);
-    return { success: false, error: error.message || 'Error al calcular reporte financiero' };
+    const msg = error instanceof Error ? error.message : 'Error al calcular reporte financiero';
+    return { success: false, error: msg };
   }
 }

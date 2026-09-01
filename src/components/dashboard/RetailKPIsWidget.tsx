@@ -6,7 +6,12 @@ import { getRetailKPIs, RetailKPIsData } from '@/app/actions/reports';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Receipt, Trophy, Flame, ShoppingBag, RefreshCw, AlertCircle, TrendingUp } from 'lucide-react';
 
-export function RetailKPIsWidget() {
+export interface RetailKPIsWidgetProps {
+  startDate?: string;
+  endDate?: string;
+}
+
+export function RetailKPIsWidget({ startDate, endDate }: RetailKPIsWidgetProps = {}) {
   const { role } = useUserStore();
   const [data, setData] = useState<RetailKPIsData | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
@@ -16,7 +21,7 @@ export function RetailKPIsWidget() {
     if (role !== 'admin') return;
     setLoading(true);
     setError(null);
-    const res = await getRetailKPIs(role);
+    const res = await getRetailKPIs(role, startDate, endDate);
     if (res.success && res.data) {
       setData(res.data);
     } else {
@@ -27,7 +32,7 @@ export function RetailKPIsWidget() {
 
   useEffect(() => {
     fetchKPIs();
-  }, [role]);
+  }, [role, startDate, endDate]);
 
   if (role !== 'admin') return null;
 

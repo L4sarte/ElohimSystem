@@ -312,9 +312,13 @@ interface DbRetailItemRow {
 }
 
 /**
- * Obtiene los KPIs de Retail del mes en curso: Ticket Promedio (AOV) y Top 3 Best Sellers.
+ * Obtiene los KPIs de Retail (AOV y Top Best Sellers) para el mes en curso o rango personalizado.
  */
-export async function getRetailKPIs(role?: UserRole): Promise<{
+export async function getRetailKPIs(
+  role?: UserRole,
+  startDate?: string,
+  endDate?: string
+): Promise<{
   success: boolean;
   data?: RetailKPIsData;
   error?: string;
@@ -336,14 +340,24 @@ export async function getRetailKPIs(role?: UserRole): Promise<{
 
     const supabase = getServiceSupabase();
     const now = new Date();
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
 
-    // 1. Consultar ventas completadas del mes actual
+    let isoStart = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0).toISOString();
+    let isoEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59).toISOString();
+
+    if (startDate && endDate) {
+      const [sY, sM, sD] = startDate.split('-').map(Number);
+      const [eY, eM, eD] = endDate.split('-').map(Number);
+      isoStart = new Date(sY, sM - 1, sD, 0, 0, 0).toISOString();
+      isoEnd = new Date(eY, eM - 1, eD, 23, 59, 59).toISOString();
+    }
+
+    // 1. Consultar ventas completadas del período
     const { data: monthSales, error: salesError } = await supabase
       .from('sales')
       .select('id, total_ars')
       .neq('status', 'voided')
-      .gte('created_at', startOfMonth);
+      .gte('created_at', isoStart)
+      .lte('created_at', isoEnd);
 
     if (salesError) throw salesError;
 
