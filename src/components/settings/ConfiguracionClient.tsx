@@ -78,24 +78,32 @@ export function ConfiguracionClient({ initialSettings = DEFAULT_SYSTEM_SETTINGS 
     }
   };
 
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMessage(null);
+
     if (!settings.trade_name.trim()) {
       toast.error('El nombre comercial es obligatorio.');
+      setErrorMessage('El nombre comercial / de fantasía no puede estar vacío.');
       return;
     }
 
     setSaving(true);
-    const res = await updateSystemSettings(role, {
+    const res = await updateSystemSettings({
       ...settings,
       store_name: settings.trade_name,
     });
     setSaving(false);
 
     if (res.success) {
+      setErrorMessage(null);
       toast.success('¡Configuración global guardada exitosamente!');
     } else {
-      toast.error(res.error || 'Error al guardar la configuración');
+      const err = res.error || 'Error al guardar la configuración';
+      setErrorMessage(err);
+      toast.error(err, { duration: 6000 });
     }
   };
 
@@ -186,6 +194,24 @@ export function ConfiguracionClient({ initialSettings = DEFAULT_SYSTEM_SETTINGS 
             )}
           </Button>
         </div>
+
+        {/* ALERTA DE ERROR VISIBLE SI FALLA EL GUARDADO */}
+        {errorMessage && (
+          <div className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-400 flex items-start gap-3 shadow-lg animate-in fade-in duration-200">
+            <ShieldAlert className="h-5 w-5 shrink-0 mt-0.5" />
+            <div className="flex-1 space-y-1">
+              <div className="text-xs font-bold uppercase tracking-wider text-rose-300">
+                Fallo al persistir la configuración
+              </div>
+              <p className="text-xs text-rose-200 font-mono leading-relaxed">
+                {errorMessage}
+              </p>
+              <p className="text-[11px] text-zinc-400 mt-1">
+                Si el error indica que faltan columnas en la base de datos, ejecuta la migración SQL provista en el SQL Editor de Supabase.
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* SELECTOR DE PESTAÑAS */}
         <div className="flex rounded-2xl bg-[#13261E] border border-[#1B362A] p-1.5 gap-1.5 overflow-x-auto text-xs font-bold">

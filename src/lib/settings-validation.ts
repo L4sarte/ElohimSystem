@@ -61,85 +61,49 @@ export const DEFAULT_SYSTEM_SETTINGS: SystemSettingsData = {
   bank_alias: 'ELOHIM.PERFUMES.ARS',
 };
 
-export const systemSettingsSchema = z.object({
-  // Identidad & Branding
-  company_name: z
+// Helper para strings opcionales o vacíos
+const optionalString = (maxLen: number = 255, defaultVal: string = '') =>
+  z
     .string()
     .trim()
-    .min(2, 'La razón social / nombre de empresa debe tener al menos 2 caracteres')
-    .max(100, 'El nombre no puede superar 100 caracteres')
-    .default(DEFAULT_SYSTEM_SETTINGS.company_name),
+    .max(maxLen, `No puede superar los ${maxLen} caracteres`)
+    .optional()
+    .or(z.literal(''))
+    .nullable()
+    .transform((val) => (val ?? defaultVal));
+
+export const systemSettingsSchema = z.object({
+  // Identidad & Branding
+  company_name: optionalString(150, DEFAULT_SYSTEM_SETTINGS.company_name),
   trade_name: z
     .string()
     .trim()
-    .min(2, 'El nombre comercial / de fantasía debe tener al menos 2 caracteres')
-    .max(100, 'El nombre no puede superar 100 caracteres')
+    .min(1, 'El nombre comercial / de fantasía no puede estar vacío')
+    .max(150, 'El nombre comercial no puede superar 150 caracteres')
     .default(DEFAULT_SYSTEM_SETTINGS.trade_name),
-  store_name: z
-    .string()
-    .trim()
-    .min(2, 'El nombre de la tienda debe tener al menos 2 caracteres')
-    .max(100, 'El nombre no puede superar 100 caracteres')
-    .default(DEFAULT_SYSTEM_SETTINGS.store_name),
-  slogan: z
-    .string()
-    .trim()
-    .max(150, 'El lema / slogan no puede superar 150 caracteres')
-    .default(DEFAULT_SYSTEM_SETTINGS.slogan),
-  logo_url: z
-    .string()
-    .trim()
-    .default(DEFAULT_SYSTEM_SETTINGS.logo_url),
-  cuit_tax_id: z
-    .string()
-    .trim()
-    .max(30, 'El CUIT / Tax ID no puede superar 30 caracteres')
-    .default(DEFAULT_SYSTEM_SETTINGS.cuit_tax_id),
+  store_name: optionalString(150, DEFAULT_SYSTEM_SETTINGS.store_name),
+  slogan: optionalString(250, DEFAULT_SYSTEM_SETTINGS.slogan),
+  logo_url: optionalString(1000, DEFAULT_SYSTEM_SETTINGS.logo_url),
+  cuit_tax_id: optionalString(50, DEFAULT_SYSTEM_SETTINGS.cuit_tax_id),
 
   // Contacto & Redes
-  phone: z
-    .string()
-    .trim()
-    .max(50, 'El teléfono no puede superar 50 caracteres')
-    .default(DEFAULT_SYSTEM_SETTINGS.phone),
+  phone: optionalString(50, DEFAULT_SYSTEM_SETTINGS.phone),
   email: z
     .string()
     .trim()
     .email('Ingresa un correo electrónico válido')
+    .optional()
     .or(z.literal(''))
-    .default(DEFAULT_SYSTEM_SETTINGS.email),
-  address: z
-    .string()
-    .trim()
-    .max(150, 'La dirección no puede superar 150 caracteres')
-    .default(DEFAULT_SYSTEM_SETTINGS.address),
-  city: z
-    .string()
-    .trim()
-    .max(100, 'La ciudad no puede superar 100 caracteres')
-    .default(DEFAULT_SYSTEM_SETTINGS.city),
-  instagram_handle: z
-    .string()
-    .trim()
-    .max(50, 'El usuario de Instagram no puede superar 50 caracteres')
-    .default(DEFAULT_SYSTEM_SETTINGS.instagram_handle),
+    .nullable()
+    .transform((val) => (val ?? DEFAULT_SYSTEM_SETTINGS.email)),
+  address: optionalString(250, DEFAULT_SYSTEM_SETTINGS.address),
+  city: optionalString(100, DEFAULT_SYSTEM_SETTINGS.city),
+  instagram_handle: optionalString(50, DEFAULT_SYSTEM_SETTINGS.instagram_handle),
 
   // POS & Tickets
-  receipt_header: z
-    .string()
-    .trim()
-    .max(200, 'El encabezado no puede superar 200 caracteres')
-    .default(DEFAULT_SYSTEM_SETTINGS.receipt_header),
-  receipt_footer_text: z
-    .string()
-    .trim()
-    .max(300, 'El texto del pie de página no puede superar 300 caracteres')
-    .default(DEFAULT_SYSTEM_SETTINGS.receipt_footer_text),
-  receipt_footer_message: z
-    .string()
-    .trim()
-    .max(300, 'El mensaje no puede superar 300 caracteres')
-    .default(DEFAULT_SYSTEM_SETTINGS.receipt_footer_message),
+  receipt_header: optionalString(250, DEFAULT_SYSTEM_SETTINGS.receipt_header),
+  receipt_footer_text: optionalString(500, DEFAULT_SYSTEM_SETTINGS.receipt_footer_text),
+  receipt_footer_message: optionalString(500, DEFAULT_SYSTEM_SETTINGS.receipt_footer_message),
   warranty_policy_days: z
     .coerce
     .number()
@@ -157,26 +121,10 @@ export const systemSettingsSchema = z.object({
     .default(DEFAULT_SYSTEM_SETTINGS.default_min_stock_alert),
 
   // Datos Bancarios
-  bank_name: z
-    .string()
-    .trim()
-    .max(100, 'El nombre del banco no puede superar 100 caracteres')
-    .default(DEFAULT_SYSTEM_SETTINGS.bank_name),
-  bank_account_holder: z
-    .string()
-    .trim()
-    .max(100, 'El titular no puede superar 100 caracteres')
-    .default(DEFAULT_SYSTEM_SETTINGS.bank_account_holder),
-  bank_cbu_cvu: z
-    .string()
-    .trim()
-    .max(50, 'El CBU/CVU no puede superar 50 caracteres')
-    .default(DEFAULT_SYSTEM_SETTINGS.bank_cbu_cvu),
-  bank_alias: z
-    .string()
-    .trim()
-    .max(50, 'El alias no puede superar 50 caracteres')
-    .default(DEFAULT_SYSTEM_SETTINGS.bank_alias),
+  bank_name: optionalString(100, DEFAULT_SYSTEM_SETTINGS.bank_name),
+  bank_account_holder: optionalString(150, DEFAULT_SYSTEM_SETTINGS.bank_account_holder),
+  bank_cbu_cvu: optionalString(50, DEFAULT_SYSTEM_SETTINGS.bank_cbu_cvu),
+  bank_alias: optionalString(50, DEFAULT_SYSTEM_SETTINGS.bank_alias),
 });
 
 export type SystemSettingsInput = z.infer<typeof systemSettingsSchema>;
