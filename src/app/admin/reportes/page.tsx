@@ -29,6 +29,8 @@ import { ExchangeRatesWidget } from '@/components/rates/ExchangeRatesWidget';
 
 import { toast } from 'sonner';
 import { generateFinancialReportPDF, exportFinancialReportToCsv } from '@/lib/pdf-financial-report';
+import { getSystemSettings } from '@/app/actions/systemSettings';
+import { SystemSettingsData, DEFAULT_SYSTEM_SETTINGS } from '@/lib/settings-validation';
 
 const COLORS = ['#e11d48', '#8b5cf6', '#3b82f6', '#10b981', '#f59e0b', '#64748b'];
 
@@ -50,6 +52,7 @@ export default function ReportesPage() {
   const [startDate, setStartDate] = useState<string>(getFirstDayOfMonth());
   const [endDate, setEndDate] = useState<string>(getTodayDate());
   const [report, setReport] = useState<FinancialReportData | null>(null);
+  const [settings, setSettings] = useState<SystemSettingsData>(DEFAULT_SYSTEM_SETTINGS);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -57,18 +60,23 @@ export default function ReportesPage() {
     if (role !== 'admin') return;
     setLoading(true);
     setError(null);
-    let res;
-    if (timeRange === 'custom') {
-      res = await getFinancialReport(role, 'custom', startDate, endDate);
+    const [resReport, resSettings] = await Promise.all([
+      timeRange === 'custom'
+        ? getFinancialReport(role, 'custom', startDate, endDate)
+        : getFinancialReport(role, timeRange, startDate, endDate),
+      getSystemSettings(),
+    ]);
+
+    if (resReport.success && resReport.data) {
+      setReport(resReport.data);
     } else {
-      res = await getFinancialReport(role, timeRange, startDate, endDate);
+      setError(resReport.error || 'Error al calcular el estado de resultados.');
     }
 
-    if (res.success && res.data) {
-      setReport(res.data);
-    } else {
-      setError(res.error || 'Error al calcular el estado de resultados.');
+    if (resSettings.success && resSettings.data) {
+      setSettings(resSettings.data);
     }
+
     setLoading(false);
   };
 
@@ -142,7 +150,7 @@ export default function ReportesPage() {
         goalsData,
         inventoryData,
         periodLabel,
-        storeName: 'Elohim Import ERP',
+        storeName: settings.trade_name || settings.company_name || 'Elohim Import ERP',
       });
 
       doc.save(`Reporte_Financiero_Elohim_${new Date().toISOString().slice(0, 10)}.pdf`);
@@ -166,7 +174,7 @@ export default function ReportesPage() {
       exportFinancialReportToCsv({
         report,
         periodLabel,
-        storeName: 'Elohim Import ERP',
+        storeName: settings.trade_name || settings.company_name || 'Elohim Import ERP',
       });
       toast.success('Libro contable CSV descargado exitosamente');
     } catch (error: unknown) {

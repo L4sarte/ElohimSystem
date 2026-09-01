@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { SystemSettingsData, DEFAULT_SYSTEM_SETTINGS } from '@/lib/settings-validation';
 
 export interface ReceiptItem {
   name: string;
@@ -22,6 +23,7 @@ export interface ReceiptTicketProps {
   exchangeRate: number;
   paymentMethods?: any;
   sellerName?: string;
+  settings?: SystemSettingsData;
 }
 
 export function ReceiptTicket({
@@ -35,7 +37,8 @@ export function ReceiptTicket({
   totalUsd,
   exchangeRate,
   paymentMethods,
-  sellerName = 'Vendedor'
+  sellerName = 'Vendedor',
+  settings = DEFAULT_SYSTEM_SETTINGS,
 }: ReceiptTicketProps) {
   const formattedDate = new Date(createdAt).toLocaleString('es-AR', {
     day: '2-digit',
@@ -49,7 +52,6 @@ export function ReceiptTicket({
 
   // Extraer información de pagos recibidos
   const breakdown = paymentMethods?.breakdown || [];
-  const selectedMethodName = paymentMethods?.selected_method_name || null;
 
   return (
     <div>
@@ -92,25 +94,36 @@ export function ReceiptTicket({
         className="w-full max-w-[80mm] mx-auto p-4 bg-white text-black font-mono text-[11px] leading-tight border border-dashed border-slate-300 rounded-lg shadow-md print:border-none print:p-1 print:m-0 print:shadow-none print:w-full print:bg-white print:text-black"
       >
         {/* CABECERA CON LOGO CENTRADO Y MARCA OFICIAL */}
-        <div className="text-center space-y-1.5 pb-3 border-b border-dashed border-black">
+        <div className="text-center space-y-1 pb-3 border-b border-dashed border-black">
           <img 
-            src="/logo-elohim.png" 
-            alt="Elohim Import" 
-            className="w-28 h-auto mx-auto mb-2 object-contain print:w-28" 
+            src={settings.logo_url || '/logo-elohim.png'} 
+            alt={settings.trade_name} 
+            className="w-24 h-auto mx-auto mb-1.5 object-contain print:w-24" 
             crossOrigin="anonymous"
             onError={(e) => {
               e.currentTarget.style.display = 'none';
             }}
           />
-          <h2 className="text-sm font-black uppercase tracking-widest text-black">ELOHIM IMPORT</h2>
-          <p className="text-[10px] text-black">Alta Perfumería de Nicho & Decants Fraccionados</p>
+          <h2 className="text-sm font-black uppercase tracking-widest text-black">
+            {settings.trade_name || 'ELOHIM IMPORT'}
+          </h2>
+          {settings.slogan && (
+            <p className="text-[9px] text-zinc-800">{settings.slogan}</p>
+          )}
+          
+          <div className="text-[9px] text-zinc-700 space-y-0.5 pt-0.5">
+            {settings.cuit_tax_id && <div>CUIT: {settings.cuit_tax_id}</div>}
+            {settings.address && <div>{settings.address} {settings.city ? `• ${settings.city}` : ''}</div>}
+            {settings.phone && <div>Tel / WhatsApp: {settings.phone}</div>}
+          </div>
+
           <div className="text-[9px] font-bold border border-black px-2 py-0.5 mt-1 inline-block text-black uppercase">
-            DOCUMENTO NO VÁLIDO COMO FACTURA
+            {settings.receipt_header || 'DOCUMENTO NO VÁLIDO COMO FACTURA'}
           </div>
         </div>
 
         {/* METADATA DE LA TRANSACCIÓN */}
-        <div className="py-2.5 border-b border-dashed border-black space-y-1 text-[10px] text-black">
+        <div className="py-2 border-b border-dashed border-black space-y-1 text-[10px] text-black">
           <div className="flex justify-between">
             <span>N° Ticket:</span>
             <span className="font-bold">#{ticketNumber}</span>
@@ -181,7 +194,7 @@ export function ReceiptTicket({
         </div>
 
         {/* MEDIOS DE PAGO RECIBIDOS */}
-        <div className="py-2.5 border-b border-dashed border-black space-y-1 text-[10px] text-black">
+        <div className="py-2 border-b border-dashed border-black space-y-1 text-[10px] text-black">
           <span className="font-bold block uppercase tracking-wider text-[9px] mb-1">Medios de Pago:</span>
           
           {breakdown.length > 0 ? (
@@ -201,10 +214,15 @@ export function ReceiptTicket({
 
         {/* PIE Y AGRADECIMIENTO */}
         <div className="pt-3 text-center space-y-1 text-[10px] text-black">
-          <p className="font-bold">¡Muchas gracias por su compra en Elohim Import!</p>
-          <p className="text-[9px]">Conserve este comprobante para cambios o devoluciones dentro de los 30 días.</p>
+          <p className="font-bold">{settings.receipt_footer_message || settings.receipt_footer_text}</p>
+          <p className="text-[9px]">
+            Conserve este comprobante para cambios o devoluciones dentro de los {settings.warranty_policy_days || 30} días.
+          </p>
+          {settings.instagram_handle && (
+            <p className="text-[9px] font-semibold">Instagram: {settings.instagram_handle}</p>
+          )}
           <div className="pt-2 text-[8px] tracking-widest text-zinc-600 uppercase font-sans">
-            Elohim Import ERP • Sistema Bimonetario
+            {settings.trade_name} ERP • Sistema Bimonetario
           </div>
         </div>
       </div>
