@@ -10,7 +10,7 @@ import { RoleSelector } from '@/components/products/RoleSelector';
 import { ExchangeRateWidget } from '@/components/rates/ExchangeRateWidget';
 import { 
   ArrowLeft, Plus, Truck, PackagePlus, Clock, Check, RefreshCw, 
-  AlertCircle, ShieldAlert, DollarSign, FileText, CreditCard, Building
+  AlertCircle, ShieldAlert, DollarSign, FileText, CreditCard, Building, Sparkles 
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -116,7 +116,7 @@ export default function ComprasDashboardPage() {
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-600 text-white shadow-md shadow-emerald-500/20">
                 <PackagePlus className="h-4.5 w-4.5" />
               </div>
-              <span className="text-sm font-bold tracking-tight text-slate-800 dark:text-zinc-100 uppercase">
+              <span className="text-sm font-bold tracking-tight text-slate-800 dark:text-zinc-100 uppercase font-serif">
                 Módulo B2B: Compras e Inventario
               </span>
             </div>
@@ -133,25 +133,28 @@ export default function ComprasDashboardPage() {
       <main className="flex-1 container mx-auto px-4 py-8 sm:px-6 max-w-6xl">
         
         {/* Cabecera */}
-        <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-[#13261E]/40 p-6 rounded-2xl border border-[#1B362A]">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
+            <span className="text-[10px] font-extrabold uppercase tracking-widest text-[#D0A96B] flex items-center gap-1">
+              <Sparkles className="h-3.5 w-3.5" /> Supply Chain & Abastecimiento
+            </span>
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2 font-serif mt-1">
               Gestión B2B de Compras y Proveedores
             </h1>
-            <p className="text-sm text-slate-500 dark:text-zinc-400 mt-1">
+            <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1">
               Control de facturas de compra, reabastecimiento de stock y registro de Cuentas por Pagar.
             </p>
           </div>
 
           <div className="flex items-center gap-3">
             <Link href="/compras/proveedores">
-              <Button variant="outline" className="cursor-pointer">
-                <Truck className="mr-2 h-4 w-4" /> Proveedores B2B
+              <Button variant="outline" className="cursor-pointer border-[#1B362A] text-xs">
+                <Truck className="mr-2 h-4 w-4 text-[#D0A96B]" /> Proveedores B2B
               </Button>
             </Link>
 
             <Link href="/compras/nueva">
-              <Button className="bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer shadow-sm">
+              <Button className="bg-emerald-600 hover:bg-emerald-500 text-white cursor-pointer shadow-lg shadow-emerald-900/20 text-xs font-bold">
                 <Plus className="mr-2 h-4 w-4" /> Nueva Compra
               </Button>
             </Link>
@@ -160,7 +163,7 @@ export default function ComprasDashboardPage() {
 
         {/* TARJETAS DE RESUMEN KPI */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-          <Card className="border-slate-200 dark:border-[#1B362A] bg-white dark:bg-[#13261E]">
+          <Card className="border-slate-200 dark:border-[#1B362A] bg-white dark:bg-[#13261E] rounded-2xl shadow-xl">
             <CardHeader className="pb-2">
               <CardDescription className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Total Compras Históricas (ARS)</CardDescription>
               <CardTitle className="text-2xl font-black text-slate-900 dark:text-white font-mono mt-1">
@@ -169,7 +172,7 @@ export default function ComprasDashboardPage() {
             </CardHeader>
           </Card>
 
-          <Card className="border-slate-200 dark:border-[#1B362A] bg-white dark:bg-[#13261E]">
+          <Card className="border-slate-200 dark:border-[#1B362A] bg-white dark:bg-[#13261E] rounded-2xl shadow-xl">
             <CardHeader className="pb-2">
               <CardDescription className="text-[10px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">Deuda Pendiente (Cuentas por Pagar)</CardDescription>
               <CardTitle className="text-2xl font-black text-amber-600 dark:text-amber-400 font-mono mt-1">
@@ -178,11 +181,11 @@ export default function ComprasDashboardPage() {
             </CardHeader>
           </Card>
 
-          <Card className="border-slate-200 dark:border-[#1B362A] bg-white dark:bg-[#13261E]">
+          <Card className="border-slate-200 dark:border-[#1B362A] bg-white dark:bg-[#13261E] rounded-2xl shadow-xl">
             <CardHeader className="pb-2">
               <CardDescription className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Órdenes de Compra Totales</CardDescription>
-              <CardTitle className="text-2xl font-black text-indigo-600 dark:text-indigo-400 font-mono mt-1">
-                {purchases.length} compras
+              <CardTitle className="text-2xl font-black text-[#D0A96B] font-mono mt-1">
+                {purchases.length === 1 ? '1 orden' : `${purchases.length} órdenes`}
               </CardTitle>
             </CardHeader>
           </Card>
@@ -194,29 +197,29 @@ export default function ComprasDashboardPage() {
             onClick={() => setActiveTab('in_transit')}
             className={`pb-3 px-4 font-bold text-xs transition-colors border-b-2 cursor-pointer flex items-center gap-2 ${
               activeTab === 'in_transit'
-                ? 'border-emerald-600 text-emerald-600 dark:border-emerald-400 dark:text-emerald-400'
+                ? 'border-emerald-500 text-emerald-400 font-black'
                 : 'border-transparent text-slate-500 hover:text-slate-900 dark:hover:text-white'
             }`}
           >
-            <Truck className="h-4 w-4" /> Mercadería en Camino
+            <Truck className="h-4 w-4 text-[#D0A96B]" /> Mercadería en Camino
           </button>
 
           <button
             onClick={() => setActiveTab('po_builder')}
             className={`pb-3 px-4 font-bold text-xs transition-colors border-b-2 cursor-pointer flex items-center gap-2 ${
               activeTab === 'po_builder'
-                ? 'border-emerald-600 text-emerald-600 dark:border-emerald-400 dark:text-emerald-400'
+                ? 'border-emerald-500 text-emerald-400 font-black'
                 : 'border-transparent text-slate-500 hover:text-slate-900 dark:hover:text-white'
             }`}
           >
-            <Plus className="h-4 w-4" /> Creador PO Builder
+            <Plus className="h-4 w-4 text-emerald-400" /> Creador PO Builder
           </button>
 
           <button
             onClick={() => setActiveTab('purchases')}
             className={`pb-3 px-4 font-bold text-xs transition-colors border-b-2 cursor-pointer ${
               activeTab === 'purchases'
-                ? 'border-indigo-600 text-indigo-600 dark:border-indigo-400 dark:text-indigo-400'
+                ? 'border-emerald-500 text-emerald-400 font-black'
                 : 'border-transparent text-slate-500 hover:text-slate-900 dark:hover:text-white'
             }`}
           >
@@ -227,7 +230,7 @@ export default function ComprasDashboardPage() {
             onClick={() => setActiveTab('payables')}
             className={`pb-3 px-4 font-bold text-xs transition-colors border-b-2 cursor-pointer ${
               activeTab === 'payables'
-                ? 'border-indigo-600 text-indigo-600 dark:border-indigo-400 dark:text-indigo-400'
+                ? 'border-emerald-500 text-emerald-400 font-black'
                 : 'border-transparent text-slate-500 hover:text-slate-900 dark:hover:text-white'
             }`}
           >
@@ -241,12 +244,12 @@ export default function ComprasDashboardPage() {
         ) : activeTab === 'po_builder' ? (
           <POBuilder onSuccess={() => setActiveTab('in_transit')} />
         ) : (
-          <Card className="border-slate-200 dark:border-[#1B362A]">
+          <Card className="border-slate-200 dark:border-[#1B362A] rounded-2xl overflow-hidden shadow-xl">
             <CardContent className="p-0 overflow-x-auto">
               {loading ? (
                 <div className="flex flex-col items-center justify-center py-20 gap-3">
-                  <RefreshCw className="h-8 w-8 animate-spin text-indigo-600" />
-                  <span className="text-sm font-medium text-slate-500 dark:text-zinc-400">Cargando datos de compras...</span>
+                  <RefreshCw className="h-8 w-8 animate-spin text-emerald-500" />
+                  <span className="text-xs font-medium text-slate-500 dark:text-zinc-400">Cargando datos de compras...</span>
                 </div>
               ) : activeTab === 'purchases' ? (
               
@@ -255,9 +258,9 @@ export default function ComprasDashboardPage() {
                 <div className="flex flex-col items-center justify-center py-24 gap-3 text-center">
                   <PackagePlus className="h-10 w-10 text-slate-300 dark:text-zinc-700" />
                   <h3 className="font-bold text-slate-900 dark:text-white">Sin Compras Registradas</h3>
-                  <p className="text-sm text-slate-500 dark:text-zinc-400 max-w-sm">No se han registrado facturas de compras B2B aún.</p>
+                  <p className="text-xs text-slate-500 dark:text-zinc-400 max-w-sm">No se han registrado facturas de compras B2B aún.</p>
                   <Link href="/compras/nueva" className="mt-2">
-                    <Button className="bg-emerald-600 hover:bg-emerald-700 text-white">Ingresar Primera Compra</Button>
+                    <Button className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs">Ingresar Primera Compra</Button>
                   </Link>
                 </div>
               ) : (
@@ -286,7 +289,7 @@ export default function ComprasDashboardPage() {
 
                         <td className="p-4">
                           <div className="font-bold text-slate-800 dark:text-zinc-200 flex items-center gap-1.5">
-                            <Building className="h-3.5 w-3.5 text-indigo-500 shrink-0" />
+                            <Building className="h-3.5 w-3.5 text-[#D0A96B] shrink-0" />
                             {p.suppliers?.name || 'Proveedor N/A'}
                           </div>
                         </td>
@@ -295,7 +298,7 @@ export default function ComprasDashboardPage() {
                           ${Number(p.total_ars).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
                         </td>
 
-                        <td className="p-4 text-right font-mono text-xs text-indigo-600 dark:text-indigo-400 font-bold">
+                        <td className="p-4 text-right font-mono text-xs text-[#D0A96B] font-bold">
                           u$s {Number(p.total_usd || 0).toFixed(2)}
                         </td>
 
@@ -332,7 +335,7 @@ export default function ComprasDashboardPage() {
                 <div className="flex flex-col items-center justify-center py-24 gap-3 text-center">
                   <CreditCard className="h-10 w-10 text-slate-300 dark:text-zinc-700" />
                   <h3 className="font-bold text-slate-900 dark:text-white">Sin Deudas Pendientes</h3>
-                  <p className="text-sm text-slate-500 dark:text-zinc-400 max-w-sm">No hay registros pendientes de pago en Cuentas por Pagar.</p>
+                  <p className="text-xs text-slate-500 dark:text-zinc-400 max-w-sm">No hay registros pendientes de pago en Cuentas por Pagar.</p>
                 </div>
               ) : (
                 <table className="w-full text-left border-collapse">

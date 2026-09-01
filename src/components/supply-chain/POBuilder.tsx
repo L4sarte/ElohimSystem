@@ -1,12 +1,13 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { useSupplyChainStore } from '@/store/supplyChainStore';
 import { supabase } from '@/lib/supabase';
 import { POExpenseType, POStatus, CreatePOPayload } from '@/types/supplyChain';
 import { 
   Building, Calendar, Search, Plus, Trash2, DollarSign, 
-  Package, Truck, ArrowRight, ArrowLeft, Check, AlertCircle, RefreshCw, FileText
+  Package, Truck, ArrowRight, ArrowLeft, Check, AlertCircle, RefreshCw, FileText, Sparkles
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card';
@@ -150,19 +151,26 @@ export function POBuilder({ onSuccess }: POBuilderProps) {
     (sum, item) => sum + (item.expected_quantity * item.unit_cost), 
     0
   );
-  const totalExpenses = expenses.reduce((sum, exp) => sum + exp.amount, 0);
+
+  const totalExpenses = expenses.reduce((sum, item) => sum + item.amount, 0);
   const grandTotal = subtotalMerchandise + totalExpenses;
 
-  // Guardar Orden de Compra (Draft o In-Transit)
-  const handleSubmitOrder = async (targetStatus: POStatus) => {
+  // Prorrateo unitario de gastos logísticos
+  const totalUnitsInCart = cartItems.reduce((sum, item) => sum + item.expected_quantity, 0);
+  const landingCostPerUnitAvg = totalUnitsInCart > 0 ? (totalExpenses / totalUnitsInCart) : 0;
+
+  // Enviar Orden de Compra
+  const handleSubmitOrder = async (status: POStatus = 'in_transit') => {
     setLocalError(null);
+
     if (!selectedSupplierId) {
-      setLocalError('Debe seleccionar un proveedor para emitir la orden.');
+      setLocalError('Debe seleccionar un proveedor.');
       setCurrentStep(1);
       return;
     }
+
     if (cartItems.length === 0) {
-      setLocalError('Debe agregar al menos un producto a la orden de compra.');
+      setLocalError('El carrito de perfumes está vacío. Debe agregar al menos 1 producto.');
       setCurrentStep(2);
       return;
     }
@@ -171,8 +179,8 @@ export function POBuilder({ onSuccess }: POBuilderProps) {
 
     const payload: CreatePOPayload = {
       supplier_id: selectedSupplierId,
-      status: targetStatus,
-      expected_arrival_date: expectedArrivalDate || undefined,
+      status,
+      expected_arrival_date: expectedArrivalDate ? expectedArrivalDate : undefined,
       tracking_info: trackingInfo || undefined,
       notes: notes || undefined,
       items: cartItems.map(item => ({
@@ -187,138 +195,153 @@ export function POBuilder({ onSuccess }: POBuilderProps) {
       }))
     };
 
-    try {
-      await createPurchaseOrder(payload);
-      setIsSubmitting(false);
-      if (onSuccess) onSuccess();
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Error al crear la orden de compra.';
-      setLocalError(msg);
-      setIsSubmitting(false);
+    const newPoId = await createPurchaseOrder(payload);
+    setIsSubmitting(false);
+
+    if (newPoId) {
+      if (onSuccess) {
+        onSuccess();
+      }
     }
   };
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      {/* INDICADOR DE PASOS WIZARD */}
+      {/* INDICADOR DE PASOS WIZARD EN PALETA EMERALD & GOLD */}
       <div className="grid grid-cols-3 gap-2 sm:gap-4 border-b border-slate-200 dark:border-[#1B362A] pb-4">
         <button
           type="button"
           onClick={() => setCurrentStep(1)}
-          className={`flex items-center gap-2 p-2 rounded-lg text-xs font-bold transition-all text-left cursor-pointer ${
+          className={`flex items-center gap-2 p-2.5 rounded-xl text-xs font-bold transition-all text-left cursor-pointer ${
             currentStep === 1 
-              ? 'bg-indigo-600 text-white shadow' 
-              : 'bg-slate-100 text-slate-600 dark:bg-[#13261E] dark:text-zinc-400'
+              ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-900/30 border border-[#D0A96B]/40' 
+              : 'bg-slate-100 text-slate-600 dark:bg-[#13261E] dark:text-zinc-400 hover:text-white border border-transparent'
           }`}
         >
-          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white/20">1</span>
-          <span className="truncate">1. Proveedor & Fechas</span>
+          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white/20 font-mono">1</span>
+          <span className="truncate">1. Proveedor & Logística</span>
         </button>
 
         <button
           type="button"
           onClick={() => setCurrentStep(2)}
-          className={`flex items-center gap-2 p-2 rounded-lg text-xs font-bold transition-all text-left cursor-pointer ${
+          className={`flex items-center gap-2 p-2.5 rounded-xl text-xs font-bold transition-all text-left cursor-pointer ${
             currentStep === 2 
-              ? 'bg-indigo-600 text-white shadow' 
-              : 'bg-slate-100 text-slate-600 dark:bg-[#13261E] dark:text-zinc-400'
+              ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-900/30 border border-[#D0A96B]/40' 
+              : 'bg-slate-100 text-slate-600 dark:bg-[#13261E] dark:text-zinc-400 hover:text-white border border-transparent'
           }`}
         >
-          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white/20">2</span>
-          <span className="truncate">2. Productos ({cartItems.length})</span>
+          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white/20 font-mono">2</span>
+          <span className="truncate">2. Perfumes ({cartItems.length})</span>
         </button>
 
         <button
           type="button"
           onClick={() => setCurrentStep(3)}
-          className={`flex items-center gap-2 p-2 rounded-lg text-xs font-bold transition-all text-left cursor-pointer ${
+          className={`flex items-center gap-2 p-2.5 rounded-xl text-xs font-bold transition-all text-left cursor-pointer ${
             currentStep === 3 
-              ? 'bg-indigo-600 text-white shadow' 
-              : 'bg-slate-100 text-slate-600 dark:bg-[#13261E] dark:text-zinc-400'
+              ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-900/30 border border-[#D0A96B]/40' 
+              : 'bg-slate-100 text-slate-600 dark:bg-[#13261E] dark:text-zinc-400 hover:text-white border border-transparent'
           }`}
         >
-          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white/20">3</span>
-          <span className="truncate">3. Gastos & Confirmación</span>
+          <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white/20 font-mono">3</span>
+          <span className="truncate">3. Gastos & Resumen</span>
         </button>
       </div>
 
       {(localError || storeError) && (
-        <div className="p-4 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-sm flex items-center gap-2 dark:bg-rose-950/20 dark:border-rose-900/30 dark:text-rose-400">
+        <div className="p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-sm flex items-center gap-2 dark:bg-rose-950/20 dark:border-rose-900/30 dark:text-rose-400 shadow-md">
           <AlertCircle className="h-4 w-4 shrink-0" />
           <span>{localError || storeError}</span>
         </div>
       )}
 
-      {/* PASO 1: SELECCIONAR PROVEEDOR Y FECHAS */}
+      {/* PASO 1: SELECCIONAR PROVEEDOR Y FECHAS (GRID LIMPIO & RESPONSIVE) */}
       {currentStep === 1 && (
-        <Card className="border-slate-200 dark:border-[#1B362A] bg-white dark:bg-[#13261E]">
-          <CardHeader>
-            <CardTitle className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-              <Building className="h-5 w-5 text-indigo-500" />
+        <Card className="border-slate-200 dark:border-[#1B362A] bg-white dark:bg-[#13261E] shadow-xl rounded-2xl overflow-hidden">
+          <CardHeader className="border-b border-slate-100 dark:border-[#1B362A] pb-4">
+            <CardTitle className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2 font-serif">
+              <Building className="h-5 w-5 text-[#D0A96B]" />
               Paso 1: Selección de Proveedor y Logística
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-zinc-300 uppercase mb-1">
-                Proveedor *
-              </label>
-              <select
-                value={selectedSupplierId}
-                onChange={(e) => setSelectedSupplierId(e.target.value)}
-                className="w-full rounded-lg border border-slate-300 bg-white p-2.5 text-sm dark:border-[#1B362A] dark:bg-[#08130E] dark:text-white focus:ring-2 focus:ring-indigo-500"
-              >
-                <option value="">-- Seleccionar Proveedor --</option>
-                {suppliers.map(sup => (
-                  <option key={sup.id} value={sup.id}>
-                    {sup.name} ({sup.preferred_currency}) {sup.contact_whatsapp ? `- WA: ${sup.contact_whatsapp}` : ''}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-zinc-300 uppercase mb-1">
-                  Fecha Estimada de Llegada (ETA)
+          <CardContent className="p-6">
+            <div className="space-y-4">
+              
+              {/* Fila 1: Proveedor a ancho completo con botón de alta rápida */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-slate-700 dark:text-neutral-300 uppercase">
+                  PROVEEDOR *
                 </label>
-                <input
-                  type="date"
-                  value={expectedArrivalDate}
-                  onChange={(e) => setExpectedArrivalDate(e.target.value)}
-                  className="w-full rounded-lg border border-slate-300 bg-white p-2.5 text-sm dark:border-[#1B362A] dark:bg-[#08130E] dark:text-white"
+                <div className="flex gap-2">
+                  <select
+                    value={selectedSupplierId}
+                    onChange={(e) => setSelectedSupplierId(e.target.value)}
+                    className="flex-1 bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-slate-900 dark:bg-[#08130E] dark:border-neutral-700 dark:text-white text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                  >
+                    <option value="">-- Seleccionar Proveedor B2B --</option>
+                    {suppliers.map(sup => (
+                      <option key={sup.id} value={sup.id}>
+                        {sup.name} ({sup.preferred_currency}) {sup.contact_whatsapp ? `- WA: ${sup.contact_whatsapp}` : ''}
+                      </option>
+                    ))}
+                  </select>
+                  <Link href="/compras/proveedores">
+                    <button
+                      type="button"
+                      className="bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-2.5 rounded-lg text-xs font-medium whitespace-nowrap cursor-pointer transition-colors flex items-center gap-1"
+                    >
+                      <Plus className="h-3.5 w-3.5" /> Nuevo Proveedor
+                    </button>
+                  </Link>
+                </div>
+              </div>
+
+              {/* Fila 2: Fecha y Tracking en 2 columnas responsive */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-700 dark:text-neutral-300 uppercase">
+                    FECHA ESTIMADA DE LLEGADA (ETA) *
+                  </label>
+                  <input
+                    type="date"
+                    value={expectedArrivalDate}
+                    onChange={(e) => setExpectedArrivalDate(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-slate-900 dark:bg-[#08130E] dark:border-neutral-700 dark:text-white text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-slate-700 dark:text-neutral-300 uppercase">
+                    Nº DE GUÍA / TRACKING / COURIER
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Ej: DHL-89240192 / Guía Aérea"
+                    value={trackingInfo}
+                    onChange={(e) => setTrackingInfo(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-slate-900 dark:bg-[#08130E] dark:border-neutral-700 dark:text-white text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              {/* Fila 3: Observaciones */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold text-slate-700 dark:text-neutral-300 uppercase">
+                  NOTAS / OBSERVACIONES DE LA ORDEN
+                </label>
+                <textarea
+                  rows={3}
+                  placeholder="Instrucciones especiales de empaque, despacho o entrega..."
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-slate-900 dark:bg-[#08130E] dark:border-neutral-700 dark:text-white text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none resize-none"
                 />
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-zinc-300 uppercase mb-1">
-                  Código de Guía / Tracking Info
-                </label>
-                <input
-                  type="text"
-                  placeholder="Ej: DHL-89240192 / Guía Aérea"
-                  value={trackingInfo}
-                  onChange={(e) => setTrackingInfo(e.target.value)}
-                  className="w-full rounded-lg border border-slate-300 bg-white p-2.5 text-sm dark:border-[#1B362A] dark:bg-[#08130E] dark:text-white"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-zinc-300 uppercase mb-1">
-                Notas / Observaciones de la Orden
-              </label>
-              <textarea
-                rows={2}
-                placeholder="Instrucciones especiales de packaging o entrega..."
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                className="w-full rounded-lg border border-slate-300 bg-white p-2.5 text-sm dark:border-[#1B362A] dark:bg-[#08130E] dark:text-white"
-              />
             </div>
           </CardContent>
 
-          <CardFooter className="justify-end pt-4 border-t border-slate-100 dark:border-[#1B362A]">
+          <CardFooter className="justify-end p-6 pt-4 border-t border-slate-100 dark:border-[#1B362A]">
             <Button
               onClick={() => {
                 if (!selectedSupplierId) {
@@ -328,7 +351,7 @@ export function POBuilder({ onSuccess }: POBuilderProps) {
                 setLocalError(null);
                 setCurrentStep(2);
               }}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2 cursor-pointer"
+              className="bg-emerald-600 hover:bg-emerald-500 text-white font-medium shadow-lg shadow-emerald-900/30 gap-2 cursor-pointer text-xs uppercase tracking-wider"
             >
               Siguiente: Agregar Productos <ArrowRight className="h-4 w-4" />
             </Button>
@@ -340,10 +363,10 @@ export function POBuilder({ onSuccess }: POBuilderProps) {
       {currentStep === 2 && (
         <div className="space-y-6">
           {/* BUSCADOR */}
-          <Card className="border-slate-200 dark:border-[#1B362A] bg-white dark:bg-[#13261E]">
+          <Card className="border-slate-200 dark:border-[#1B362A] bg-white dark:bg-[#13261E] shadow-xl rounded-2xl">
             <CardHeader className="pb-3">
-              <CardTitle className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                <Search className="h-5 w-5 text-indigo-500" />
+              <CardTitle className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2 font-serif">
+                <Search className="h-5 w-5 text-[#D0A96B]" />
                 Paso 2: Buscador de Perfumes e Insumos
               </CardTitle>
             </CardHeader>
@@ -354,36 +377,36 @@ export function POBuilder({ onSuccess }: POBuilderProps) {
                   placeholder="Buscar por marca, nombre o SKU (Ej: Lattafa, Asad, Club de Nuit)..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full rounded-lg border border-slate-300 bg-white p-3 pl-10 text-sm dark:border-[#1B362A] dark:bg-[#08130E] dark:text-white"
+                  className="w-full rounded-xl border border-slate-300 bg-white p-3 pl-10 text-xs dark:border-[#1B362A] dark:bg-[#08130E] dark:text-white focus:ring-2 focus:ring-emerald-500"
                 />
-                <Search className="absolute left-3 top-3.5 h-4 w-4 text-slate-400" />
+                <Search className="absolute left-3 top-3.5 h-4 w-4 text-[#D0A96B]" />
                 {isSearching && (
-                  <RefreshCw className="absolute right-3 top-3.5 h-4 w-4 animate-spin text-indigo-500" />
+                  <RefreshCw className="absolute right-3 top-3.5 h-4 w-4 animate-spin text-emerald-400" />
                 )}
               </div>
 
               {/* RESULTADOS DE BÚSQUEDA */}
               {productResults.length > 0 && (
-                <div className="divide-y divide-slate-100 dark:divide-[#1B362A] rounded-lg border border-slate-200 dark:border-[#1B362A] bg-slate-50/50 dark:bg-[#08130E]/50 max-h-56 overflow-y-auto">
+                <div className="divide-y divide-slate-100 dark:divide-[#1B362A] rounded-xl border border-slate-200 dark:border-[#1B362A] bg-slate-50/50 dark:bg-[#08130E]/50 max-h-56 overflow-y-auto">
                   {productResults.map(p => (
                     <div 
                       key={p.id} 
                       className="p-3 flex items-center justify-between hover:bg-slate-100 dark:hover:bg-[#13261E] transition-colors"
                     >
                       <div>
-                        <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400 block">{p.brand}</span>
-                        <span className="text-sm font-semibold text-slate-900 dark:text-white">{p.name}</span>
-                        <div className="text-[11px] text-slate-400 flex gap-3 mt-0.5">
+                        <span className="text-xs font-bold text-[#D0A96B] block">{p.brand}</span>
+                        <span className="text-sm font-semibold text-slate-900 dark:text-white font-serif">{p.name}</span>
+                        <div className="text-[11px] text-slate-400 font-mono flex gap-3 mt-0.5">
                           <span>SKU: {p.sku || 'N/A'}</span>
-                          <span>Stock actual: {p.stock_quantity} ud</span>
-                          <span>Costo actual: ${Number(p.base_cost_ars).toLocaleString('es-AR')}</span>
+                          <span>Stock: {p.stock_quantity} ud</span>
+                          <span>Costo base: ${Number(p.base_cost_ars).toLocaleString('es-AR')}</span>
                         </div>
                       </div>
 
                       <Button
                         size="sm"
                         onClick={() => handleAddToCart(p)}
-                        className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1 text-xs cursor-pointer"
+                        className="bg-emerald-600 hover:bg-emerald-500 text-white gap-1 text-xs cursor-pointer shadow-md shadow-emerald-600/20"
                       >
                         <Plus className="h-3.5 w-3.5" /> Agregar
                       </Button>
@@ -395,14 +418,14 @@ export function POBuilder({ onSuccess }: POBuilderProps) {
           </Card>
 
           {/* TABLA DEL CARRITO DE COMPRAS */}
-          <Card className="border-slate-200 dark:border-[#1B362A] bg-white dark:bg-[#13261E]">
+          <Card className="border-slate-200 dark:border-[#1B362A] bg-white dark:bg-[#13261E] shadow-xl rounded-2xl">
             <CardHeader className="pb-3 flex flex-row items-center justify-between">
-              <CardTitle className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <CardTitle className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2 font-serif">
                 <Package className="h-5 w-5 text-emerald-500" />
                 Detalle de Perfumes Solicitados ({cartItems.length})
               </CardTitle>
 
-              <span className="font-mono text-sm font-bold text-indigo-600 dark:text-indigo-400">
+              <span className="font-mono text-sm font-bold text-[#D0A96B]">
                 Subtotal: ${subtotalMerchandise.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
               </span>
             </CardHeader>
@@ -427,8 +450,8 @@ export function POBuilder({ onSuccess }: POBuilderProps) {
                     {cartItems.map((item) => (
                       <tr key={item.product.id} className="hover:bg-slate-50/50 dark:hover:bg-[#08130E]/30">
                         <td className="p-3 pl-4 font-medium text-slate-900 dark:text-white">
-                          <div className="font-bold text-indigo-600 dark:text-indigo-400">{item.product.brand}</div>
-                          {item.product.name}
+                          <div className="font-bold text-[#D0A96B] font-mono">{item.product.brand}</div>
+                          <span className="font-serif">{item.product.name}</span>
                         </td>
                         <td className="p-3 text-center">
                           <input
@@ -436,7 +459,7 @@ export function POBuilder({ onSuccess }: POBuilderProps) {
                             min="1"
                             value={item.expected_quantity}
                             onChange={(e) => handleUpdateCartItem(item.product.id, 'expected_quantity', parseInt(e.target.value) || 0)}
-                            className="w-20 rounded border border-slate-300 p-1 text-center font-bold dark:border-[#1B362A] dark:bg-[#08130E] dark:text-white"
+                            className="w-20 rounded-lg border border-slate-300 p-1 text-center font-bold dark:border-[#1B362A] dark:bg-[#08130E] dark:text-white font-mono"
                           />
                         </td>
                         <td className="p-3 text-right">
@@ -446,7 +469,7 @@ export function POBuilder({ onSuccess }: POBuilderProps) {
                             step="0.01"
                             value={item.unit_cost}
                             onChange={(e) => handleUpdateCartItem(item.product.id, 'unit_cost', parseFloat(e.target.value) || 0)}
-                            className="w-28 rounded border border-slate-300 p-1 text-right font-mono font-bold dark:border-[#1B362A] dark:bg-[#08130E] dark:text-white"
+                            className="w-28 rounded-lg border border-slate-300 p-1 text-right font-mono font-bold dark:border-[#1B362A] dark:bg-[#08130E] dark:text-white"
                           />
                         </td>
                         <td className="p-3 text-right font-mono font-bold text-slate-800 dark:text-zinc-200">
@@ -467,11 +490,11 @@ export function POBuilder({ onSuccess }: POBuilderProps) {
               )}
             </CardContent>
 
-            <CardFooter className="justify-between pt-4 border-t border-slate-100 dark:border-[#1B362A]">
+            <CardFooter className="justify-between p-6 pt-4 border-t border-slate-100 dark:border-[#1B362A]">
               <Button
                 variant="outline"
                 onClick={() => setCurrentStep(1)}
-                className="gap-2 cursor-pointer"
+                className="gap-2 cursor-pointer border-[#1B362A]"
               >
                 <ArrowLeft className="h-4 w-4" /> Volver a Proveedor
               </Button>
@@ -485,7 +508,7 @@ export function POBuilder({ onSuccess }: POBuilderProps) {
                   setLocalError(null);
                   setCurrentStep(3);
                 }}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white gap-2 cursor-pointer"
+                className="bg-emerald-600 hover:bg-emerald-500 text-white font-medium shadow-lg shadow-emerald-900/30 gap-2 cursor-pointer text-xs uppercase tracking-wider"
               >
                 Siguiente: Cargar Gastos <ArrowRight className="h-4 w-4" />
               </Button>
@@ -498,9 +521,9 @@ export function POBuilder({ onSuccess }: POBuilderProps) {
       {currentStep === 3 && (
         <div className="space-y-6">
           {/* SECCIÓN DE GASTOS ASOCIADOS */}
-          <Card className="border-slate-200 dark:border-[#1B362A] bg-white dark:bg-[#13261E]">
+          <Card className="border-slate-200 dark:border-[#1B362A] bg-white dark:bg-[#13261E] shadow-xl rounded-2xl">
             <CardHeader>
-              <CardTitle className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <CardTitle className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2 font-serif">
                 <Truck className="h-5 w-5 text-amber-500" />
                 Paso 3: Gastos Asociados (Prorrateables)
               </CardTitle>
@@ -509,11 +532,11 @@ export function POBuilder({ onSuccess }: POBuilderProps) {
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">Tipo de Gasto</label>
+                  <label className="block text-[11px] font-bold text-slate-500 dark:text-zinc-400 uppercase mb-1">Tipo de Gasto</label>
                   <select
                     value={newExpenseType}
                     onChange={(e) => setNewExpenseType(e.target.value as POExpenseType)}
-                    className="w-full rounded border border-slate-300 bg-white p-2 text-xs dark:border-[#1B362A] dark:bg-[#08130E] dark:text-white"
+                    className="w-full rounded-lg border border-slate-300 bg-white p-2 text-xs dark:border-[#1B362A] dark:bg-[#08130E] dark:text-white focus:ring-2 focus:ring-emerald-500"
                   >
                     <option value="flete">Flete / Envío</option>
                     <option value="aduana">Impuestos de Aduana</option>
@@ -524,30 +547,30 @@ export function POBuilder({ onSuccess }: POBuilderProps) {
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">Monto (ARS)</label>
+                  <label className="block text-[11px] font-bold text-slate-500 dark:text-zinc-400 uppercase mb-1">Monto (ARS)</label>
                   <input
                     type="number"
                     placeholder="Monto ARS"
                     value={newExpenseAmount}
                     onChange={(e) => setNewExpenseAmount(e.target.value)}
-                    className="w-full rounded border border-slate-300 bg-white p-2 text-xs font-mono font-bold dark:border-[#1B362A] dark:bg-[#08130E] dark:text-white"
+                    className="w-full rounded-lg border border-slate-300 bg-white p-2 text-xs font-mono font-bold dark:border-[#1B362A] dark:bg-[#08130E] dark:text-white focus:ring-2 focus:ring-emerald-500"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">Descripción (Opcional)</label>
+                  <label className="block text-[11px] font-bold text-slate-500 dark:text-zinc-400 uppercase mb-1">Descripción (Opcional)</label>
                   <div className="flex gap-2">
                     <input
                       type="text"
-                      placeholder="Ej: Currier internacional"
+                      placeholder="Ej: Courier internacional"
                       value={newExpenseDesc}
                       onChange={(e) => setNewExpenseDesc(e.target.value)}
-                      className="w-full rounded border border-slate-300 bg-white p-2 text-xs dark:border-[#1B362A] dark:bg-[#08130E] dark:text-white"
+                      className="w-full rounded-lg border border-slate-300 bg-white p-2 text-xs dark:border-[#1B362A] dark:bg-[#08130E] dark:text-white focus:ring-2 focus:ring-emerald-500"
                     />
                     <Button
                       type="button"
                       onClick={handleAddExpense}
-                      className="bg-amber-600 hover:bg-amber-700 text-white shrink-0 text-xs cursor-pointer"
+                      className="bg-amber-600 hover:bg-amber-500 text-white shrink-0 text-xs cursor-pointer shadow-md"
                     >
                       <Plus className="h-4 w-4" /> Add
                     </Button>
@@ -562,7 +585,7 @@ export function POBuilder({ onSuccess }: POBuilderProps) {
                   {expenses.map((exp, idx) => (
                     <div 
                       key={idx} 
-                      className="flex items-center justify-between p-2 rounded bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/30 text-xs"
+                      className="flex items-center justify-between p-2.5 rounded-xl bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/30 text-xs"
                     >
                       <span className="capitalize font-medium text-slate-800 dark:text-zinc-200">
                         • {exp.expense_type} {exp.description ? `(${exp.description})` : ''}
@@ -586,15 +609,15 @@ export function POBuilder({ onSuccess }: POBuilderProps) {
           </Card>
 
           {/* RESUMEN MONETARIO FINAL */}
-          <Card className="border-slate-200 dark:border-[#1B362A] bg-slate-900 text-white">
-            <CardHeader>
-              <CardTitle className="text-base font-bold flex items-center gap-2">
+          <Card className="border border-[#1B362A] bg-[#08130E] text-white shadow-2xl rounded-2xl">
+            <CardHeader className="border-b border-[#1B362A]">
+              <CardTitle className="text-base font-bold flex items-center gap-2 font-serif">
                 <FileText className="h-5 w-5 text-emerald-400" />
                 Resumen de la Orden de Compra
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3 font-mono text-sm">
-              <div className="flex justify-between text-slate-300">
+            <CardContent className="p-6 space-y-3 font-mono text-xs">
+              <div className="flex justify-between text-zinc-300">
                 <span>Subtotal Mercadería ({cartItems.reduce((s, i) => s + i.expected_quantity, 0)} uds):</span>
                 <span>${subtotalMerchandise.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
               </div>
@@ -604,18 +627,18 @@ export function POBuilder({ onSuccess }: POBuilderProps) {
                 <span>+${totalExpenses.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
               </div>
 
-              <div className="flex justify-between text-lg font-black border-t border-slate-700 pt-2 text-emerald-400">
+              <div className="flex justify-between text-base font-black border-t border-[#1B362A] pt-3 text-[#D0A96B]">
                 <span>GRAND TOTAL INVERSIÓN:</span>
-                <span>${grandTotal.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
+                <span className="text-lg text-emerald-400">${grandTotal.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
               </div>
             </CardContent>
 
-            <CardFooter className="flex flex-col sm:flex-row gap-3 pt-4 border-t border-slate-800">
+            <CardFooter className="flex flex-col sm:flex-row gap-3 p-6 pt-4 border-t border-[#1B362A] bg-[#13261E]/50">
               <Button
                 variant="outline"
                 onClick={() => setCurrentStep(2)}
                 disabled={isSubmitting}
-                className="w-full sm:w-auto text-slate-900 bg-white hover:bg-slate-100 border-none cursor-pointer"
+                className="w-full sm:w-auto border-[#1B362A] text-zinc-300 hover:text-white cursor-pointer"
               >
                 <ArrowLeft className="h-4 w-4 mr-2" /> Volver a Productos
               </Button>
@@ -625,7 +648,7 @@ export function POBuilder({ onSuccess }: POBuilderProps) {
                   variant="outline"
                   onClick={() => handleSubmitOrder('draft')}
                   disabled={isSubmitting}
-                  className="flex-1 sm:flex-initial text-slate-300 border-slate-700 hover:bg-slate-800 cursor-pointer"
+                  className="flex-1 sm:flex-initial border-[#1B362A] text-zinc-300 hover:text-white cursor-pointer"
                 >
                   Guardar Borrador
                 </Button>
@@ -633,7 +656,7 @@ export function POBuilder({ onSuccess }: POBuilderProps) {
                 <Button
                   onClick={() => handleSubmitOrder('in_transit')}
                   disabled={isSubmitting}
-                  className="flex-1 sm:flex-initial bg-emerald-600 hover:bg-emerald-700 text-white font-bold gap-2 cursor-pointer shadow-lg shadow-emerald-600/30"
+                  className="flex-1 sm:flex-initial bg-emerald-600 hover:bg-emerald-500 text-white font-bold gap-2 cursor-pointer shadow-lg shadow-emerald-600/30 text-xs uppercase tracking-wider"
                 >
                   {isSubmitting ? (
                     <RefreshCw className="h-4 w-4 animate-spin" />
