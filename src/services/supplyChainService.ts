@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { getSuppliers as fetchSuppliersServerAction } from '@/app/actions/suppliers';
 import { 
   Supplier, 
   PurchaseOrder, 
@@ -8,16 +9,14 @@ import {
 
 export class SupplyChainService {
   /**
-   * Obtiene la lista completa de proveedores registrados
+   * Obtiene la lista completa de proveedores registrados mediante Server Action (bypassea RLS)
    */
   static async getSuppliers(): Promise<Supplier[]> {
-    const { data, error } = await supabase
-      .from('suppliers')
-      .select('*')
-      .order('name', { ascending: true });
-
-    if (error) throw new Error(`Error al obtener proveedores: ${error.message}`);
-    return data || [];
+    const res = await fetchSuppliersServerAction();
+    if (!res.success) {
+      throw new Error(res.error || 'Error al obtener proveedores');
+    }
+    return (res.data || []) as unknown as Supplier[];
   }
 
   /**

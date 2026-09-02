@@ -266,52 +266,55 @@ export function POBuilder({ onSuccess }: POBuilderProps) {
             </CardTitle>
           </CardHeader>
           <CardContent className="p-6">
-            <div className="space-y-4">
+            <div className="flex flex-col gap-4">
               
               {/* Fila 1: Proveedor a ancho completo con botón de alta rápida */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-slate-700 dark:text-neutral-300 uppercase">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-neutral-300 uppercase mb-1.5">
                   PROVEEDOR *
                 </label>
-                <div className="flex gap-2">
+                <div className="flex gap-2 items-center">
                   <select
                     value={selectedSupplierId}
                     onChange={(e) => setSelectedSupplierId(e.target.value)}
-                    className="flex-1 bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-slate-900 dark:bg-[#08130E] dark:border-neutral-700 dark:text-white text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                    className="flex-1 h-10 bg-slate-50 border border-slate-300 rounded-lg px-3 text-slate-900 dark:bg-[#08130E] dark:border-neutral-700 dark:text-white text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                   >
                     <option value="">-- Seleccionar Proveedor B2B --</option>
-                    {suppliers.map(sup => (
-                      <option key={sup.id} value={sup.id}>
-                        {sup.name} ({sup.preferred_currency}) {sup.contact_whatsapp ? `- WA: ${sup.contact_whatsapp}` : ''}
-                      </option>
-                    ))}
+                    {suppliers.map(sup => {
+                      const contactInfo = sup.phone || sup.contact_whatsapp;
+                      const currencyInfo = sup.preferred_currency ? ` • [${sup.preferred_currency}]` : '';
+                      return (
+                        <option key={sup.id} value={sup.id}>
+                          {sup.name} {contactInfo ? `(Tel: ${contactInfo})` : ''}{currencyInfo}
+                        </option>
+                      );
+                    })}
                   </select>
-                  <Link href="/compras/proveedores">
-                    <button
-                      type="button"
-                      className="bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-2.5 rounded-lg text-xs font-medium whitespace-nowrap cursor-pointer transition-colors flex items-center gap-1"
-                    >
-                      <Plus className="h-3.5 w-3.5" /> Nuevo Proveedor
-                    </button>
+                  <Link
+                    href="/compras/proveedores"
+                    className="inline-flex items-center justify-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white px-3.5 h-10 rounded-lg text-xs font-semibold whitespace-nowrap shrink-0 transition-colors shadow-sm cursor-pointer"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Nuevo Proveedor
                   </Link>
                 </div>
               </div>
 
               {/* Fila 2: Fecha y Tracking en 2 columnas responsive */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-slate-700 dark:text-neutral-300 uppercase">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-neutral-300 uppercase mb-1.5">
                     FECHA ESTIMADA DE LLEGADA (ETA) *
                   </label>
                   <input
                     type="date"
                     value={expectedArrivalDate}
                     onChange={(e) => setExpectedArrivalDate(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-slate-900 dark:bg-[#08130E] dark:border-neutral-700 dark:text-white text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                    className="w-full h-10 bg-slate-50 border border-slate-300 rounded-lg px-3 text-slate-900 dark:bg-[#08130E] dark:border-neutral-700 dark:text-white text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                   />
                 </div>
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-slate-700 dark:text-neutral-300 uppercase">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-neutral-300 uppercase mb-1.5">
                     Nº DE GUÍA / TRACKING / COURIER
                   </label>
                   <input
@@ -319,14 +322,14 @@ export function POBuilder({ onSuccess }: POBuilderProps) {
                     placeholder="Ej: DHL-89240192 / Guía Aérea"
                     value={trackingInfo}
                     onChange={(e) => setTrackingInfo(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-slate-900 dark:bg-[#08130E] dark:border-neutral-700 dark:text-white text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                    className="w-full h-10 bg-slate-50 border border-slate-300 rounded-lg px-3 text-slate-900 dark:bg-[#08130E] dark:border-neutral-700 dark:text-white text-xs focus:ring-2 focus:ring-emerald-500 focus:outline-none"
                   />
                 </div>
               </div>
 
               {/* Fila 3: Observaciones */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-slate-700 dark:text-neutral-300 uppercase">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 dark:text-neutral-300 uppercase mb-1.5">
                   NOTAS / OBSERVACIONES DE LA ORDEN
                 </label>
                 <textarea

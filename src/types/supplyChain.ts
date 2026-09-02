@@ -7,11 +7,14 @@ export type POExpenseType = 'flete' | 'aduana' | 'packaging' | 'comisiones' | 'o
 export interface Supplier {
   id: string;
   name: string;
-  contact_whatsapp?: string;
-  preferred_currency: SupplierCurrency;
-  notes?: string;
+  contact_whatsapp?: string | null;
+  phone?: string | null;
+  contact_name?: string | null;
+  email?: string | null;
+  preferred_currency?: SupplierCurrency | null;
+  notes?: string | null;
   created_at: string;
-  updated_at: string;
+  updated_at?: string;
 }
 
 export interface PurchaseOrderItem {
