@@ -3,7 +3,7 @@
 import { getServiceSupabase } from '@/lib/supabase';
 import { UserRole } from '@/types';
 import { requireAdmin } from '@/lib/auth-checks';
-import { calculateFinancialTotals } from '@/lib/financial-calculations';
+import { calculateFinancialTotals, resolveItemUnitCost } from '@/lib/financial-calculations';
 import Decimal from 'decimal.js';
 
 export interface FinancialReportData {
@@ -18,6 +18,9 @@ export interface FinancialReportData {
   opex: number;
   netProfit: number;
   profitMarginPercent: number;
+  itemsWithoutCostCount?: number;
+  itemsWithoutCostNames?: string[];
+  warningMessage?: string | null;
   trendData: Array<{
     date: string;
     ingresos: number;
@@ -39,11 +42,18 @@ interface SaleRow {
 }
 
 interface SaleItemRow {
+  id?: string;
   sale_id: string;
+  product_id: string;
   quantity?: number | null;
   price_ars_at_moment?: number | null;
-  unit_price_ars?: number | null;
+  unit_cost_at_moment?: number | null;
   products?: {
+    id: string;
+    name: string;
+    brand?: string | null;
+    sku?: string | null;
+    type?: string | null;
     base_cost_ars?: number | null;
   } | null;
 }
@@ -69,26 +79,29 @@ export async function getFinancialReport(
     const serviceClient = getServiceSupabase();
     const now = new Date();
 
-    let startDate = new Date();
-    let endDate = new Date();
+    let startDate: Date;
+    let endDate: Date;
 
     if (customStartDate && customEndDate) {
       const [sYear, sMonth, sDay] = customStartDate.split('-').map(Number);
       const [eYear, eMonth, eDay] = customEndDate.split('-').map(Number);
-      startDate = new Date(sYear, sMonth - 1, sDay, 0, 0, 0);
-      endDate = new Date(eYear, eMonth - 1, eDay, 23, 59, 59);
+      startDate = new Date(Date.UTC(sYear, sMonth - 1, sDay, 0, 0, 0));
+      endDate = new Date(Date.UTC(eYear, eMonth - 1, eDay, 23, 59, 59, 999));
     } else if (range === 'current_month') {
-      startDate = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0);
-      endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+      startDate = new Date(Date.UTC(now.getFullYear(), now.getMonth(), 1, 0, 0, 0));
+      endDate = new Date(Date.UTC(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999));
     } else if (range === 'previous_month') {
-      startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1, 0, 0, 0);
-      endDate = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
+      startDate = new Date(Date.UTC(now.getFullYear(), now.getMonth() - 1, 1, 0, 0, 0));
+      endDate = new Date(Date.UTC(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999));
     } else if (range === 'last_30_days') {
       startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
       endDate = new Date();
     } else if (range === 'current_year') {
-      startDate = new Date(now.getFullYear(), 0, 1, 0, 0, 0);
-      endDate = new Date(now.getFullYear(), 11, 31, 23, 59, 59);
+      startDate = new Date(Date.UTC(now.getFullYear(), 0, 1, 0, 0, 0));
+      endDate = new Date(Date.UTC(now.getFullYear(), 11, 31, 23, 59, 59, 999));
+    } else {
+      startDate = new Date(Date.UTC(now.getFullYear(), now.getMonth(), 1, 0, 0, 0));
+      endDate = new Date(Date.UTC(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999));
     }
 
     const isoStart = startDate.toISOString();
@@ -108,31 +121,85 @@ export async function getFinancialReport(
     if (salesError) throw salesError;
     const sales = (salesData || []) as unknown as SaleRow[];
 
-    // 2. Consultar ítems de ventas para calcular el COGS real usando products(base_cost_ars)
+    // 2. Consultar ítems de ventas para calcular el COGS real usando la Cadena de Resolución
     const saleIds = sales.map((s) => s.id);
     let totalCogsDecimal = new Decimal(0);
     const saleCogsMap: Record<string, Decimal> = {};
+    const unassignedCostProducts: string[] = [];
+    let warningMessage: string | null = null;
 
     if (saleIds.length > 0) {
       const { data: saleItemsData, error: itemsError } = await serviceClient
         .from('sale_items')
         .select(`
+          id,
           sale_id,
+          product_id,
           quantity,
           price_ars_at_moment,
-          unit_price_ars,
           products (
+            id,
+            name,
+            brand,
+            sku,
+            type,
             base_cost_ars
           )
         `)
         .in('sale_id', saleIds);
 
-      if (!itemsError && saleItemsData) {
+      if (itemsError) {
+        console.error('Error al consultar ítems de venta:', itemsError);
+      } else if (saleItemsData) {
         const saleItems = saleItemsData as unknown as SaleItemRow[];
+
+        // Identificar productos que requieren búsqueda en PO items (Fallback 4)
+        const missingCostProductIds = new Set<string>();
+        saleItems.forEach((item) => {
+          const catCost = Number(item.products?.base_cost_ars || 0);
+          const momentCost = Number(item.unit_cost_at_moment || 0);
+          if (catCost <= 0 && momentCost <= 0 && item.product_id) {
+            missingCostProductIds.add(item.product_id);
+          }
+        });
+
+        // Fallback 4: Consultar último costo registrado en purchase_order_items
+        const poCostMap: Record<string, Decimal> = {};
+        if (missingCostProductIds.size > 0) {
+          const { data: poItems } = await serviceClient
+            .from('purchase_order_items')
+            .select('product_id, unit_cost, created_at')
+            .in('product_id', Array.from(missingCostProductIds))
+            .order('created_at', { ascending: false });
+
+          if (poItems) {
+            poItems.forEach((poItem: any) => {
+              if (!poCostMap[poItem.product_id] && Number(poItem.unit_cost) > 0) {
+                poCostMap[poItem.product_id] = new Decimal(poItem.unit_cost);
+              }
+            });
+          }
+        }
+
         saleItems.forEach((item) => {
           const qty = new Decimal(item.quantity || 1);
-          const cost = new Decimal(item.products?.base_cost_ars || 0);
-          const itemTotalCost = cost.times(qty);
+
+          // Ejecutar cadena de resolución inteligente
+          const costResolution = resolveItemUnitCost({
+            itemUnitCostAtMoment: item.unit_cost_at_moment,
+            productBaseCostArs: item.products?.base_cost_ars,
+            lastPurchaseOrderCostArs: poCostMap[item.product_id]?.toNumber(),
+          });
+
+          if (!costResolution.hasCost) {
+            const pName = item.products?.name || `Producto ID ${item.product_id}`;
+            if (!unassignedCostProducts.includes(pName)) {
+              unassignedCostProducts.push(pName);
+            }
+          }
+
+          const unitCostDecimal = new Decimal(costResolution.unitCost);
+          const itemTotalCost = unitCostDecimal.times(qty);
 
           totalCogsDecimal = totalCogsDecimal.plus(itemTotalCost);
 
@@ -141,6 +208,10 @@ export async function getFinancialReport(
           }
           saleCogsMap[item.sale_id] = saleCogsMap[item.sale_id].plus(itemTotalCost);
         });
+
+        if (unassignedCostProducts.length > 0) {
+          warningMessage = `${unassignedCostProducts.length} producto(s) sin costo base configurado (${unassignedCostProducts.slice(0, 3).join(', ')}${unassignedCostProducts.length > 3 ? '...' : ''})`;
+        }
       }
     }
 
@@ -289,6 +360,9 @@ export async function getFinancialReport(
         opex: totals.opex,
         netProfit: totals.netProfit,
         profitMarginPercent: totals.netMarginPercent,
+        itemsWithoutCostCount: unassignedCostProducts.length,
+        itemsWithoutCostNames: unassignedCostProducts,
+        warningMessage,
         trendData,
         categoryBreakdown,
       },

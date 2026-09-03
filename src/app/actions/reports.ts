@@ -290,6 +290,9 @@ export interface BestSellerProduct {
   sku: string;
   units_sold: number;
   total_revenue_ars: number;
+  total_cost_ars: number;
+  net_margin_ars: number;
+  margin_percent: number;
 }
 
 export interface RetailKPIsData {
@@ -308,6 +311,7 @@ interface DbRetailItemRow {
     name: string;
     brand: string;
     sku: string;
+    base_cost_ars?: number | null;
   } | null;
 }
 
@@ -341,14 +345,14 @@ export async function getRetailKPIs(
     const supabase = getServiceSupabase();
     const now = new Date();
 
-    let isoStart = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0).toISOString();
-    let isoEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59).toISOString();
+    let isoStart = new Date(Date.UTC(now.getFullYear(), now.getMonth(), 1, 0, 0, 0)).toISOString();
+    let isoEnd = new Date(Date.UTC(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999)).toISOString();
 
     if (startDate && endDate) {
       const [sY, sM, sD] = startDate.split('-').map(Number);
       const [eY, eM, eD] = endDate.split('-').map(Number);
-      isoStart = new Date(sY, sM - 1, sD, 0, 0, 0).toISOString();
-      isoEnd = new Date(eY, eM - 1, eD, 23, 59, 59).toISOString();
+      isoStart = new Date(Date.UTC(sY, sM - 1, sD, 0, 0, 0)).toISOString();
+      isoEnd = new Date(Date.UTC(eY, eM - 1, eD, 23, 59, 59, 999)).toISOString();
     }
 
     // 1. Consultar ventas completadas del período
@@ -370,7 +374,7 @@ export async function getRetailKPIs(
     let topBestSellers: BestSellerProduct[] = [];
 
     if (monthSaleIds.length > 0) {
-      // 2. Consultar ítems vendidos en el mes
+      // 2. Consultar ítems vendidos en el mes con su costo base
       const { data: itemsData, error: itemsError } = await supabase
         .from('sale_items')
         .select(`
@@ -381,7 +385,8 @@ export async function getRetailKPIs(
             id,
             name,
             brand,
-            sku
+            sku,
+            base_cost_ars
           )
         `)
         .in('sale_id', monthSaleIds);
@@ -394,7 +399,10 @@ export async function getRetailKPIs(
       items.forEach((item) => {
         const pId = item.product_id;
         const qty = Number(item.quantity || 0);
-        const revenue = qty * Number(item.price_ars_at_moment || 0);
+        const unitPrice = Number(item.price_ars_at_moment || 0);
+        const unitCost = Number(item.products?.base_cost_ars || 0);
+        const revenue = qty * unitPrice;
+        const cost = qty * unitCost;
         const pInfo = item.products;
 
         if (!productGroupMap[pId]) {
@@ -405,16 +413,28 @@ export async function getRetailKPIs(
             sku: pInfo?.sku || 'SKU-N/A',
             units_sold: 0,
             total_revenue_ars: 0,
+            total_cost_ars: 0,
+            net_margin_ars: 0,
+            margin_percent: 0,
           };
         }
 
         productGroupMap[pId].units_sold += qty;
         productGroupMap[pId].total_revenue_ars += revenue;
+        productGroupMap[pId].total_cost_ars += cost;
+      });
+
+      // Calcular márgenes por producto
+      Object.values(productGroupMap).forEach((p) => {
+        p.net_margin_ars = p.total_revenue_ars - p.total_cost_ars;
+        p.margin_percent = p.total_revenue_ars > 0
+          ? Number(((p.net_margin_ars / p.total_revenue_ars) * 100).toFixed(1))
+          : 0;
       });
 
       topBestSellers = Object.values(productGroupMap)
-        .sort((a, b) => b.units_sold - a.units_sold)
-        .slice(0, 3);
+        .sort((a, b) => b.total_revenue_ars - a.total_revenue_ars)
+        .slice(0, 10);
     }
 
     return {

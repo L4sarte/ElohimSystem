@@ -15,7 +15,12 @@ export interface GeneratePdfParams {
 }
 
 const formatARS = (val: number) =>
-  new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(val || 0);
+  new Intl.NumberFormat('es-AR', {
+    style: 'currency',
+    currency: 'ARS',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(val || 0);
 
 /**
  * Generador empresarial de Reporte Financiero en PDF nativo vectorial.
@@ -64,25 +69,25 @@ export function generateFinancialReportPDF({
       fillColor: brandGreen,
       textColor: [255, 255, 255] as [number, number, number],
       fontStyle: 'bold' as const,
-      fontSize: 9,
+      fontSize: 8.5,
       halign: 'left' as const,
     },
     bodyStyles: {
       textColor: brandTextDark,
-      fontSize: 8.5,
+      fontSize: 8,
     },
     alternateRowStyles: {
       fillColor: [248, 250, 252] as [number, number, number],
     },
     margin: { left: 40, right: 40 },
     styles: {
-      cellPadding: 5.5,
+      cellPadding: 5,
       lineColor: [226, 232, 240] as [number, number, number],
       lineWidth: 0.5,
     },
   };
 
-  // --- SECCIÓN 1: RESUMEN EJECUTIVO (KPI CARDS EN TABLA) ---
+  // --- RESUMEN EJECUTIVO (KPI CARDS EN TABLA) ---
   const kpiBody = [
     [
       'Ingresos Brutos',
@@ -92,7 +97,7 @@ export function generateFinancialReportPDF({
     ],
     [
       'Margen Bruto (%)',
-      `${report.grossMarginPercent}%`,
+      `${report.grossMarginPercent.toFixed(1)}%`,
       'Comisiones Pasarelas',
       formatARS(-report.gatewayFeeArs),
     ],
@@ -104,7 +109,7 @@ export function generateFinancialReportPDF({
     ],
     [
       'GANANCIA NETA FINAL',
-      `${formatARS(report.netProfit)} (${report.profitMarginPercent}% Margen)`,
+      `${formatARS(report.netProfit)} (${report.profitMarginPercent.toFixed(1)}% Margen)`,
       'Dinero en Calle (CxC)',
       formatARS(report.totalAmountDueArs),
     ],
@@ -125,7 +130,7 @@ export function generateFinancialReportPDF({
 
   let nextY = (doc as any).lastAutoTable?.finalY ? (doc as any).lastAutoTable.finalY + 18 : 200;
 
-  // --- SECCIÓN 2: ESTADO DE RESULTADOS FORMAL ---
+  // --- SECCIÓN 1: ESTADO DE RESULTADOS FORMAL ---
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(11);
   doc.setTextColor(...brandDark);
@@ -133,12 +138,12 @@ export function generateFinancialReportPDF({
 
   const estadoResultadosBody = [
     ['(+) Facturación Bruta por Ventas', formatARS(report.grossRevenue), '100.0%'],
-    ['(-) Costo de Mercadería Vendida (COGS Real)', formatARS(-report.cogs), `${report.grossRevenue > 0 ? ((report.cogs / report.grossRevenue) * 100).toFixed(1) : 0}%`],
-    ['(=) UTILIDAD BRUTA', formatARS(report.grossMargin), `${report.grossMarginPercent}%`],
-    ['(-) Gastos Operativos del Período (OPEX)', formatARS(-report.opex), `${report.grossRevenue > 0 ? ((report.opex / report.grossRevenue) * 100).toFixed(1) : 0}%`],
-    ['(-) Costos Bancarios y Comisiones de Pasarela', formatARS(-report.gatewayFeeArs), `${report.grossRevenue > 0 ? ((report.gatewayFeeArs / report.grossRevenue) * 100).toFixed(1) : 0}%`],
-    ['(-) Devoluciones e Incompletitudes', formatARS(-report.totalRefundsArs), `${report.grossRevenue > 0 ? ((report.totalRefundsArs / report.grossRevenue) * 100).toFixed(1) : 0}%`],
-    ['(=) RESULTADO NETO DEL EJERCICIO', formatARS(report.netProfit), `${report.profitMarginPercent}%`],
+    ['(-) Costo de Mercadería Vendida (COGS Real)', formatARS(-report.cogs), `${report.grossRevenue > 0 ? ((report.cogs / report.grossRevenue) * 100).toFixed(1) : '0.0'}%`],
+    ['(=) UTILIDAD BRUTA', formatARS(report.grossMargin), `${report.grossMarginPercent.toFixed(1)}%`],
+    ['(-) Gastos Operativos del Período (OPEX)', formatARS(-report.opex), `${report.grossRevenue > 0 ? ((report.opex / report.grossRevenue) * 100).toFixed(1) : '0.0'}%`],
+    ['(-) Costos Bancarios y Comisiones de Pasarela', formatARS(-report.gatewayFeeArs), `${report.grossRevenue > 0 ? ((report.gatewayFeeArs / report.grossRevenue) * 100).toFixed(1) : '0.0'}%`],
+    ['(-) Devoluciones e Incompletitudes', formatARS(-report.totalRefundsArs), `${report.grossRevenue > 0 ? ((report.totalRefundsArs / report.grossRevenue) * 100).toFixed(1) : '0.0'}%`],
+    ['(=) RESULTADO NETO DEL EJERCICIO', formatARS(report.netProfit), `${report.profitMarginPercent.toFixed(1)}%`],
   ];
 
   autoTable(doc, {
@@ -146,31 +151,62 @@ export function generateFinancialReportPDF({
     startY: nextY + 6,
     head: [['Concepto Contable', 'Monto (ARS)', '% s/ Ventas']],
     body: estadoResultadosBody,
+    headStyles: {
+      ...baseTableOptions.headStyles,
+      halign: 'left',
+    },
     columnStyles: {
       0: { fontStyle: 'bold' },
       1: { halign: 'right', fontStyle: 'bold' },
-      2: { halign: 'right', textColor: brandMuted },
+      2: { halign: 'right', textColor: brandMuted, fontStyle: 'bold' },
+    },
+    didParseCell: (data) => {
+      if (data.section === 'body') {
+        const rawRow = Array.isArray(data.row.raw) ? data.row.raw : Object.values(data.row.raw || {});
+        const rowText = String(rawRow[0] || '');
+        if (rowText.includes('UTILIDAD BRUTA')) {
+          data.cell.styles.fillColor = [236, 253, 245]; // Emerald-50 suave
+          data.cell.styles.fontStyle = 'bold';
+          data.cell.styles.textColor = [5, 150, 105]; // Emerald-600
+        } else if (rowText.includes('RESULTADO NETO DEL EJERCICIO')) {
+          data.cell.styles.fillColor = [254, 243, 199]; // Amber-100 suave
+          data.cell.styles.fontStyle = 'bold';
+          data.cell.styles.textColor = [15, 23, 42]; // Slate-900
+        }
+      }
     },
   });
 
-  nextY = (doc as any).lastAutoTable?.finalY ? (doc as any).lastAutoTable.finalY + 18 : nextY + 140;
+  nextY = (doc as any).lastAutoTable?.finalY ? (doc as any).lastAutoTable.finalY + 14 : nextY + 140;
 
-  // --- SECCIÓN 3: DESGLOSE DE GASTOS OPERATIVOS (OPEX) ---
-  if (report.categoryBreakdown && report.categoryBreakdown.length > 0) {
-    if (nextY > 680) {
-      doc.addPage();
-      nextY = 40;
-    }
-
+  // Alerta de Costeo si hay ítems sin costo base
+  if (report.warningMessage) {
+    doc.setFillColor(254, 242, 242);
+    doc.setDrawColor(248, 113, 113);
+    doc.roundedRect(40, nextY, pageWidth - 80, 22, 3, 3, 'FD');
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(11);
-    doc.setTextColor(...brandDark);
-    doc.text('2. Desglose de Gastos Operativos (OPEX)', 40, nextY);
+    doc.setFontSize(8);
+    doc.setTextColor(185, 28, 28);
+    doc.text(`[ALERTA DE COSTEO]: ${report.warningMessage}`, 50, nextY + 14);
+    nextY += 30;
+  }
 
+  // --- SECCIÓN 2: DESGLOSE DE GASTOS OPERATIVOS (OPEX) ---
+  if (nextY > 680) {
+    doc.addPage();
+    nextY = 40;
+  }
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(11);
+  doc.setTextColor(...brandDark);
+  doc.text('2. Desglose de Gastos Operativos (OPEX)', 40, nextY);
+
+  if (report.categoryBreakdown && report.categoryBreakdown.length > 0) {
     const opexBody = report.categoryBreakdown.map((cat) => [
       cat.name,
       formatARS(cat.value),
-      `${report.opex > 0 ? ((cat.value / report.opex) * 100).toFixed(1) : 0}%`,
+      `${report.opex > 0 ? ((cat.value / report.opex) * 100).toFixed(1) : '0.0'}%`,
     ]);
 
     autoTable(doc, {
@@ -179,15 +215,21 @@ export function generateFinancialReportPDF({
       head: [['Categoría de Gasto', 'Monto Invertido (ARS)', 'Participación %']],
       body: opexBody,
       columnStyles: {
-        1: { halign: 'right' },
-        2: { halign: 'right' },
+        1: { halign: 'right', fontStyle: 'bold' },
+        2: { halign: 'right', textColor: brandMuted },
       },
     });
 
     nextY = (doc as any).lastAutoTable?.finalY ? (doc as any).lastAutoTable.finalY + 18 : nextY + 100;
+  } else {
+    doc.setFont('helvetica', 'italic');
+    doc.setFontSize(8.5);
+    doc.setTextColor(...brandMuted);
+    doc.text('Sin gastos operativos registrados en este período.', 40, nextY + 18);
+    nextY += 32;
   }
 
-  // --- SECCIÓN 4: MONITOREO DE METAS MENSUALES ---
+  // --- SECCIÓN 3: MONITOREO DE METAS MENSUALES ---
   if (goalsData) {
     if (nextY > 680) {
       doc.addPage();
@@ -222,9 +264,9 @@ export function generateFinancialReportPDF({
       head: [['Indicador de Meta', 'Logrado (ARS)', 'Objetivo (ARS)', 'Avance %', 'Estado']],
       body: metasBody,
       columnStyles: {
-        1: { halign: 'right' },
-        2: { halign: 'right' },
-        3: { halign: 'center', fontStyle: 'bold' },
+        1: { halign: 'right', fontStyle: 'bold' },
+        2: { halign: 'right', fontStyle: 'bold' },
+        3: { halign: 'center', fontStyle: 'bold', textColor: [16, 185, 129] },
         4: { halign: 'center' },
       },
     });
@@ -232,37 +274,55 @@ export function generateFinancialReportPDF({
     nextY = (doc as any).lastAutoTable?.finalY ? (doc as any).lastAutoTable.finalY + 18 : nextY + 80;
   }
 
-  // --- SECCIÓN 5: TOP BEST SELLERS Y KPIS RETAIL ---
+  // --- SECCIÓN 4: RANKING DE FRAGANCIAS MÁS VENDIDAS Y RENTABILIDAD ---
   if (retailData && retailData.topBestSellers && retailData.topBestSellers.length > 0) {
-    if (nextY > 680) {
+    if (nextY > 640) {
       doc.addPage();
       nextY = 40;
     }
 
+    const sectionNum = goalsData ? '4' : '3';
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(11);
     doc.setTextColor(...brandDark);
-    doc.text(`4. Ranking de Fragancias Más Vendidas (AOV: ${formatARS(retailData.averageOrderValueArs)})`, 40, nextY);
+    doc.text(`${sectionNum}. Ranking de Fragancias Más Vendidas (AOV: ${formatARS(retailData.averageOrderValueArs)})`, 40, nextY);
 
-    const topSellersBody = retailData.topBestSellers.map((item, idx) => [
-      `#${idx + 1}`,
-      `${item.name} (${item.brand})`,
-      item.sku,
-      `${item.units_sold} ud`,
-      formatARS(item.total_revenue_ars),
-    ]);
+    const topSellersBody = retailData.topBestSellers.map((item, idx) => {
+      const rev = item.total_revenue_ars;
+      const cost = item.total_cost_ars || 0;
+      const margin = item.net_margin_ars !== undefined ? item.net_margin_ars : (rev - cost);
+      const marginPct = item.margin_percent !== undefined ? item.margin_percent : (rev > 0 ? ((margin / rev) * 100) : 0);
+
+      return [
+        `#${idx + 1}`,
+        `${item.name} (${item.brand})`,
+        item.sku || 'SKU-N/A',
+        `${item.units_sold}`,
+        formatARS(rev),
+        formatARS(cost),
+        formatARS(margin),
+        `${marginPct.toFixed(1)}%`,
+      ];
+    });
 
     autoTable(doc, {
       ...baseTableOptions,
       startY: nextY + 6,
-      head: [['#', 'Producto / Fragancia', 'SKU', 'Cantidad', 'Facturado']],
+      head: [['#', 'Producto / Fragancia', 'SKU', 'Cant.', 'Facturado', 'Costo Est.', 'Margen Neto ($)', 'Margen %']],
       body: topSellersBody,
       columnStyles: {
-        0: { halign: 'center', cellWidth: 25 },
-        3: { halign: 'right' },
-        4: { halign: 'right', fontStyle: 'bold' },
+        0: { halign: 'center', cellWidth: 20 },
+        1: { cellWidth: 140 },
+        2: { cellWidth: 65 },
+        3: { halign: 'center', cellWidth: 35 },
+        4: { halign: 'right', fontStyle: 'bold', cellWidth: 70 },
+        5: { halign: 'right', textColor: [180, 83, 9], cellWidth: 65 },
+        6: { halign: 'right', fontStyle: 'bold', textColor: [16, 185, 129], cellWidth: 75 },
+        7: { halign: 'right', fontStyle: 'bold', cellWidth: 45 },
       },
     });
+
+    nextY = (doc as any).lastAutoTable?.finalY ? (doc as any).lastAutoTable.finalY + 18 : nextY + 100;
   }
 
   // --- PIE DE PÁGINA CORPORATIVO EN TODAS LAS PÁGINAS ---

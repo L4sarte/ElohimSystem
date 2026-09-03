@@ -45,8 +45,7 @@ interface DbVisualItemRow {
   sale_id: string;
   product_id: string;
   quantity?: number | null;
-  unit_price_ars?: number | null;
-  subtotal_ars?: number | null;
+  price_ars_at_moment?: number | null;
   products?: {
     name?: string | null;
     brand?: string | null;
@@ -132,7 +131,7 @@ export async function getVisualDashboardData(role?: UserRole): Promise<{
     if (allSaleIds.length > 0) {
       const { data: itemsData, error: itemsErr } = await supabase
         .from('sale_items')
-        .select('sale_id, product_id, quantity, unit_price_ars, subtotal_ars, products(name, brand, base_cost_ars)')
+        .select('sale_id, product_id, quantity, price_ars_at_moment, products(name, brand, base_cost_ars)')
         .in('sale_id', allSaleIds);
 
       if (!itemsErr && itemsData) {
@@ -314,7 +313,7 @@ export async function getVisualDashboardData(role?: UserRole): Promise<{
     curMonthItems.forEach((item) => {
       const pId = item.product_id;
       const qty = Number(item.quantity || 1);
-      const rev = new Decimal(item.subtotal_ars || (Number(item.unit_price_ars || 0) * qty));
+      const rev = new Decimal(Number(item.price_ars_at_moment || 0) * qty);
 
       const pName = item.products?.name || 'Fragancia Elohim';
       const pBrand = item.products?.brand || 'Elohim Import';
