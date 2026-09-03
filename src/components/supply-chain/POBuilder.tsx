@@ -1,13 +1,13 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { useSupplyChainStore } from '@/store/supplyChainStore';
-import { supabase } from '@/lib/supabase';
+import { getProducts } from '@/app/actions/products';
 import { POExpenseType, POStatus, CreatePOPayload } from '@/types/supplyChain';
 import { 
   Building, Calendar, Search, Plus, Trash2, DollarSign, 
-  Package, Truck, ArrowRight, ArrowLeft, Check, AlertCircle, RefreshCw, FileText, Sparkles
+  Package, Truck, ArrowRight, ArrowLeft, Check, AlertCircle, RefreshCw, FileText, Sparkles, Box
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card';
@@ -15,8 +15,9 @@ import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/componen
 interface ProductSearchResult {
   id: string;
   name: string;
-  brand?: string;
-  sku?: string;
+  brand?: string | null;
+  sku?: string | null;
+  type?: string;
   base_cost_ars: number;
   stock_quantity: number;
 }
@@ -49,10 +50,10 @@ export function POBuilder({ onSuccess }: POBuilderProps) {
   const [trackingInfo, setTrackingInfo] = useState<string>('');
   const [notes, setNotes] = useState<string>('');
 
-  // Paso 2: Búsqueda de Productos y Carrito
+  // Paso 2: Catálogo cargado de forma segura vía Server Action (Bypasea RLS)
+  const [availableItems, setAvailableItems] = useState<ProductSearchResult[]>([]);
+  const [isLoadingCatalog, setIsLoadingCatalog] = useState<boolean>(false);
   const [searchTerm, setSearchTerm] = useState<string>('');
-  const [productResults, setProductResults] = useState<ProductSearchResult[]>([]);
-  const [isSearching, setIsSearching] = useState<boolean>(false);
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
 
   // Paso 3: Gastos Asociados
@@ -68,27 +69,51 @@ export function POBuilder({ onSuccess }: POBuilderProps) {
     fetchSuppliers();
   }, [fetchSuppliers]);
 
-  // Búsqueda dinámica de productos en Supabase
+  // Cargar catálogo completo de perfumes e insumos vía Server Action
   useEffect(() => {
-    if (!searchTerm.trim()) {
-      setProductResults([]);
-      return;
-    }
+    let isMounted = true;
+    const loadCatalog = async () => {
+      setIsLoadingCatalog(true);
+      try {
+        const res = await getProducts('admin');
+        if (isMounted && res.success && res.data) {
+          const items: ProductSearchResult[] = res.data.map(p => ({
+            id: p.id,
+            name: p.name,
+            brand: p.brand && p.brand !== 'N/A' ? p.brand : null,
+            sku: p.sku || null,
+            type: p.type || 'bottle',
+            base_cost_ars: Number(p.base_cost_ars || 0),
+            stock_quantity: Number(p.stock_quantity || 0)
+          }));
+          setAvailableItems(items);
+        }
+      } catch (err) {
+        console.error('Error al cargar catálogo de productos:', err);
+      } finally {
+        if (isMounted) setIsLoadingCatalog(false);
+      }
+    };
 
-    const delayDebounce = setTimeout(async () => {
-      setIsSearching(true);
-      const { data } = await supabase
-        .from('products')
-        .select('id, name, brand, sku, base_cost_ars, stock_quantity')
-        .or(`name.ilike.%${searchTerm}%,brand.ilike.%${searchTerm}%,sku.ilike.%${searchTerm}%`)
-        .limit(10);
+    loadCatalog();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
-      setProductResults(data || []);
-      setIsSearching(false);
-    }, 300);
+  // Filtrado reactivo en memoria (0ms latencia, insensible a mayúsculas/minúsculas y espacios)
+  const filteredProducts = useMemo(() => {
+    const term = searchTerm.trim().toLowerCase();
+    if (!term) return [];
 
-    return () => clearTimeout(delayDebounce);
-  }, [searchTerm]);
+    return availableItems.filter(item => {
+      const matchName = item.name.toLowerCase().includes(term);
+      const matchBrand = item.brand ? item.brand.toLowerCase().includes(term) : false;
+      const matchSku = item.sku ? item.sku.toLowerCase().includes(term) : false;
+      const matchType = item.type === 'supply' && (term === 'insumo' || term === 'packaging' || term.startsWith('insu'));
+      return matchName || matchBrand || matchSku || matchType;
+    }).slice(0, 15);
+  }, [searchTerm, availableItems]);
 
   // Agregar producto al carrito
   const handleAddToCart = (product: ProductSearchResult) => {
@@ -377,44 +402,66 @@ export function POBuilder({ onSuccess }: POBuilderProps) {
               <div className="relative">
                 <input
                   type="text"
-                  placeholder="Buscar por marca, nombre o SKU (Ej: Lattafa, Asad, Club de Nuit)..."
+                  placeholder="Buscar por marca, nombre o SKU (Ej: Lattafa, Asad, Club de Nuit, Frascos)..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="w-full rounded-xl border border-slate-300 bg-white p-3 pl-10 text-xs dark:border-[#1B362A] dark:bg-[#08130E] dark:text-white focus:ring-2 focus:ring-emerald-500"
                 />
                 <Search className="absolute left-3 top-3.5 h-4 w-4 text-[#D0A96B]" />
-                {isSearching && (
+                {isLoadingCatalog && (
                   <RefreshCw className="absolute right-3 top-3.5 h-4 w-4 animate-spin text-emerald-400" />
                 )}
               </div>
 
               {/* RESULTADOS DE BÚSQUEDA */}
-              {productResults.length > 0 && (
-                <div className="divide-y divide-slate-100 dark:divide-[#1B362A] rounded-xl border border-slate-200 dark:border-[#1B362A] bg-slate-50/50 dark:bg-[#08130E]/50 max-h-56 overflow-y-auto">
-                  {productResults.map(p => (
+              {filteredProducts.length > 0 && (
+                <div className="divide-y divide-slate-100 dark:divide-[#1B362A] rounded-xl border border-slate-200 dark:border-[#1B362A] bg-slate-50/50 dark:bg-[#08130E]/50 max-h-64 overflow-y-auto">
+                  {filteredProducts.map(p => (
                     <div 
                       key={p.id} 
-                      className="p-3 flex items-center justify-between hover:bg-slate-100 dark:hover:bg-[#13261E] transition-colors"
+                      className="p-3 flex items-center justify-between hover:bg-slate-100 dark:hover:bg-[#13261E] transition-colors gap-3"
                     >
-                      <div>
-                        <span className="text-xs font-bold text-[#D0A96B] block">{p.brand}</span>
-                        <span className="text-sm font-semibold text-slate-900 dark:text-white font-serif">{p.name}</span>
-                        <div className="text-[11px] text-slate-400 font-mono flex gap-3 mt-0.5">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          {p.type === 'supply' ? (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20 uppercase tracking-wider">
+                              Insumo
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 uppercase tracking-wider">
+                              Perfume
+                            </span>
+                          )}
+                          {p.brand && p.brand !== 'N/A' && (
+                            <span className="text-xs font-bold text-[#D0A96B] truncate font-mono">{p.brand}</span>
+                          )}
+                        </div>
+                        <span className="text-sm font-semibold text-slate-900 dark:text-white font-serif block truncate">
+                          {p.name}
+                        </span>
+                        <div className="text-[11px] text-slate-500 dark:text-zinc-400 font-mono flex flex-wrap gap-x-4 gap-y-1 mt-1">
                           <span>SKU: {p.sku || 'N/A'}</span>
                           <span>Stock: {p.stock_quantity} ud</span>
-                          <span>Costo base: ${Number(p.base_cost_ars).toLocaleString('es-AR')}</span>
+                          <span>Costo base: ${Number(p.base_cost_ars).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
                         </div>
                       </div>
 
                       <Button
                         size="sm"
                         onClick={() => handleAddToCart(p)}
-                        className="bg-emerald-600 hover:bg-emerald-500 text-white gap-1 text-xs cursor-pointer shadow-md shadow-emerald-600/20"
+                        className="bg-emerald-600 hover:bg-emerald-500 text-white gap-1 text-xs cursor-pointer shadow-md shadow-emerald-600/20 shrink-0 font-medium"
                       >
                         <Plus className="h-3.5 w-3.5" /> Agregar
                       </Button>
                     </div>
                   ))}
+                </div>
+              )}
+
+              {/* ESTADO VACÍO (EMPTY STATE) */}
+              {searchTerm.trim().length >= 2 && filteredProducts.length === 0 && !isLoadingCatalog && (
+                <div className="p-4 text-center text-xs text-slate-400 dark:text-zinc-400 bg-slate-900/40 dark:bg-[#08130E]/80 rounded-xl border border-slate-700/60 dark:border-[#1B362A]">
+                  No se encontraron perfumes ni insumos con "{searchTerm}".
                 </div>
               )}
             </CardContent>
@@ -425,7 +472,7 @@ export function POBuilder({ onSuccess }: POBuilderProps) {
             <CardHeader className="pb-3 flex flex-row items-center justify-between">
               <CardTitle className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2 font-serif">
                 <Package className="h-5 w-5 text-emerald-500" />
-                Detalle de Perfumes Solicitados ({cartItems.length})
+                Detalle de Perfumes e Insumos Solicitados ({cartItems.length})
               </CardTitle>
 
               <span className="font-mono text-sm font-bold text-[#D0A96B]">
@@ -436,7 +483,7 @@ export function POBuilder({ onSuccess }: POBuilderProps) {
             <CardContent className="p-0 overflow-x-auto">
               {cartItems.length === 0 ? (
                 <div className="py-12 text-center text-xs text-slate-400">
-                  No has agregado ningún perfume a la orden de compra. Usa el buscador superior.
+                  No has agregado ningún perfume o insumo a la orden de compra. Usa el buscador superior.
                 </div>
               ) : (
                 <table className="w-full text-left border-collapse text-xs">
@@ -453,7 +500,20 @@ export function POBuilder({ onSuccess }: POBuilderProps) {
                     {cartItems.map((item) => (
                       <tr key={item.product.id} className="hover:bg-slate-50/50 dark:hover:bg-[#08130E]/30">
                         <td className="p-3 pl-4 font-medium text-slate-900 dark:text-white">
-                          <div className="font-bold text-[#D0A96B] font-mono">{item.product.brand}</div>
+                          <div className="flex items-center gap-2 mb-0.5">
+                            {item.product.type === 'supply' ? (
+                              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20 uppercase">
+                                Insumo
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 uppercase">
+                                Perfume
+                              </span>
+                            )}
+                            {item.product.brand && item.product.brand !== 'N/A' && (
+                              <span className="font-bold text-[#D0A96B] font-mono text-xs">{item.product.brand}</span>
+                            )}
+                          </div>
                           <span className="font-serif">{item.product.name}</span>
                         </td>
                         <td className="p-3 text-center">
