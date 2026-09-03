@@ -42,6 +42,7 @@ export const recipeItemInputSchema = z.object({
 export const recipeSaveSchema = z.object({
   productId: z.string().uuid('ID de producto inválido'),
   recipeName: z.string().trim().min(2, 'El nombre de la receta debe tener al menos 2 caracteres').max(100),
+  sizeMl: z.coerce.number().int().positive('La medida en ml debe ser mayor a 0').optional().default(5),
   items: z.array(recipeItemInputSchema).min(1, 'Debes incluir al menos un insumo en la receta'),
   autoUpdateProductCost: z.boolean().default(true),
   notes: z.string().trim().max(500).optional(),

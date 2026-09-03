@@ -87,6 +87,7 @@ export function StorefrontCheckoutClient({ settings = DEFAULT_SYSTEM_SETTINGS }:
           product_id: i.productId,
           quantity: i.quantity,
           format: i.format,
+          unit_price_ars: i.priceArs,
         })),
       };
 

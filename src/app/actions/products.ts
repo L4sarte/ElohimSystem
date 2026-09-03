@@ -341,7 +341,7 @@ export async function fractionateBottle(
   volumeMl: number
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    await requireAdmin();
+    const adminUser = await requireAdmin();
 
     const validation = fractionateBottleSchema.safeParse({ bottleId, decantId, volumeMl });
     if (!validation.success) {
@@ -355,17 +355,78 @@ export async function fractionateBottle(
 
     const supabase = getServiceSupabase();
 
-    const { error } = await supabase.rpc('fractionate_bottle', {
+    // 1. Consultar estado previo de botella y granel para cálculo de Precio Promedio Ponderado (PPP)
+    const { data: bottleData } = await supabase
+      .from('products')
+      .select('name, base_cost_ars, volume_ml, stock_quantity')
+      .eq('id', validation.data.bottleId)
+      .single();
+
+    const { data: decantData } = await supabase
+      .from('products')
+      .select('name, base_cost_ars, stock_quantity')
+      .eq('id', validation.data.decantId)
+      .single();
+
+    let rpcRes = await supabase.rpc('fractionate_bottle', {
       p_bottle_id: validation.data.bottleId,
       p_decant_id: validation.data.decantId,
       p_volume_ml: validation.data.volumeMl,
+      p_admin_id: adminUser.id,
     });
 
-    if (error) {
-      throw error;
+    if (rpcRes.error && (rpcRes.error.code === 'PGRST202' || rpcRes.error.message?.includes('parameters'))) {
+      // Fallback a versión de 3 parámetros si la migración aún no fue ejecutada
+      rpcRes = await supabase.rpc('fractionate_bottle', {
+        p_bottle_id: validation.data.bottleId,
+        p_decant_id: validation.data.decantId,
+        p_volume_ml: validation.data.volumeMl,
+      });
+    }
+
+    if (rpcRes.error) {
+      throw rpcRes.error;
+    }
+
+    // 2. Garantizar recálculo de Precio Promedio Ponderado (PPP) y persistencia
+    if (bottleData && decantData) {
+      const bottleVol = Number(bottleData.volume_ml) || validation.data.volumeMl || 100;
+      const bottleCost = Number(bottleData.base_cost_ars || 0);
+      const newCostPerMl = bottleVol > 0 ? bottleCost / bottleVol : 0;
+      const newVolumeMl = validation.data.volumeMl;
+
+      const previousStockMl = Number(decantData.stock_quantity || 0);
+      const currentCostPerMl = Number(decantData.base_cost_ars || 0);
+      const totalVolume = previousStockMl + newVolumeMl;
+
+      let weightedCostPerMl = newCostPerMl;
+      if (totalVolume > 0 && currentCostPerMl > 0 && previousStockMl > 0) {
+        weightedCostPerMl = ((previousStockMl * currentCostPerMl) + (newVolumeMl * newCostPerMl)) / totalVolume;
+      }
+
+      await supabase
+        .from('products')
+        .update({
+          base_cost_ars: Math.round(weightedCostPerMl * 100) / 100,
+        })
+        .eq('id', validation.data.decantId);
+
+      // Intentar insertar log si la tabla existe
+      try {
+        await supabase.from('fractionation_logs').insert({
+          source_bottle_id: validation.data.bottleId,
+          target_liquid_id: validation.data.decantId,
+          volume_ml: validation.data.volumeMl,
+          cost_transferred_ars: Math.round(newCostPerMl * newVolumeMl),
+          cost_per_ml_calculated: Math.round(weightedCostPerMl * 100) / 100,
+          admin_id: adminUser.id,
+          notes: `Fraccionamiento de 1 botella de ${bottleData.name} (${newVolumeMl}ml)`,
+        });
+      } catch (_) {}
     }
 
     revalidatePath('/productos');
+    revalidatePath('/admin/inventario/recetas');
     return { success: true };
   } catch (error: unknown) {
     console.error('Error al fraccionar botella:', error);

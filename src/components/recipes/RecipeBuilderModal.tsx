@@ -36,6 +36,7 @@ export function RecipeBuilderModal({
   onRecipeSaved
 }: RecipeBuilderModalProps) {
   const { role } = useUserStore();
+  const [sizeMl, setSizeMl] = useState<number>(5);
   const [recipeName, setRecipeName] = useState('');
   const [items, setItems] = useState<RecipeItemInput[]>([]);
   const [autoUpdateCost, setAutoUpdateCost] = useState(true);
@@ -50,15 +51,15 @@ export function RecipeBuilderModal({
 
   useEffect(() => {
     if (targetProduct) {
-      setRecipeName(`Receta de Costeo: ${targetProduct.name}`);
+      setRecipeName(`Receta Decant ${sizeMl}ml: ${targetProduct.name}`);
       // Agregar insumo inicial sugerido de líquido si existe
       setItems([
-        { ingredient_product_id: '', component_type: 'liquid', quantity: 10 },
+        { ingredient_product_id: '', component_type: 'liquid', quantity: sizeMl },
         { ingredient_product_id: '', component_type: 'bottle_frasco', quantity: 1 },
         { ingredient_product_id: '', component_type: 'label', quantity: 1 }
       ]);
     }
-  }, [targetProduct]);
+  }, [targetProduct, sizeMl]);
 
   // Recalcular costo en tiempo real cuando cambian los insumos seleccionados o sus cantidades
   useEffect(() => {
@@ -123,7 +124,8 @@ export function RecipeBuilderModal({
         recipeName,
         validItems,
         autoUpdateCost,
-        notes
+        notes,
+        sizeMl
       );
 
       if (res.success) {
@@ -170,6 +172,41 @@ export function RecipeBuilderModal({
         {/* CUERPO DEL MODAL (FORMULARIO Y CALCULADORA LIVE) */}
         <div className="p-6 overflow-y-auto space-y-6 flex-1">
           
+          {/* SELECCIÓN DE MEDIDA DEL DECANT */}
+          <div className="bg-[#13261E]/70 border border-[#1B362A] rounded-xl p-3 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold uppercase tracking-wider text-[#D0A96B]">
+                Presentación / Medida:
+              </span>
+              <div className="flex items-center gap-1.5 bg-[#08130E] p-1 rounded-lg border border-[#1B362A]">
+                {[5, 10].map(size => (
+                  <button
+                    key={size}
+                    type="button"
+                    onClick={() => setSizeMl(size)}
+                    className={`px-3 py-1 rounded-md text-xs font-bold transition-all cursor-pointer ${
+                      sizeMl === size
+                        ? 'bg-[#D0A96B] text-[#08130E] shadow'
+                        : 'text-zinc-400 hover:text-white'
+                    }`}
+                  >
+                    {size} ml
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {targetProduct.type === 'bottle' ? (
+              <span className="text-[11px] text-zinc-400 italic">
+                🛡️ Perfume original protegido: la receta calculará el costo de la muestra sin alterar el costo de la botella sellada.
+              </span>
+            ) : (
+              <span className="text-[11px] text-emerald-400">
+                ✨ Costeo dinámico activo para fraccionado a granel.
+              </span>
+            )}
+          </div>
+
           {/* NOMBRE DE LA RECETA Y CONFIGURACIÓN */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="md:col-span-2">

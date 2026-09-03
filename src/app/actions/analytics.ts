@@ -129,7 +129,7 @@ export async function getFinancialReport(
     let warningMessage: string | null = null;
 
     if (saleIds.length > 0) {
-      const { data: saleItemsData, error: itemsError } = await serviceClient
+      let { data: saleItemsData, error: itemsError } = await serviceClient
         .from('sale_items')
         .select(`
           id,
@@ -137,6 +137,7 @@ export async function getFinancialReport(
           product_id,
           quantity,
           price_ars_at_moment,
+          unit_cost_at_moment,
           products (
             id,
             name,
@@ -147,6 +148,30 @@ export async function getFinancialReport(
           )
         `)
         .in('sale_id', saleIds);
+
+      // Si la columna unit_cost_at_moment aún no fue agregada por el DDL en Supabase, reintentar sin ella
+      if (itemsError && itemsError.message?.includes('unit_cost_at_moment')) {
+        const fallbackRes = await serviceClient
+          .from('sale_items')
+          .select(`
+            id,
+            sale_id,
+            product_id,
+            quantity,
+            price_ars_at_moment,
+            products (
+              id,
+              name,
+              brand,
+              sku,
+              type,
+              base_cost_ars
+            )
+          `)
+          .in('sale_id', saleIds);
+        saleItemsData = fallbackRes.data as any;
+        itemsError = fallbackRes.error;
+      }
 
       if (itemsError) {
         console.error('Error al consultar ítems de venta:', itemsError);

@@ -216,7 +216,7 @@ export async function getPublicProductDetail(id: string): Promise<{
       }
     }
 
-    // Variantes de tamaño calculadas
+    // Variantes de tamaño calculadas (botella original + decants si existen)
     const decantsAvailable = [
       {
         size: product.type === 'bottle' ? `${product.volume_ml || 100}ml (Original)` : 'Frasco',
@@ -225,6 +225,70 @@ export async function getPublicProductDetail(id: string): Promise<{
         stock: product.stock_quantity,
       },
     ];
+
+    // Si es una botella sellada, verificar si hay líquido a granel e insumos para ofrecer decants
+    if (product.type === 'bottle') {
+      const { data: decantLiquids } = await supabase
+        .from('products')
+        .select('id, name, base_price_ars, base_cost_ars, stock_quantity')
+        .eq('type', 'decant_liquid')
+        .ilike('brand', product.brand);
+
+      const matchedLiquid = (decantLiquids || []).find((dl: any) => {
+        const cleanDl = dl.name.toLowerCase().replace(/[^a-z0-9]/g, '');
+        const cleanP = product.name.toLowerCase().replace(/[^a-z0-9]/g, '');
+        return cleanDl.includes(cleanP) || cleanP.includes(cleanDl.replace('liquidoagranel', ''));
+      });
+
+      if (matchedLiquid && Number(matchedLiquid.stock_quantity) > 0) {
+        const { data: supplies } = await supabase
+          .from('products')
+          .select('id, name, sku, volume_ml, base_price_ars, stock_quantity')
+          .eq('type', 'supply')
+          .gt('stock_quantity', 0);
+
+        const liquidStockMl = Number(matchedLiquid.stock_quantity || 0);
+        const liquidPricePerMl = Number(matchedLiquid.base_price_ars || 0);
+
+        // Decant 5ml
+        const supply5 = (supplies || []).find((s: any) =>
+          Number(s.volume_ml) === 5 || s.sku?.toUpperCase().includes('5ML') || s.name?.toLowerCase().includes('5ml')
+        );
+        const max5FromLiquid = Math.floor(liquidStockMl / 5);
+        const stock5 = supply5 ? Math.min(max5FromLiquid, Number(supply5.stock_quantity || 0)) : max5FromLiquid;
+        if (stock5 > 0) {
+          const price5 = liquidPricePerMl > 0
+            ? Math.round(liquidPricePerMl * 5 + Number(supply5?.base_price_ars || 0))
+            : Math.round(product.base_price_ars * 0.12);
+
+          decantsAvailable.push({
+            size: 'Decant 5ml',
+            ml: 5,
+            priceArs: price5,
+            stock: stock5,
+          });
+        }
+
+        // Decant 10ml
+        const supply10 = (supplies || []).find((s: any) =>
+          Number(s.volume_ml) === 10 || s.sku?.toUpperCase().includes('10ML') || s.name?.toLowerCase().includes('10ml')
+        );
+        const max10FromLiquid = Math.floor(liquidStockMl / 10);
+        const stock10 = supply10 ? Math.min(max10FromLiquid, Number(supply10.stock_quantity || 0)) : max10FromLiquid;
+        if (stock10 > 0) {
+          const price10 = liquidPricePerMl > 0
+            ? Math.round(liquidPricePerMl * 10 + Number(supply10?.base_price_ars || 0))
+            : Math.round(product.base_price_ars * 0.22);
+
+          decantsAvailable.push({
+            size: 'Decant 10ml',
+            ml: 10,
+            priceArs: price10,
+            stock: stock10,
+          });
+        }
+      }
+    }
 
     return {
       success: true,
@@ -476,6 +540,7 @@ export interface CreateWhatsAppOrderInput {
     product_id: string;
     quantity: number;
     format?: string;
+    unit_price_ars?: number;
   }>;
 }
 
@@ -540,7 +605,7 @@ export async function createWhatsAppOrderAction(
     const productIds = payload.items.map((i) => i.product_id);
     const { data: dbProducts, error: prodErr } = await supabase
       .from('products')
-      .select('id, name, brand, base_price_ars, stock_quantity, type, volume_ml')
+      .select('id, name, brand, base_price_ars, base_cost_ars, stock_quantity, type, volume_ml, sku')
       .in('id', productIds);
 
     if (prodErr || !dbProducts || dbProducts.length === 0) {
@@ -548,14 +613,43 @@ export async function createWhatsAppOrderAction(
     }
 
     const prodMap = new Map(dbProducts.map((p) => [p.id, p]));
+
+    // Consultar todos los graneles y suministros si hay algún decant en el pedido
+    const hasAnyDecant = payload.items.some(
+      (it) => it.format && it.format.toLowerCase().includes('decant')
+    );
+
+    let allGraneles: any[] = [];
+    let allSupplies: any[] = [];
+
+    if (hasAnyDecant) {
+      const { data: granelesData } = await supabase
+        .from('products')
+        .select('id, name, brand, base_price_ars, base_cost_ars, stock_quantity, type, volume_ml, sku')
+        .eq('type', 'decant_liquid');
+      allGraneles = granelesData || [];
+
+      const { data: suppliesData } = await supabase
+        .from('products')
+        .select('id, name, brand, base_price_ars, base_cost_ars, stock_quantity, type, volume_ml, sku')
+        .eq('type', 'supply');
+      allSupplies = suppliesData || [];
+    }
+
     let totalArsDecimal = new Decimal(0);
     const orderLines: Array<{
       product_id: string;
+      source_bottle_id?: string;
+      is_decant: boolean;
+      decant_liquid_id?: string;
+      decant_ml?: number;
+      supply_id?: string;
       name: string;
       brand: string;
       format: string;
       quantity: number;
       unit_price_ars: number;
+      unit_cost_at_moment: number;
       subtotal_ars: number;
     }> = [];
 
@@ -565,28 +659,121 @@ export async function createWhatsAppOrderAction(
         return { success: false, error: 'Uno de los productos seleccionados ya no está disponible.' };
       }
 
-      if (p.stock_quantity < it.quantity) {
-        return {
-          success: false,
-          error: `Stock insuficiente para "${p.name}". Disponibles: ${p.stock_quantity} unidades.`,
-        };
-      }
-
-      const unitPrice = new Decimal(p.base_price_ars || 0);
-      const subtotal = unitPrice.times(it.quantity);
-      totalArsDecimal = totalArsDecimal.plus(subtotal);
-
+      const isDecant = Boolean(it.format && it.format.toLowerCase().includes('decant'));
       const formatLabel = it.format || (p.type === 'decant_liquid' ? 'Decant' : `${p.volume_ml || 100}ml`);
 
-      orderLines.push({
-        product_id: p.id,
-        name: p.name,
-        brand: p.brand,
-        format: formatLabel,
-        quantity: it.quantity,
-        unit_price_ars: unitPrice.toNumber(),
-        subtotal_ars: subtotal.toNumber(),
-      });
+      if (isDecant) {
+        const sizeMl = it.format?.includes('10') ? 10 : 5;
+        const totalMlNeeded = sizeMl * it.quantity;
+
+        // Buscar líquido a granel correspondiente a esta fragancia
+        let matchedLiquid = allGraneles.find((g) => {
+          const cleanG = g.name.toLowerCase().replace(/[^a-z0-9]/g, '');
+          const cleanP = p.name.toLowerCase().replace(/[^a-z0-9]/g, '');
+          return (
+            g.brand.toLowerCase() === p.brand.toLowerCase() &&
+            (cleanG.includes(cleanP) || cleanP.includes(cleanG.replace('liquidoagranel', '')))
+          );
+        });
+
+        if (!matchedLiquid && p.type === 'decant_liquid') {
+          matchedLiquid = p;
+        }
+
+        if (!matchedLiquid) {
+          return {
+            success: false,
+            error: `No hay insumos suficientes para preparar esta medida: no existe perfume a granel preparado para "${p.name}".`,
+          };
+        }
+
+        const liquidStock = Number(matchedLiquid.stock_quantity || 0);
+        if (liquidStock < totalMlNeeded) {
+          return {
+            success: false,
+            error: `No hay insumos suficientes para preparar esta medida. Perfume a granel disponible para "${p.name}": ${liquidStock} ml (requeridos: ${totalMlNeeded} ml).`,
+          };
+        }
+
+        // Buscar frasco de insumo correspondiente
+        const matchedSupply = allSupplies.find((s) => {
+          const vol = Number(s.volume_ml);
+          const sku = (s.sku || '').toUpperCase();
+          const name = (s.name || '').toLowerCase();
+          return (
+            (vol === sizeMl || sku.includes(`${sizeMl}ML`) || name.includes(`${sizeMl}ml`)) &&
+            Number(s.stock_quantity) >= it.quantity
+          );
+        });
+
+        if (!matchedSupply && allSupplies.length > 0) {
+          return {
+            success: false,
+            error: `No hay insumos suficientes para preparar esta medida: frascos vacíos de ${sizeMl}ml agotados en inventario.`,
+          };
+        }
+
+        const unitPrice = it.unit_price_ars
+          ? new Decimal(it.unit_price_ars)
+          : new Decimal(p.base_price_ars || 0);
+        const subtotal = unitPrice.times(it.quantity);
+        totalArsDecimal = totalArsDecimal.plus(subtotal);
+
+        // Costo compuesto real: (ml * costo_ml) + costo_frasco
+        const liquidUnitCost = sizeMl * Number(matchedLiquid.base_cost_ars || 0);
+        const supplyUnitCost = matchedSupply ? Number(matchedSupply.base_cost_ars || 0) : 0;
+        const compositeUnitCost = Math.round((liquidUnitCost + supplyUnitCost) * 100) / 100;
+
+        orderLines.push({
+          product_id: matchedLiquid.id,
+          source_bottle_id: p.id,
+          is_decant: true,
+          decant_liquid_id: matchedLiquid.id,
+          decant_ml: totalMlNeeded,
+          supply_id: matchedSupply?.id,
+          name: `${p.name} (${formatLabel})`,
+          brand: p.brand,
+          format: formatLabel,
+          quantity: it.quantity,
+          unit_price_ars: unitPrice.toNumber(),
+          unit_cost_at_moment: compositeUnitCost,
+          subtotal_ars: subtotal.toNumber(),
+        });
+
+        // Actualizar stock en memoria para sucesivos ítems
+        matchedLiquid.stock_quantity = liquidStock - totalMlNeeded;
+        if (matchedSupply) {
+          matchedSupply.stock_quantity = Number(matchedSupply.stock_quantity) - it.quantity;
+        }
+      } else {
+        // Venta de botella sellada estándar
+        if (p.stock_quantity < it.quantity) {
+          return {
+            success: false,
+            error: `Stock insuficiente para "${p.name}". Disponibles: ${p.stock_quantity} unidades.`,
+          };
+        }
+
+        const unitPrice = it.unit_price_ars
+          ? new Decimal(it.unit_price_ars)
+          : new Decimal(p.base_price_ars || 0);
+        const subtotal = unitPrice.times(it.quantity);
+        totalArsDecimal = totalArsDecimal.plus(subtotal);
+
+        orderLines.push({
+          product_id: p.id,
+          is_decant: false,
+          name: p.name,
+          brand: p.brand,
+          format: formatLabel,
+          quantity: it.quantity,
+          unit_price_ars: unitPrice.toNumber(),
+          unit_cost_at_moment: Number(p.base_cost_ars || 0),
+          subtotal_ars: subtotal.toNumber(),
+        });
+
+        p.stock_quantity = p.stock_quantity - it.quantity;
+      }
     }
 
     const grandTotalArs = totalArsDecimal.toNumber();
@@ -659,26 +846,74 @@ export async function createWhatsAppOrderAction(
 
     const saleId = saleData.id;
 
-    // 4. Insertar ítems en sale_items
-    const saleItemsPayload = orderLines.map((line) => ({
-      sale_id: saleId,
-      product_id: line.product_id,
-      quantity: line.quantity,
-      price_ars_at_moment: line.unit_price_ars,
-      price_usd_at_moment: new Decimal(line.unit_price_ars).dividedBy(exchangeRate).round().toNumber(),
-    }));
+    // 4. Insertar ítems en sale_items con unit_cost_at_moment congelado
+    const saleItemsPayload = orderLines.map((line) => {
+      const row: Record<string, any> = {
+        sale_id: saleId,
+        product_id: line.product_id,
+        quantity: line.quantity,
+        price_ars_at_moment: line.unit_price_ars,
+        price_usd_at_moment: new Decimal(line.unit_price_ars).dividedBy(exchangeRate).round().toNumber(),
+      };
+      if (line.unit_cost_at_moment !== undefined && line.unit_cost_at_moment > 0) {
+        row.unit_cost_at_moment = line.unit_cost_at_moment;
+      }
+      return row;
+    });
 
-    const { error: itemsErr } = await supabase.from('sale_items').insert(saleItemsPayload);
+    let { error: itemsErr } = await supabase.from('sale_items').insert(saleItemsPayload);
+    if (itemsErr && itemsErr.code === 'PGRST204') {
+      const fallbackPayload = saleItemsPayload.map(({ unit_cost_at_moment, ...rest }) => rest);
+      const resRetry = await supabase.from('sale_items').insert(fallbackPayload);
+      itemsErr = resRetry.error;
+    }
+
     if (itemsErr) {
       console.error('Error al insertar sale_items:', itemsErr);
     }
 
-    // 5. Descontar stock
+    // 5. Descontar stock (respetando líquido vs insumo vs botella sellada)
     for (const line of orderLines) {
-      const p = prodMap.get(line.product_id);
-      if (p) {
-        const newStock = Math.max(0, p.stock_quantity - line.quantity);
-        await supabase.from('products').update({ stock_quantity: newStock }).eq('id', line.product_id);
+      if (line.is_decant) {
+        // Descontar mililitros del granel
+        if (line.decant_liquid_id && line.decant_ml) {
+          const { data: curLiq } = await supabase
+            .from('products')
+            .select('stock_quantity')
+            .eq('id', line.decant_liquid_id)
+            .single();
+          const newLiqStock = Math.max(0, (Number(curLiq?.stock_quantity) || 0) - line.decant_ml);
+          await supabase
+            .from('products')
+            .update({ stock_quantity: newLiqStock })
+            .eq('id', line.decant_liquid_id);
+        }
+        // Descontar frasco de insumo
+        if (line.supply_id) {
+          const { data: curSup } = await supabase
+            .from('products')
+            .select('stock_quantity')
+            .eq('id', line.supply_id)
+            .single();
+          const newSupStock = Math.max(0, (Number(curSup?.stock_quantity) || 0) - line.quantity);
+          await supabase
+            .from('products')
+            .update({ stock_quantity: newSupStock })
+            .eq('id', line.supply_id);
+        }
+        // La botella sellada no se altera
+      } else {
+        // Descontar unidad de botella sellada
+        const { data: curBot } = await supabase
+          .from('products')
+          .select('stock_quantity')
+          .eq('id', line.product_id)
+          .single();
+        const newBotStock = Math.max(0, (Number(curBot?.stock_quantity) || 0) - line.quantity);
+        await supabase
+          .from('products')
+          .update({ stock_quantity: newBotStock })
+          .eq('id', line.product_id);
       }
     }
 

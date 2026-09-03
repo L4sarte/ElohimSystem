@@ -183,8 +183,15 @@ export async function calculateDynamicCost(
       let unitCostCalculated = baseCostArs;
 
       if (item.component_type === 'liquid' || ing.type === 'bottle' || ing.type === 'decant_liquid') {
-        const bottleVolumeMl = Number(ing.volume_ml) || 100;
-        const costPerMl = bottleVolumeMl > 0 ? baseCostArs / bottleVolumeMl : 0;
+        let costPerMl = 0;
+        if (ing.type === 'decant_liquid') {
+          // El costo base del líquido a granel ya representa el costo exacto por 1 mililitro
+          costPerMl = baseCostArs;
+        } else {
+          // Para botellas selladas, el costo por ml es costo_botella / volume_ml (default 100ml)
+          const bottleVolumeMl = Number(ing.volume_ml) || 100;
+          costPerMl = bottleVolumeMl > 0 ? baseCostArs / bottleVolumeMl : 0;
+        }
         unitCostCalculated = costPerMl;
         componentCostArs = costPerMl * qty;
         liquidCostArs += componentCostArs;
@@ -261,7 +268,8 @@ export async function saveProductRecipe(
   recipeName: string,
   items: RecipeItemInput[],
   autoUpdateProductCost: boolean = true,
-  notes?: string
+  notes?: string,
+  sizeMl: number = 5
 ): Promise<{ success: boolean; calculatedCostArs?: number; error?: string }> {
   try {
     await requireAdmin();
@@ -269,6 +277,7 @@ export async function saveProductRecipe(
     const validation = recipeSaveSchema.safeParse({
       productId,
       recipeName,
+      sizeMl,
       items,
       autoUpdateProductCost,
       notes,
@@ -288,40 +297,66 @@ export async function saveProductRecipe(
     const supabase = getServiceSupabase();
 
     // 1. Crear o actualizar `product_recipes`
-    const { data: existingRecipe } = await supabase
+    const { data: existingList } = await supabase
       .from('product_recipes')
       .select('id')
-      .eq('product_id', clean.productId)
-      .maybeSingle();
+      .eq('product_id', clean.productId);
 
+    const existingRecipe = existingList && existingList.length > 0 ? existingList[0] : null;
     let recipeId = existingRecipe?.id;
 
     if (recipeId) {
+      const updateData: Record<string, any> = {
+        name: clean.recipeName,
+        notes: clean.notes || null,
+        auto_update_cost: clean.autoUpdateProductCost,
+        updated_at: new Date().toISOString(),
+      };
+
+      try {
+        updateData.size_ml = clean.sizeMl || 5;
+      } catch (_) {}
+
       const { error: updateErr } = await supabase
         .from('product_recipes')
-        .update({
-          name: clean.recipeName,
-          notes: clean.notes || null,
-          auto_update_cost: clean.autoUpdateProductCost,
-          updated_at: new Date().toISOString(),
-        })
+        .update(updateData)
         .eq('id', recipeId);
 
-      if (updateErr) throw updateErr;
+      if (updateErr && updateErr.code === 'PGRST204') {
+        delete updateData.size_ml;
+        await supabase
+          .from('product_recipes')
+          .update(updateData)
+          .eq('id', recipeId);
+      }
 
       // Borrar ítems anteriores para reemplazar
       await supabase.from('recipe_items').delete().eq('recipe_id', recipeId);
     } else {
-      const { data: newRecipe, error: insertErr } = await supabase
+      const insertData: Record<string, any> = {
+        product_id: clean.productId,
+        name: clean.recipeName,
+        size_ml: clean.sizeMl || 5,
+        notes: clean.notes || null,
+        auto_update_cost: clean.autoUpdateProductCost,
+      };
+
+      let { data: newRecipe, error: insertErr } = await supabase
         .from('product_recipes')
-        .insert({
-          product_id: clean.productId,
-          name: clean.recipeName,
-          notes: clean.notes || null,
-          auto_update_cost: clean.autoUpdateProductCost,
-        })
+        .insert(insertData)
         .select('id')
         .single();
+
+      if (insertErr && insertErr.code === 'PGRST204') {
+        delete insertData.size_ml;
+        const resRetry = await supabase
+          .from('product_recipes')
+          .insert(insertData)
+          .select('id')
+          .single();
+        newRecipe = resRetry.data;
+        insertErr = resRetry.error;
+      }
 
       if (insertErr || !newRecipe) throw insertErr || new Error('No se pudo crear la receta.');
       recipeId = newRecipe.id;
@@ -345,14 +380,27 @@ export async function saveProductRecipe(
     // 3. Recalcular costo dinámico
     const calcResult = await calculateDynamicCost(clean.productId, clean.items);
 
-    // 4. Si autoUpdateProductCost es true, actualizar base_cost_ars en la tabla products
+    // 4. Si autoUpdateProductCost es true, actualizar base_cost_ars SOLO SI EL PRODUCTO ES UN GRANEL
+    // BLINDAJE CRÍTICO: NUNCA pisar base_cost_ars si el producto es una BOTELLA sellada ('bottle')
     if (clean.autoUpdateProductCost && calcResult.success) {
-      await supabase
+      const { data: targetProd } = await supabase
         .from('products')
-        .update({
-          base_cost_ars: calcResult.total_cost_ars,
-        })
-        .eq('id', clean.productId);
+        .select('type, name')
+        .eq('id', clean.productId)
+        .maybeSingle();
+
+      if (targetProd && targetProd.type === 'decant_liquid') {
+        await supabase
+          .from('products')
+          .update({
+            base_cost_ars: calcResult.total_cost_ars,
+          })
+          .eq('id', clean.productId);
+      } else {
+        console.info(
+          `[RECIPE_PROTECTION] Se preserva intacto el costo base_cost_ars de "${targetProd?.name}" (tipo '${targetProd?.type}'). No se sobreescribe con el costo de decant.`
+        );
+      }
     }
 
     revalidatePath('/productos');
