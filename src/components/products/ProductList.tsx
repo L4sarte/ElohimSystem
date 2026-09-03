@@ -11,14 +11,16 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { 
   Search, Plus, Edit, Trash2, Filter, EyeOff, Eye, DollarSign, Package, 
-  Tag, Info, RefreshCw, AlertCircle, ShoppingBag, Droplet, Archive, Globe 
+  Tag, Info, RefreshCw, AlertCircle, ShoppingBag, Droplet, Archive, Globe,
+  Sparkles, Crown, CheckSquare, Square, FileSpreadsheet, FileText 
 } from 'lucide-react';
 
 import { toast } from 'sonner';
 import { ConfirmModal } from '@/components/ui/ConfirmModal';
 import { OlfactoryCatalogModal } from './OlfactoryCatalogModal';
 import { CatalogGeneratorModal } from './CatalogGeneratorModal';
-import { Sparkles, Crown, CheckSquare, Square } from 'lucide-react';
+import { exportStockToCsv, exportStockToPdf } from '@/lib/stock-export';
+import { getSystemSettings } from '@/app/actions/systemSettings';
 
 interface ProductListProps {
   role: UserRole;
@@ -41,6 +43,10 @@ export function ProductList({ role, excludeSupplies = true }: ProductListProps) 
 
   // Cotización del Dólar Blue para precios de referencia
   const { rate: exchangeRate, loading: loadingRate } = useExchangeRate();
+
+  // Estados para Exportación de Stock
+  const [isExportingCsv, setIsExportingCsv] = useState(false);
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
 
   // Estados para el Modal
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -115,7 +121,7 @@ export function ProductList({ role, excludeSupplies = true }: ProductListProps) 
     setIsModalOpen(true);
   };
 
-  // Filtrar productos
+  // Filtrar productos con soporte para Stock Crítico
   const filteredProducts = products.filter(product => {
     if (excludeSupplies && product.type === 'supply') return false;
 
@@ -125,10 +131,84 @@ export function ProductList({ role, excludeSupplies = true }: ProductListProps) 
       product.sku.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (product.olfactory_family || '').toLowerCase().includes(searchTerm.toLowerCase());
       
-    const matchesType = selectedType === 'all' || product.type === selectedType;
+    let matchesType = true;
+    if (selectedType === 'low_stock') {
+      const minAlert = Number(product.min_stock_alert ?? 5);
+      matchesType = product.stock_quantity <= minAlert;
+    } else if (selectedType !== 'all') {
+      matchesType = product.type === selectedType;
+    }
     
     return matchesSearch && matchesType;
   });
+
+  const getFilterLabel = () => {
+    const parts: string[] = [];
+    if (selectedType === 'bottle') parts.push('Botellas Selladas');
+    else if (selectedType === 'decant_liquid') parts.push('Decants');
+    else if (selectedType === 'supply') parts.push('Insumos Packaging');
+    else if (selectedType === 'low_stock') parts.push('Stock Crítico / Bajo');
+
+    if (searchTerm.trim()) parts.push(`Búsqueda: "${searchTerm.trim()}"`);
+    if (selectedProductIds.length > 0) parts.push(`${selectedProductIds.length} ítems seleccionados`);
+    return parts.length > 0 ? parts.join(' | ') : 'Inventario Consolidado Completo';
+  };
+
+  const handleExportCsv = async () => {
+    try {
+      setIsExportingCsv(true);
+      const itemsToExport = selectedProductIds.length > 0 ? selectedProductsObjects : filteredProducts;
+      if (itemsToExport.length === 0) {
+        toast.error('No hay productos para exportar con los filtros actuales.');
+        return;
+      }
+
+      toast.info(`Generando archivo CSV con ${itemsToExport.length} productos...`);
+      const settingsRes = await getSystemSettings();
+      exportStockToCsv({
+        products: itemsToExport,
+        role,
+        settings: settingsRes.data,
+        exchangeRate: exchangeRate || 1200,
+        filterLabel: getFilterLabel(),
+      });
+      toast.success('¡Planilla de inventario Excel (.csv) descargada con éxito!');
+    } catch (err: unknown) {
+      console.error('Error al exportar CSV:', err);
+      const msg = err instanceof Error ? err.message : 'Error al exportar CSV';
+      toast.error(msg);
+    } finally {
+      setIsExportingCsv(false);
+    }
+  };
+
+  const handleExportPdf = async () => {
+    try {
+      setIsExportingPdf(true);
+      const itemsToExport = selectedProductIds.length > 0 ? selectedProductsObjects : filteredProducts;
+      if (itemsToExport.length === 0) {
+        toast.error('No hay productos para exportar con los filtros actuales.');
+        return;
+      }
+
+      toast.info(`Generando PDF vectorial oficial con ${itemsToExport.length} productos...`);
+      const settingsRes = await getSystemSettings();
+      exportStockToPdf({
+        products: itemsToExport,
+        role,
+        settings: settingsRes.data,
+        exchangeRate: exchangeRate || 1200,
+        filterLabel: getFilterLabel(),
+      });
+      toast.success('¡Reporte PDF oficial de inventario descargado con éxito!');
+    } catch (err: unknown) {
+      console.error('Error al exportar PDF:', err);
+      const msg = err instanceof Error ? err.message : 'Error al exportar PDF';
+      toast.error(msg);
+    } finally {
+      setIsExportingPdf(false);
+    }
+  };
 
   // Helper para formatear valores en ARS
   const formatArs = (amount: number) => {
@@ -233,10 +313,56 @@ export function ProductList({ role, excludeSupplies = true }: ProductListProps) 
           >
             Insumos
           </Button>
+          <Button
+            variant={selectedType === 'low_stock' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setSelectedType('low_stock')}
+            className={`cursor-pointer ${
+              selectedType === 'low_stock'
+                ? 'bg-amber-600 hover:bg-amber-500 text-white'
+                : 'text-amber-500 border-amber-600/40 hover:bg-amber-950/30'
+            }`}
+          >
+            ⚠️ Stock Crítico
+          </Button>
         </div>
 
-        {/* ACCIONES DE CATÁLOGO Y CREACIÓN */}
+        {/* ACCIONES DE CATÁLOGO, EXPORTACIÓN Y CREACIÓN */}
         <div className="flex flex-wrap items-center gap-2 ml-auto sm:ml-0">
+          {/* BOTONES DE EXPORTACIÓN DE STOCK */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleExportCsv}
+            disabled={isExportingCsv || filteredProducts.length === 0}
+            className="border-[#1B362A] bg-[#13261E] text-emerald-400 hover:bg-emerald-950/40 hover:text-emerald-300 font-bold text-xs cursor-pointer flex items-center gap-1.5 shadow-sm"
+            title="Exportar stock actual a planilla Excel / CSV"
+          >
+            <FileSpreadsheet className="h-3.5 w-3.5" />
+            <span>{isExportingCsv ? 'Exportando...' : 'Exportar Excel (.csv)'}</span>
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleExportPdf}
+            disabled={isExportingPdf || filteredProducts.length === 0}
+            className="border-[#1B362A] bg-[#13261E] text-rose-400 hover:bg-rose-950/40 hover:text-rose-300 font-bold text-xs cursor-pointer flex items-center gap-1.5 shadow-sm"
+            title="Descargar reporte oficial de inventario en PDF vectorial"
+          >
+            {isExportingPdf ? (
+              <>
+                <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                <span>Generando PDF...</span>
+              </>
+            ) : (
+              <>
+                <FileText className="h-3.5 w-3.5" />
+                <span>Exportar PDF Oficial</span>
+              </>
+            )}
+          </Button>
+
           {/* BOTÓN GENERAR CATÁLOGO (Cuando hay selección) */}
           {selectedProductIds.length > 0 && (
             <Button
