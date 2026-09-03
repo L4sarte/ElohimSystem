@@ -4,7 +4,9 @@ import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { useSupplyChainStore } from '@/store/supplyChainStore';
 import { getProducts } from '@/app/actions/products';
+import { createPurchaseOrderAction } from '@/app/actions/purchases';
 import { POExpenseType, POStatus, CreatePOPayload } from '@/types/supplyChain';
+import { toast } from 'sonner';
 import { 
   Building, Calendar, Search, Plus, Trash2, DollarSign, 
   Package, Truck, ArrowRight, ArrowLeft, Check, AlertCircle, RefreshCw, FileText, Sparkles, Box
@@ -220,13 +222,28 @@ export function POBuilder({ onSuccess }: POBuilderProps) {
       }))
     };
 
-    const newPoId = await createPurchaseOrder(payload);
-    setIsSubmitting(false);
+    try {
+      const res = await createPurchaseOrderAction(payload);
+      setIsSubmitting(false);
 
-    if (newPoId) {
+      if (!res.success) {
+        setLocalError(res.error || 'Error al emitir la orden de compra');
+        return;
+      }
+
+      toast.success(
+        status === 'in_transit'
+          ? 'Orden de compra emitida "En Tránsito" exitosamente.'
+          : 'Borrador de orden de compra guardado exitosamente.'
+      );
+
       if (onSuccess) {
         onSuccess();
       }
+    } catch (err: unknown) {
+      setIsSubmitting(false);
+      const msg = err instanceof Error ? err.message : 'Error inesperado al emitir la orden';
+      setLocalError(msg);
     }
   };
 
