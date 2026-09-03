@@ -69,21 +69,30 @@ export function ProductCard({ product, exchangeRate = 1200 }: ProductCardProps) 
           </span>
         </div>
 
-        {/* CONTENEDOR VISUAL DECORATIVO */}
+        {/* CONTENEDOR VISUAL DECORATIVO / IMAGEN */}
         <Link href={`/tienda/producto/${product.id}`} className="block">
-          <div className="relative aspect-square w-full rounded-xl bg-gradient-to-br from-[#1B362A]/60 to-[#08130E] border border-[#1B362A] flex items-center justify-center p-6 mb-4 overflow-hidden group-hover:scale-[1.02] transition-transform">
-            <div className="flex flex-col items-center justify-center text-center space-y-2">
-              <div className="h-16 w-16 rounded-full bg-[#13261E] border border-[#D0A96B]/30 flex items-center justify-center text-[#D0A96B] shadow-lg group-hover:border-[#D0A96B] transition-colors">
-                {isDecant ? (
-                  <Droplet className="h-8 w-8 text-blue-400" />
-                ) : (
-                  <Package className="h-8 w-8 text-[#D0A96B]" />
-                )}
+          <div className="relative aspect-square w-full rounded-xl bg-gradient-to-br from-[#1B362A]/60 to-[#08130E] border border-[#1B362A] flex items-center justify-center mb-4 overflow-hidden group-hover:scale-[1.02] transition-transform">
+            {product.image_url ? (
+              <img
+                src={product.image_url}
+                alt={product.name}
+                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                loading="lazy"
+              />
+            ) : (
+              <div className="flex flex-col items-center justify-center text-center space-y-2 p-6">
+                <div className="h-16 w-16 rounded-full bg-[#13261E] border border-[#D0A96B]/30 flex items-center justify-center text-[#D0A96B] shadow-lg group-hover:border-[#D0A96B] transition-colors">
+                  {isDecant ? (
+                    <Droplet className="h-8 w-8 text-blue-400" />
+                  ) : (
+                    <Package className="h-8 w-8 text-[#D0A96B]" />
+                  )}
+                </div>
+                <span className="text-[10px] font-mono text-zinc-400 tracking-widest uppercase">
+                  {product.volume_ml ? `${product.volume_ml} ML` : 'NICHE PERFUME'}
+                </span>
               </div>
-              <span className="text-[10px] font-mono text-zinc-400 tracking-widest uppercase">
-                {product.volume_ml ? `${product.volume_ml} ML` : 'NICHE PERFUME'}
-              </span>
-            </div>
+            )}
 
             <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
               <div className="h-7 w-7 rounded-full bg-[#D0A96B] text-[#08130E] flex items-center justify-center shadow-md">

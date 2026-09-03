@@ -2,11 +2,12 @@
 
 import React, { useState, useEffect } from 'react';
 import { Product, ProductType, UserRole } from '@/types';
-import { createProduct, updateProduct } from '@/app/actions/products';
+import { createProduct, updateProduct, uploadProductImage } from '@/app/actions/products';
+import { compressImageToWebP, formatBytes } from '@/lib/image-optimizer';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { X, Save, RefreshCw, AlertCircle, Sparkles, Wand2 } from 'lucide-react';
+import { X, Save, RefreshCw, AlertCircle, Sparkles, Wand2, UploadCloud, Image as ImageIcon } from 'lucide-react';
 import { extractPerfumeData } from '@/app/actions/aiPerfume';
 import { getOlfactoryFamilies, getOlfactoryNotes } from '@/app/actions/olfactory';
 import { toast } from 'sonner';
@@ -50,6 +51,47 @@ export function ProductFormModal({ isOpen, onClose, onSuccess, product, role = '
   // Estados para Calculadora de Rentabilidad Automática
   const [profitMode, setProfitMode] = useState<'real_margin' | 'markup'>('real_margin');
   const [marginPercent, setMarginPercent] = useState<string>('40');
+
+  // Estados para Imagen Optimizada WebP
+  const [imageUrl, setImageUrl] = useState('');
+  const [optimizingImage, setOptimizingImage] = useState(false);
+  const [imageStats, setImageStats] = useState<{ originalSize: string; compressedSize: string; ratio: number } | null>(null);
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setOptimizingImage(true);
+      toast.info('Comprimiendo imagen a formato WebP (calidad 80%)...');
+
+      const optimized = await compressImageToWebP(file, 1200, 0.8);
+      setImageStats({
+        originalSize: formatBytes(optimized.originalSizeBytes),
+        compressedSize: formatBytes(optimized.compressedSizeBytes),
+        ratio: optimized.compressionRatioPercent,
+      });
+
+      const formData = new FormData();
+      formData.append('image', optimized.file);
+      if (product?.id) formData.append('productId', product.id);
+      if (sku) formData.append('sku', sku);
+
+      const res = await uploadProductImage(formData);
+      if (res.success && res.url) {
+        setImageUrl(res.url);
+        toast.success(`¡Imagen optimizada (${optimized.compressionRatioPercent}% más ligera) y subida con éxito!`);
+      } else {
+        toast.error(res.error || 'Error al subir la imagen al servidor.');
+      }
+    } catch (err: unknown) {
+      console.error('Error al optimizar imagen:', err);
+      const msg = err instanceof Error ? err.message : 'Error al procesar la imagen';
+      toast.error(msg);
+    } finally {
+      setOptimizingImage(false);
+    }
+  };
 
   // Estados para Extracción Olfativa con IA
   const [aiModalOpen, setAiModalOpen] = useState(false);
@@ -172,6 +214,9 @@ export function ProductFormModal({ isOpen, onClose, onSuccess, product, role = '
       setVolumeMl(product.volume_ml !== undefined ? product.volume_ml.toString() : '');
       setMinStockAlert(product.min_stock_alert !== undefined && product.min_stock_alert !== null ? product.min_stock_alert.toString() : '5');
 
+      setImageUrl(product.image_url || '');
+      setImageStats(null);
+
       if (cost > 0 && price > 0) {
         const pct = profitMode === 'real_margin' ? ((price - cost) / price) * 100 : ((price - cost) / cost) * 100;
         setMarginPercent(pct > 0 ? pct.toFixed(1) : '0');
@@ -193,6 +238,8 @@ export function ProductFormModal({ isOpen, onClose, onSuccess, product, role = '
       setVolumeMl('');
       setMinStockAlert('5');
       setMarginPercent('40');
+      setImageUrl('');
+      setImageStats(null);
     }
     setError(null);
   }, [product, isOpen, initialType]);
@@ -328,6 +375,67 @@ export function ProductFormModal({ isOpen, onClose, onSuccess, product, role = '
                   <option value="decant_liquid">Líquido a Granel (Decant)</option>
                   <option value="supply">Insumo (Frascos, Atomizadores)</option>
                 </select>
+              </div>
+            </div>
+
+            {/* SECCIÓN IMAGEN DEL PRODUCTO CON OPTIMIZADOR AUTOMÁTICO WEBP */}
+            <div className="space-y-2 p-3.5 rounded-2xl bg-[#13261E]/80 border border-[#1B362A]">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold uppercase tracking-wider text-[#D0A96B] flex items-center gap-1.5">
+                  <ImageIcon className="h-3.5 w-3.5" />
+                  <span>Foto de Catálogo (Optimizador WebP Automático)</span>
+                </label>
+                {imageStats && (
+                  <span className="text-[10px] font-mono font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
+                    {imageStats.originalSize} ➔ {imageStats.compressedSize} (-{imageStats.ratio}%)
+                  </span>
+                )}
+              </div>
+
+              <div className="flex items-center gap-4">
+                {imageUrl ? (
+                  <div className="relative h-20 w-20 rounded-xl overflow-hidden border border-[#D0A96B]/40 bg-[#08130E] shrink-0 group">
+                    <img src={imageUrl} alt={name || 'Producto'} className="h-full w-full object-cover" />
+                    <button
+                      type="button"
+                      onClick={() => { setImageUrl(''); setImageStats(null); }}
+                      className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-rose-400 text-xs font-bold"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="h-20 w-20 rounded-xl border border-dashed border-[#1B362A] bg-[#08130E] flex flex-col items-center justify-center text-zinc-500 shrink-0">
+                    <UploadCloud className="h-6 w-6 text-zinc-400" />
+                    <span className="text-[9px] mt-1 text-zinc-400 font-medium">Sin foto</span>
+                  </div>
+                )}
+
+                <div className="flex-1 space-y-1.5">
+                  <label className="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-xl bg-[#08130E] border border-[#D0A96B]/40 text-[#D0A96B] hover:bg-[#13261E] text-xs font-bold cursor-pointer transition-colors shadow-sm">
+                    {optimizingImage ? (
+                      <>
+                        <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                        <span>Optimizando y subiendo...</span>
+                      </>
+                    ) : (
+                      <>
+                        <UploadCloud className="h-3.5 w-3.5" />
+                        <span>{imageUrl ? 'Cambiar Foto' : 'Subir Foto de Catálogo'}</span>
+                      </>
+                    )}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      disabled={optimizingImage}
+                      onChange={handleImageUpload}
+                      className="hidden"
+                    />
+                  </label>
+                  <p className="text-[10px] text-zinc-400">
+                    Redimensiona a máx. 1200px y comprime automáticamente a <span className="text-white font-semibold">WebP (80%)</span>.
+                  </p>
+                </div>
               </div>
             </div>
 

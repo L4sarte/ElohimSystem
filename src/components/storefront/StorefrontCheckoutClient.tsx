@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useCartStore } from '@/hooks/use-cart-store';
-import { createOnlineOrder } from '@/app/actions/storefront';
+import { createWhatsAppOrderAction } from '@/app/actions/storefront';
 import { SystemSettingsData, DEFAULT_SYSTEM_SETTINGS } from '@/lib/settings-validation';
 import { StorefrontHeader } from './StorefrontHeader';
 import { StorefrontFooter } from './StorefrontFooter';
@@ -14,7 +14,7 @@ import { Button } from '@/components/ui/button';
 import { 
   ArrowLeft, ShoppingBag, Truck, MapPin, CreditCard, 
   Landmark, ShieldCheck, CheckCircle2, RefreshCw, Sparkles, 
-  DollarSign, Phone, Mail, User, FileText, Copy, AlertCircle 
+  DollarSign, Phone, Mail, User, FileText, Copy, AlertCircle, MessageCircle 
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -40,10 +40,8 @@ export function StorefrontCheckoutClient({ settings = DEFAULT_SYSTEM_SETTINGS }:
   const [deliveryMethod, setDeliveryMethod] = useState<'shipping' | 'pickup'>('shipping');
   const [shippingAddress, setShippingAddress] = useState('');
   const [shippingCity, setShippingCity] = useState('');
+  const [shippingPostalCode, setShippingPostalCode] = useState('');
   const [shippingNotes, setShippingNotes] = useState('');
-
-  // Método de pago
-  const [paymentMethod, setPaymentMethod] = useState<'transfer' | 'cash_on_delivery' | 'digital_gateway'>('transfer');
 
   const [submitting, setSubmitting] = useState(false);
   const [orderError, setOrderError] = useState<string | null>(null);
@@ -63,29 +61,28 @@ export function StorefrontCheckoutClient({ settings = DEFAULT_SYSTEM_SETTINGS }:
     }
 
     if (!clientName.trim() || !clientPhone.trim()) {
-      toast.error('Por favor completa tu nombre y teléfono/WhatsApp.');
+      toast.error('Por favor completa tu nombre y número de WhatsApp.');
       return;
     }
 
     if (deliveryMethod === 'shipping' && !shippingAddress.trim()) {
-      toast.error('Por favor ingresa la dirección de entrega para el envío a domicilio.');
+      toast.error('Por favor ingresa la dirección para el envío a domicilio.');
       return;
     }
 
     try {
       setSubmitting(true);
-      toast.info('Validando stock y generando tu pedido...');
+      toast.info('Registrando pedido y preparando WhatsApp...');
 
       const payload = {
         client_name: clientName,
         client_phone: clientPhone,
         client_email: clientEmail || '',
-        client_dni: clientDni || '',
         delivery_method: deliveryMethod,
         shipping_address: shippingAddress || '',
         shipping_city: shippingCity || '',
+        shipping_postal_code: shippingPostalCode || '',
         shipping_notes: shippingNotes || '',
-        payment_method: paymentMethod,
         items: items.map((i) => ({
           product_id: i.productId,
           quantity: i.quantity,
@@ -93,11 +90,17 @@ export function StorefrontCheckoutClient({ settings = DEFAULT_SYSTEM_SETTINGS }:
         })),
       };
 
-      const res = await createOnlineOrder(payload);
+      const res = await createWhatsAppOrderAction(payload);
 
       if (res.success && res.orderId) {
         clearCart();
-        toast.success('¡Pedido generado exitosamente!');
+        toast.success('¡Pedido registrado con éxito! Abriendo WhatsApp...');
+
+        // Abrir WhatsApp en pestaña nueva
+        if (res.whatsAppUrl) {
+          window.open(res.whatsAppUrl, '_blank');
+        }
+
         router.push(`/tienda/pedido/${res.orderId}`);
       } else {
         const msg = res.error || 'No se pudo generar el pedido. Intenta nuevamente.';
@@ -317,29 +320,28 @@ export function StorefrontCheckoutClient({ settings = DEFAULT_SYSTEM_SETTINGS }:
                             className="bg-[#08130E] border-[#1B362A] text-white text-xs"
                           />
                         </div>
-
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                          <div className="space-y-1.5">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                          <div className="space-y-1.5 sm:col-span-2">
                             <label className="text-xs font-bold text-zinc-300">
-                              Ciudad / Localidad
+                              Ciudad / Localidad *
                             </label>
                             <Input
-                              placeholder="Ej. CABA / Rosario"
+                              required={deliveryMethod === 'shipping'}
+                              placeholder="Ej. Córdoba Capital / Rosario"
                               value={shippingCity}
                               onChange={(e) => setShippingCity(e.target.value)}
                               className="bg-[#08130E] border-[#1B362A] text-white text-xs"
                             />
                           </div>
-
                           <div className="space-y-1.5">
                             <label className="text-xs font-bold text-zinc-300">
-                              Notas de Entrega / Indicaciones
+                              Código Postal
                             </label>
                             <Input
-                              placeholder="Ej. Tocar timbre 4B"
-                              value={shippingNotes}
-                              onChange={(e) => setShippingNotes(e.target.value)}
-                              className="bg-[#08130E] border-[#1B362A] text-white text-xs"
+                              placeholder="Ej. 5000"
+                              value={shippingPostalCode}
+                              onChange={(e) => setShippingPostalCode(e.target.value)}
+                              className="bg-[#08130E] border-[#1B362A] text-white text-xs font-mono"
                             />
                           </div>
                         </div>
@@ -349,7 +351,7 @@ export function StorefrontCheckoutClient({ settings = DEFAULT_SYSTEM_SETTINGS }:
                         <div className="font-bold text-[#D0A96B] flex items-center gap-1.5">
                           <MapPin className="h-3.5 w-3.5" /> Dirección de Retiro:
                         </div>
-                        <p>{settings.address || 'Av. Santa Fe 1234, Local 12'} {settings.city ? `(${settings.city})` : ''}</p>
+                        <p>{settings.address || 'Chaco 50'} {settings.city ? `(${settings.city})` : ''}</p>
                         <p className="text-[11px] text-zinc-400 pt-1">
                           Te avisaremos por WhatsApp en cuanto tu fragancia esté empaquetada.
                         </p>
@@ -359,84 +361,41 @@ export function StorefrontCheckoutClient({ settings = DEFAULT_SYSTEM_SETTINGS }:
                   </CardContent>
                 </Card>
 
-                {/* 3. MÉTODO DE PAGO */}
+                {/* 3. ATENCIÓN PERSONALIZADA Y CIERRE POR WHATSAPP */}
                 <Card className="border border-[#1B362A] bg-[#13261E]/90 rounded-2xl shadow-xl overflow-hidden">
                   <CardHeader className="border-b border-[#1B362A] p-5">
                     <CardTitle className="text-sm font-bold text-white font-serif flex items-center gap-2">
-                      <CreditCard className="h-4 w-4 text-[#D0A96B]" />
-                      3. Método de Pago
+                      <MessageCircle className="h-4 w-4 text-emerald-400" />
+                      3. Cierre y Coordinación por WhatsApp 📲
                     </CardTitle>
                     <CardDescription className="text-xs text-zinc-400">
-                      Selecciona la forma de pago preferida para tu compra.
+                      Atención boutique personalizada sin pasarelas de pago engorrosas.
                     </CardDescription>
                   </CardHeader>
 
                   <CardContent className="p-5 space-y-4">
-                    
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                      
-                      {/* TRANSFERENCIA */}
-                      <button
-                        type="button"
-                        onClick={() => setPaymentMethod('transfer')}
-                        className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer ${
-                          paymentMethod === 'transfer'
-                            ? 'bg-[#1B362A] border-[#D0A96B] text-white shadow-md'
-                            : 'bg-[#08130E] border-[#1B362A] text-zinc-400 hover:border-zinc-500'
-                        }`}
-                      >
-                        <div className="font-bold text-xs text-white flex items-center justify-between">
-                          <span>Transferencia</span>
-                          {paymentMethod === 'transfer' && <CheckCircle2 className="h-3.5 w-3.5 text-[#D0A96B]" />}
-                        </div>
-                        <p className="text-[10px] text-zinc-400 mt-1">Alias / CBU directo</p>
-                      </button>
-
-                      {/* EFECTIVO */}
-                      <button
-                        type="button"
-                        onClick={() => setPaymentMethod('cash_on_delivery')}
-                        className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer ${
-                          paymentMethod === 'cash_on_delivery'
-                            ? 'bg-[#1B362A] border-[#D0A96B] text-white shadow-md'
-                            : 'bg-[#08130E] border-[#1B362A] text-zinc-400 hover:border-zinc-500'
-                        }`}
-                      >
-                        <div className="font-bold text-xs text-white flex items-center justify-between">
-                          <span>Efectivo</span>
-                          {paymentMethod === 'cash_on_delivery' && <CheckCircle2 className="h-3.5 w-3.5 text-[#D0A96B]" />}
-                        </div>
-                        <p className="text-[10px] text-zinc-400 mt-1">Al retirar o contra entrega</p>
-                      </button>
-
-                      {/* DIGITAL / MERCADOPAGO */}
-                      <button
-                        type="button"
-                        onClick={() => setPaymentMethod('digital_gateway')}
-                        className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer ${
-                          paymentMethod === 'digital_gateway'
-                            ? 'bg-[#1B362A] border-[#D0A96B] text-white shadow-md'
-                            : 'bg-[#08130E] border-[#1B362A] text-zinc-400 hover:border-zinc-500'
-                        }`}
-                      >
-                        <div className="font-bold text-xs text-white flex items-center justify-between">
-                          <span>Tarjetas / MP</span>
-                          {paymentMethod === 'digital_gateway' && <CheckCircle2 className="h-3.5 w-3.5 text-[#D0A96B]" />}
-                        </div>
-                        <p className="text-[10px] text-zinc-400 mt-1">Link de pago digital</p>
-                      </button>
-
+                    <div className="p-4 rounded-xl bg-[#08130E] border border-emerald-500/30 text-xs space-y-2">
+                      <div className="font-bold text-emerald-400 flex items-center gap-2">
+                        <CheckCircle2 className="h-4 w-4" />
+                        <span>¿Cómo finaliza tu compra?</span>
+                      </div>
+                      <p className="text-zinc-300 leading-relaxed text-[11px]">
+                        Al presionar el botón <strong className="text-emerald-400">"Finalizar Pedido por WhatsApp 📲"</strong>, registraremos tu orden en el ERP y se abrirá WhatsApp con el resumen listo para enviar al número oficial de <strong className="text-white">{settings.trade_name}</strong>.
+                      </p>
+                      <p className="text-zinc-400 text-[11px]">
+                        Por ese medio coordinaremos el medio de pago (<strong className="text-zinc-200">Transferencia Bancaria</strong> o <strong className="text-zinc-200">Efectivo contra entrega</strong>) y los tiempos exactos de despacho.
+                      </p>
                     </div>
 
-                    {/* DATOS DE TRANSFERENCIA SI SELECCIONÓ TRANSFERENCIA */}
-                    {paymentMethod === 'transfer' && (
-                      <div className="p-4 rounded-xl bg-gradient-to-br from-[#1B362A] to-[#08130E] border border-[#D0A96B]/40 space-y-3 text-xs">
+                    {/* DATOS DE TRANSFERENCIA BANCARIA INFORMATIVOS */}
+                    {settings.bank_alias && (
+                      <div className="p-4 rounded-xl bg-gradient-to-br from-[#1B362A]/60 to-[#08130E] border border-[#D0A96B]/40 space-y-2.5 text-xs">
                         <div className="flex items-center justify-between">
                           <span className="font-bold text-[#D0A96B] uppercase tracking-wider text-[11px] flex items-center gap-1.5">
-                            <Landmark className="h-3.5 w-3.5" /> Datos para Transferencia:
+                            <Landmark className="h-3.5 w-3.5" /> Datos para Transferencia (Opcional):
                           </span>
                           <span className="text-[10px] font-mono text-zinc-400">
-                            {settings.bank_name || 'Banco Galicia'}
+                            {settings.bank_name || 'Banco'}
                           </span>
                         </div>
 
@@ -445,32 +404,43 @@ export function StorefrontCheckoutClient({ settings = DEFAULT_SYSTEM_SETTINGS }:
                             <span className="text-[10px] text-zinc-400 uppercase tracking-wider block">Alias:</span>
                             <div className="flex items-center gap-2">
                               <span className="font-mono font-bold text-[#E5C158] text-sm">
-                                {settings.bank_alias || 'ELOHIM.PERFUMES.ARS'}
+                                {settings.bank_alias}
                               </span>
                               <button
                                 type="button"
-                                onClick={() => handleCopy(settings.bank_alias || 'ELOHIM.PERFUMES.ARS', 'Alias')}
-                                className="text-zinc-400 hover:text-white p-1"
+                                onClick={() => handleCopy(settings.bank_alias || '', 'Alias')}
+                                className="text-zinc-400 hover:text-white p-1 cursor-pointer"
+                                title="Copiar Alias"
                               >
                                 <Copy className="h-3.5 w-3.5" />
                               </button>
                             </div>
                           </div>
 
-                          <div>
-                            <span className="text-[10px] text-zinc-400 uppercase tracking-wider block">Titular:</span>
-                            <span className="font-bold text-white text-xs">
-                              {settings.bank_account_holder || settings.company_name}
-                            </span>
-                          </div>
+                          {settings.bank_account_holder && (
+                            <div>
+                              <span className="text-[10px] text-zinc-400 uppercase tracking-wider block">Titular:</span>
+                              <span className="font-bold text-white text-xs">
+                                {settings.bank_account_holder}
+                              </span>
+                            </div>
+                          )}
                         </div>
-
-                        <p className="text-[11px] text-zinc-400 pt-1">
-                          Al confirmar el pedido, podrás adjuntar tu comprobante de pago vía WhatsApp.
-                        </p>
                       </div>
                     )}
 
+                    <div className="space-y-1.5 pt-1">
+                      <label className="text-xs font-bold text-zinc-300 flex items-center gap-1.5">
+                        <FileText className="h-3.5 w-3.5 text-[#D0A96B]" />
+                        <span>Notas u Observaciones adicionales (Opcional):</span>
+                      </label>
+                      <Input
+                        placeholder="Ej. Horario de entrega preferido / Aclaraciones de packaging"
+                        value={shippingNotes}
+                        onChange={(e) => setShippingNotes(e.target.value)}
+                        className="bg-[#08130E] border-[#1B362A] text-white text-xs"
+                      />
+                    </div>
                   </CardContent>
                 </Card>
 
@@ -493,10 +463,8 @@ export function StorefrontCheckoutClient({ settings = DEFAULT_SYSTEM_SETTINGS }:
                     <div className="space-y-3 max-h-64 overflow-y-auto pr-1">
                       {items.map((item) => (
                         <div key={item.id} className="flex items-center justify-between gap-3 text-xs pb-2 border-b border-[#1B362A]/60">
-                          <div className="min-w-0">
-                            <div className="font-bold text-white truncate font-serif">
-                              {item.name}
-                            </div>
+                          <div>
+                            <div className="font-bold text-white font-serif">{item.name}</div>
                             <div className="text-[10px] text-zinc-400 font-mono">
                               {item.quantity}x {item.format}
                             </div>
@@ -517,7 +485,7 @@ export function StorefrontCheckoutClient({ settings = DEFAULT_SYSTEM_SETTINGS }:
                       <div className="flex justify-between text-xs text-zinc-400">
                         <span>Envío:</span>
                         <span className="text-emerald-400 font-semibold">
-                          {deliveryMethod === 'pickup' ? 'Gratis (Retiro)' : 'A convenir'}
+                          {deliveryMethod === 'pickup' ? 'Gratis (Retiro en Local)' : 'A coordinar'}
                         </span>
                       </div>
                       <div className="flex justify-between text-base pt-3 border-t border-[#1B362A] font-bold">
@@ -539,22 +507,22 @@ export function StorefrontCheckoutClient({ settings = DEFAULT_SYSTEM_SETTINGS }:
                     <Button
                       type="submit"
                       disabled={submitting || items.length === 0}
-                      className="w-full h-12 bg-[#D0A96B] hover:bg-[#E5C158] text-[#08130E] font-black text-xs uppercase tracking-wider cursor-pointer shadow-xl shadow-[#D0A96B]/20 flex items-center justify-center gap-2"
+                      className="w-full h-14 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white font-black text-sm uppercase tracking-wider cursor-pointer shadow-xl shadow-emerald-600/25 flex items-center justify-center gap-2 rounded-xl transition-all"
                     >
                       {submitting ? (
                         <>
-                          <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> Procesando Pedido...
+                          <RefreshCw className="mr-2 h-5 w-5 animate-spin" /> Procesando Pedido...
                         </>
                       ) : (
                         <>
-                          <CheckCircle2 className="mr-2 h-4 w-4" /> Confirmar y Generar Pedido
+                          <MessageCircle className="mr-2 h-5 w-5 fill-current" /> Finalizar Pedido por WhatsApp 📲
                         </>
                       )}
                     </Button>
 
                     <div className="flex items-center justify-center gap-2 text-[10px] text-zinc-400">
                       <ShieldCheck className="h-3.5 w-3.5 text-emerald-400" />
-                      <span>Tus datos están protegidos y encriptados.</span>
+                      <span>Compra 100% segura y directa con {settings.trade_name}.</span>
                     </div>
                   </CardFooter>
                 </Card>

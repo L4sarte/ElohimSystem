@@ -514,3 +514,79 @@ export async function getSupplies(role?: UserRole): Promise<{
     return { success: false, error: msg };
   }
 }
+
+/**
+ * Subir imagen de producto optimizada (WebP) a Supabase Storage bucket 'product-images' (Solo Admin).
+ */
+export async function uploadProductImage(
+  formData: FormData
+): Promise<{ success: boolean; url?: string; fileName?: string; error?: string }> {
+  try {
+    await requireAdmin();
+
+    const file = formData.get('image') as File | null;
+    const productId = formData.get('productId') as string | null;
+    const sku = formData.get('sku') as string | null;
+
+    if (!file) {
+      return { success: false, error: 'No se envió ningún archivo de imagen.' };
+    }
+
+    if (!isSupabaseConfigured()) {
+      return {
+        success: true,
+        url: 'https://images.unsplash.com/photo-1592945403244-b3fbafd7f539?auto=format&fit=crop&q=80&w=800',
+        fileName: 'mock-image.webp',
+      };
+    }
+
+    const supabase = getServiceSupabase();
+
+    // Generar nombre de archivo único
+    const timestamp = Date.now();
+    const cleanId = (productId || sku || 'prod').replace(/[^a-zA-Z0-9_-]/g, '');
+    const fileName = `${cleanId}-${timestamp}.webp`;
+
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+
+    // Subir a Storage
+    const { error: uploadError } = await supabase.storage
+      .from('product-images')
+      .upload(fileName, buffer, {
+        contentType: 'image/webp',
+        upsert: true,
+      });
+
+    if (uploadError) {
+      console.error('[UPLOAD_PRODUCT_IMAGE_ERROR]:', uploadError);
+      return { success: false, error: `Error al subir imagen: ${uploadError.message}` };
+    }
+
+    const { data: publicUrlData } = supabase.storage
+      .from('product-images')
+      .getPublicUrl(fileName);
+
+    const publicUrl = publicUrlData.publicUrl;
+
+    // Si se especificó un productId, guardar también bajo el id fijo para consulta directa
+    if (productId) {
+      await supabase.storage
+        .from('product-images')
+        .upload(`${productId}.webp`, buffer, {
+          contentType: 'image/webp',
+          upsert: true,
+        });
+    }
+
+    return {
+      success: true,
+      url: publicUrl,
+      fileName,
+    };
+  } catch (error: unknown) {
+    console.error('Error en uploadProductImage:', error);
+    const msg = error instanceof Error ? error.message : 'Error al procesar la subida de imagen';
+    return { success: false, error: msg };
+  }
+}

@@ -36,11 +36,21 @@ export function ProductDetailClient({
 
   const isDecant = product.type === 'decant_liquid';
   const exchangeRate = 1200;
-  const priceUsd = (product.base_price_ars / exchangeRate).toFixed(1);
+
+  // Recálculo dinámico de precio según el formato seleccionado (Botella vs Decants 5ml / 10ml)
+  const currentOption = decantsAvailable.find((d) => d.size === selectedFormat) || {
+    size: selectedFormat,
+    ml: product.volume_ml || 100,
+    priceArs: product.base_price_ars,
+    stock: product.stock_quantity,
+  };
+
+  const activePriceArs = currentOption.priceArs;
+  const priceUsd = (activePriceArs / exchangeRate).toFixed(1);
 
   const handleAddToCart = () => {
-    if (product.stock_quantity <= 0) {
-      toast.error('Producto sin stock disponible.');
+    if (currentOption.stock <= 0) {
+      toast.error('Formato seleccionado sin stock disponible.');
       return;
     }
 
@@ -49,13 +59,13 @@ export function ProductDetailClient({
       name: product.name,
       brand: product.brand,
       format: selectedFormat,
-      priceArs: product.base_price_ars,
+      priceArs: activePriceArs,
       quantity,
-      maxStock: product.stock_quantity,
+      maxStock: currentOption.stock,
       sku: product.sku,
     });
 
-    toast.success(`¡"${product.name}" (${quantity} ud) agregado al carrito!`);
+    toast.success(`¡"${product.name}" (${selectedFormat} x${quantity}) agregado al carrito!`);
     openDrawer();
   };
 
@@ -63,7 +73,7 @@ export function ProductDetailClient({
   const getWhatsAppDirectLink = () => {
     const rawPhone = settings.phone || '5491155550199';
     const cleanPhone = rawPhone.replace(/[^0-9]/g, '');
-    const priceText = product.base_price_ars.toLocaleString('es-AR');
+    const priceText = activePriceArs.toLocaleString('es-AR');
     const msg = `¡Hola ${settings.trade_name}! Estoy viendo el perfume *${product.name}* (${product.brand} - ${selectedFormat}) a *$${priceText} ARS* en la tienda online y quiero coordinar mi compra.`;
     return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`;
   };
@@ -99,20 +109,28 @@ export function ProductDetailClient({
           {/* COLUMNA IZQUIERDA: IMAGEN & PIRÁMIDE OLFATIVA */}
           <div className="space-y-6">
             
-            {/* CAJA PRINCIPAL DE LA BOTELLA */}
-            <div className="relative aspect-square w-full rounded-2xl bg-gradient-to-br from-[#13261E] via-[#08130E] to-[#1B362A]/40 border border-[#1B362A] flex items-center justify-center p-12 overflow-hidden shadow-2xl">
-              <div className="flex flex-col items-center justify-center text-center space-y-3">
-                <div className="h-28 w-28 rounded-2xl bg-[#13261E] border-2 border-[#D0A96B]/40 flex items-center justify-center text-[#D0A96B] shadow-2xl">
-                  {isDecant ? (
-                    <Droplet className="h-14 w-14 text-blue-400" />
-                  ) : (
-                    <Package className="h-14 w-14 text-[#D0A96B]" />
-                  )}
+            {/* CAJA PRINCIPAL DE LA BOTELLA / IMAGEN */}
+            <div className="relative aspect-square w-full rounded-2xl bg-gradient-to-br from-[#13261E] via-[#08130E] to-[#1B362A]/40 border border-[#1B362A] flex items-center justify-center overflow-hidden shadow-2xl">
+              {product.image_url ? (
+                <img
+                  src={product.image_url}
+                  alt={product.name}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="flex flex-col items-center justify-center text-center space-y-3 p-12">
+                  <div className="h-28 w-28 rounded-2xl bg-[#13261E] border-2 border-[#D0A96B]/40 flex items-center justify-center text-[#D0A96B] shadow-2xl">
+                    {isDecant ? (
+                      <Droplet className="h-14 w-14 text-blue-400" />
+                    ) : (
+                      <Package className="h-14 w-14 text-[#D0A96B]" />
+                    )}
+                  </div>
+                  <div className="text-xs font-mono text-zinc-400 tracking-widest uppercase">
+                    {product.volume_ml ? `${product.volume_ml} ML` : 'NICHE PERFUMERY'}
+                  </div>
                 </div>
-                <div className="text-xs font-mono text-zinc-400 tracking-widest uppercase">
-                  {product.volume_ml ? `${product.volume_ml} ML` : 'NICHE PERFUMERY'}
-                </div>
-              </div>
+              )}
 
               {/* BADGES EN LA IMAGEN */}
               <div className="absolute top-4 left-4 flex flex-col gap-1.5">

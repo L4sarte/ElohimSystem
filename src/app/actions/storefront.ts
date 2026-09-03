@@ -77,19 +77,40 @@ export async function getPublicCatalog(filters?: CatalogFilters): Promise<{
     const { data, error } = await query;
     if (error) throw error;
 
-    let products: PublicProduct[] = (data || []).map((p: any) => ({
-      id: p.id,
-      sku: p.sku || '',
-      name: p.name || 'Sin nombre',
-      brand: p.brand || 'Elohim',
-      type: p.type || 'bottle',
-      olfactory_family: p.olfactory_family || null,
-      olfactory_notes: Array.isArray(p.olfactory_notes) ? p.olfactory_notes : null,
-      base_price_ars: Number(p.base_price_ars || 0),
-      stock_quantity: Number(p.stock_quantity || 0),
-      volume_ml: p.volume_ml ? Number(p.volume_ml) : null,
-      created_at: p.created_at || undefined,
-    }));
+    // Obtener imágenes disponibles en Storage bucket 'product-images'
+    let storageImageNames = new Set<string>();
+    try {
+      const { data: storageFiles } = await supabase.storage.from('product-images').list();
+      if (storageFiles) {
+        storageImageNames = new Set(storageFiles.map((f) => f.name));
+      }
+    } catch {
+      // Continuar si storage list falla
+    }
+
+    let products: PublicProduct[] = (data || []).map((p: any) => {
+      let imageUrl: string | null = null;
+      if (storageImageNames.has(`${p.id}.webp`)) {
+        imageUrl = supabase.storage.from('product-images').getPublicUrl(`${p.id}.webp`).data.publicUrl;
+      } else if (storageImageNames.has(`${p.sku}.webp`)) {
+        imageUrl = supabase.storage.from('product-images').getPublicUrl(`${p.sku}.webp`).data.publicUrl;
+      }
+
+      return {
+        id: p.id,
+        sku: p.sku || '',
+        name: p.name || 'Sin nombre',
+        brand: p.brand || 'Elohim',
+        type: p.type || 'bottle',
+        olfactory_family: p.olfactory_family || null,
+        olfactory_notes: Array.isArray(p.olfactory_notes) ? p.olfactory_notes : null,
+        base_price_ars: Number(p.base_price_ars || 0),
+        stock_quantity: Number(p.stock_quantity || 0),
+        volume_ml: p.volume_ml ? Number(p.volume_ml) : null,
+        image_url: imageUrl,
+        created_at: p.created_at || undefined,
+      };
+    });
 
     // Búsqueda por texto en memoria (en nombre, marca, notas)
     if (filters?.query && filters.query.trim()) {
@@ -394,14 +415,13 @@ export async function createOnlineOrder(payload: CreateOnlineOrderInput): Promis
     const saleId = saleData.id;
     const orderNumber = saleId.slice(0, 8).toUpperCase();
 
-    // 6. Insertar ítems en sale_items
+    // 6. Insertar ítems en sale_items (con nombres de columna válidos en Supabase)
     const saleItemsPayload = validatedItems.map((item) => ({
       sale_id: saleId,
       product_id: item.product_id,
       quantity: item.quantity,
-      price_ars: item.unit_price_ars,
-      price_usd: new Decimal(item.unit_price_ars).dividedBy(exchangeRate).round().toNumber(),
-      total_ars: item.total_price_ars,
+      price_ars_at_moment: item.unit_price_ars,
+      price_usd_at_moment: new Decimal(item.unit_price_ars).dividedBy(exchangeRate).round().toNumber(),
     }));
 
     const { error: itemsErr } = await supabase
@@ -443,6 +463,277 @@ export async function createOnlineOrder(payload: CreateOnlineOrderInput): Promis
   }
 }
 
+export interface CreateWhatsAppOrderInput {
+  client_name: string;
+  client_phone: string;
+  client_email?: string;
+  delivery_method: 'shipping' | 'pickup';
+  shipping_address?: string;
+  shipping_city?: string;
+  shipping_postal_code?: string;
+  shipping_notes?: string;
+  items: Array<{
+    product_id: string;
+    quantity: number;
+    format?: string;
+  }>;
+}
+
+export interface CreateWhatsAppOrderResult {
+  success: boolean;
+  orderId?: string;
+  orderNumber?: string;
+  totalArs?: number;
+  whatsAppUrl?: string;
+  whatsAppMessage?: string;
+  storePhone?: string;
+  error?: string;
+}
+
+/**
+ * Registra un pedido B2C enfocado en WhatsApp en el ERP y construye el mensaje y enlace wa.me oficial.
+ */
+export async function createWhatsAppOrderAction(
+  payload: CreateWhatsAppOrderInput
+): Promise<CreateWhatsAppOrderResult> {
+  try {
+    if (!payload.client_name || !payload.client_name.trim()) {
+      return { success: false, error: 'Por favor ingresa tu nombre y apellido.' };
+    }
+    if (!payload.client_phone || !payload.client_phone.trim()) {
+      return { success: false, error: 'Por favor ingresa tu número de WhatsApp.' };
+    }
+    if (!payload.items || payload.items.length === 0) {
+      return { success: false, error: 'El carrito de compras está vacío.' };
+    }
+
+    const settingsRes = await getSystemSettings();
+    const settings = settingsRes.data;
+    const storeName = settings?.trade_name || settings?.company_name || 'ELOHIM IMPORT';
+    const rawStorePhone = settings?.phone || '+54 9 3472 438524';
+    const cleanStorePhone = rawStorePhone.replace(/[^0-9]/g, '');
+
+    const currentYear = new Date().getFullYear();
+    const randCode = Math.random().toString(36).substring(2, 7).toUpperCase();
+    const orderNumber = `#ORD-${currentYear}-${randCode}`;
+
+    if (!isSupabaseConfigured()) {
+      const mockTotal = 75000;
+      const mockItemsText = payload.items.map((i) => `• ${i.quantity}x Fragancia (${i.format || 'Original'})`).join('\n');
+      const mockMsg = `✨ *NUEVO PEDIDO - ${storeName.toUpperCase()}* ✨\n📋 *Orden:* ${orderNumber}\n👤 *Cliente:* ${payload.client_name}\n📱 *Teléfono:* ${payload.client_phone}\n📍 *Entrega:* ${payload.delivery_method === 'pickup' ? 'Retiro en Showroom' : `Envío a Domicilio (${payload.shipping_address || ''}, ${payload.shipping_city || ''})`}\n\n🛍️ *DETALLE DEL PEDIDO:*\n${mockItemsText}\n\n💵 *TOTAL A PAGAR:* $${mockTotal.toLocaleString('es-AR')} ARS\n\n¡Hola! Quiero confirmar este pedido y coordinar el pago/envío.`;
+      const mockUrl = `https://wa.me/${cleanStorePhone}?text=${encodeURIComponent(mockMsg)}`;
+
+      return {
+        success: true,
+        orderId: 'mock-order-' + randCode,
+        orderNumber,
+        totalArs: mockTotal,
+        whatsAppUrl: mockUrl,
+        whatsAppMessage: mockMsg,
+        storePhone: cleanStorePhone,
+      };
+    }
+
+    const supabase = getServiceSupabase();
+
+    // 1. Validar productos y stock en el inventario
+    const productIds = payload.items.map((i) => i.product_id);
+    const { data: dbProducts, error: prodErr } = await supabase
+      .from('products')
+      .select('id, name, brand, base_price_ars, stock_quantity, type, volume_ml')
+      .in('id', productIds);
+
+    if (prodErr || !dbProducts || dbProducts.length === 0) {
+      return { success: false, error: 'No se pudieron consultar los productos en inventario.' };
+    }
+
+    const prodMap = new Map(dbProducts.map((p) => [p.id, p]));
+    let totalArsDecimal = new Decimal(0);
+    const orderLines: Array<{
+      product_id: string;
+      name: string;
+      brand: string;
+      format: string;
+      quantity: number;
+      unit_price_ars: number;
+      subtotal_ars: number;
+    }> = [];
+
+    for (const it of payload.items) {
+      const p = prodMap.get(it.product_id);
+      if (!p) {
+        return { success: false, error: 'Uno de los productos seleccionados ya no está disponible.' };
+      }
+
+      if (p.stock_quantity < it.quantity) {
+        return {
+          success: false,
+          error: `Stock insuficiente para "${p.name}". Disponibles: ${p.stock_quantity} unidades.`,
+        };
+      }
+
+      const unitPrice = new Decimal(p.base_price_ars || 0);
+      const subtotal = unitPrice.times(it.quantity);
+      totalArsDecimal = totalArsDecimal.plus(subtotal);
+
+      const formatLabel = it.format || (p.type === 'decant_liquid' ? 'Decant' : `${p.volume_ml || 100}ml`);
+
+      orderLines.push({
+        product_id: p.id,
+        name: p.name,
+        brand: p.brand,
+        format: formatLabel,
+        quantity: it.quantity,
+        unit_price_ars: unitPrice.toNumber(),
+        subtotal_ars: subtotal.toNumber(),
+      });
+    }
+
+    const grandTotalArs = totalArsDecimal.toNumber();
+    const exchangeRate = 1200;
+    const grandTotalUsd = totalArsDecimal.dividedBy(exchangeRate).round().toNumber();
+
+    // 2. Cliente CRM
+    let clientId: string | null = null;
+    const cleanClientPhone = payload.client_phone.trim();
+    const { data: existingClient } = await supabase
+      .from('clients')
+      .select('id')
+      .eq('phone', cleanClientPhone)
+      .maybeSingle();
+
+    if (existingClient?.id) {
+      clientId = existingClient.id;
+    } else {
+      const { data: newClient } = await supabase
+        .from('clients')
+        .insert([
+          {
+            name: payload.client_name.trim(),
+            phone: cleanClientPhone,
+            email: payload.client_email?.trim() || null,
+            points_balance: 0,
+          },
+        ])
+        .select('id')
+        .single();
+      if (newClient?.id) clientId = newClient.id;
+    }
+
+    // 3. Crear registro en sales (canal 'whatsapp_store')
+    const orderMetadata = {
+      order_number: orderNumber,
+      channel: 'whatsapp_store',
+      delivery_method: payload.delivery_method,
+      shipping_address: payload.shipping_address || null,
+      shipping_city: payload.shipping_city || null,
+      shipping_postal_code: payload.shipping_postal_code || null,
+      shipping_notes: payload.shipping_notes || null,
+      client_name: payload.client_name.trim(),
+      client_phone: cleanClientPhone,
+      client_email: payload.client_email?.trim() || null,
+      items_detail: orderLines,
+    };
+
+    const { data: saleData, error: saleErr } = await supabase
+      .from('sales')
+      .insert([
+        {
+          client_id: clientId,
+          total_ars: grandTotalArs,
+          total_usd_equivalent: grandTotalUsd,
+          exchange_rate_used: exchangeRate,
+          payment_methods: orderMetadata,
+          channel: 'whatsapp_store',
+          payment_status: 'pending',
+          status: 'pending_payment',
+        },
+      ])
+      .select('id')
+      .single();
+
+    if (saleErr || !saleData) {
+      console.error('Error al registrar orden en sales:', saleErr);
+      return { success: false, error: 'Error al registrar el pedido en el sistema.' };
+    }
+
+    const saleId = saleData.id;
+
+    // 4. Insertar ítems en sale_items
+    const saleItemsPayload = orderLines.map((line) => ({
+      sale_id: saleId,
+      product_id: line.product_id,
+      quantity: line.quantity,
+      price_ars_at_moment: line.unit_price_ars,
+      price_usd_at_moment: new Decimal(line.unit_price_ars).dividedBy(exchangeRate).round().toNumber(),
+    }));
+
+    const { error: itemsErr } = await supabase.from('sale_items').insert(saleItemsPayload);
+    if (itemsErr) {
+      console.error('Error al insertar sale_items:', itemsErr);
+    }
+
+    // 5. Descontar stock
+    for (const line of orderLines) {
+      const p = prodMap.get(line.product_id);
+      if (p) {
+        const newStock = Math.max(0, p.stock_quantity - line.quantity);
+        await supabase.from('products').update({ stock_quantity: newStock }).eq('id', line.product_id);
+      }
+    }
+
+    // 6. Armar mensaje estructurado de WhatsApp
+    const deliveryText =
+      payload.delivery_method === 'pickup'
+        ? 'Retiro en Showroom'
+        : `Envío a Domicilio (${payload.shipping_address || 'Sin dirección'}${payload.shipping_city ? `, ${payload.shipping_city}` : ''}${payload.shipping_postal_code ? ` - CP: ${payload.shipping_postal_code}` : ''})`;
+
+    const itemsSummary = orderLines
+      .map(
+        (l) =>
+          `• ${l.quantity}x ${l.name} (${l.format}) - $${l.subtotal_ars.toLocaleString('es-AR')}${l.quantity > 1 ? ` ($${l.unit_price_ars.toLocaleString('es-AR')} c/u)` : ''}`
+      )
+      .join('\n');
+
+    const notesBlock = payload.shipping_notes?.trim()
+      ? `\n📝 *Notas:* ${payload.shipping_notes.trim()}\n`
+      : '\n';
+
+    const whatsAppMessage = `✨ *NUEVO PEDIDO - ${storeName.toUpperCase()}* ✨
+📋 *Orden:* ${orderNumber}
+👤 *Cliente:* ${payload.client_name.trim()}
+📱 *Teléfono:* ${cleanClientPhone}
+📍 *Entrega:* ${deliveryText}${notesBlock}
+🛍️ *DETALLE DEL PEDIDO:*
+${itemsSummary}
+
+💵 *TOTAL A PAGAR:* $${grandTotalArs.toLocaleString('es-AR')} ARS
+
+¡Hola! Quiero confirmar este pedido y coordinar el pago/envío.`;
+
+    const whatsAppUrl = `https://wa.me/${cleanStorePhone}?text=${encodeURIComponent(whatsAppMessage)}`;
+
+    revalidatePath('/tienda');
+    revalidatePath('/kanban');
+    revalidatePath('/gestion/pedidos');
+    revalidatePath('/admin/ventas');
+
+    return {
+      success: true,
+      orderId: saleId,
+      orderNumber,
+      totalArs: grandTotalArs,
+      whatsAppUrl,
+      whatsAppMessage,
+      storePhone: cleanStorePhone,
+    };
+  } catch (err: unknown) {
+    console.error('Error en createWhatsAppOrderAction:', err);
+    const msg = err instanceof Error ? err.message : 'Error al procesar pedido por WhatsApp';
+    return { success: false, error: msg };
+  }
+}
+
 /**
  * Consultar un pedido público por ID para la pantalla de confirmación / seguimiento.
  */
@@ -475,7 +766,7 @@ export async function getPublicOrder(id: string): Promise<{
     const supabase = getServiceSupabase();
     const { data: sale, error: saleErr } = await supabase
       .from('sales')
-      .select('id, created_at, total_ars, payment_status, status, payment_methods, sale_items(id, product_id, quantity, price_ars, total_ars, products(name, brand))')
+      .select('id, created_at, total_ars, payment_status, status, payment_methods, sale_items(id, product_id, quantity, price_ars_at_moment, products(name, brand))')
       .eq('id', id)
       .maybeSingle();
 
@@ -484,25 +775,26 @@ export async function getPublicOrder(id: string): Promise<{
     }
 
     const settingsRes = await getSystemSettings();
+    const meta = (sale.payment_methods as Record<string, any>) || {};
 
     const items = ((sale as any).sale_items || []).map((si: any) => ({
       id: si.id,
       name: si.products?.name || 'Perfume',
       brand: si.products?.brand || 'Elohim',
       quantity: Number(si.quantity || 1),
-      priceArs: Number(si.price_ars || 0),
-      totalArs: Number(si.total_ars || 0),
+      priceArs: Number(si.price_ars_at_moment || 0),
+      totalArs: Number(si.quantity || 1) * Number(si.price_ars_at_moment || 0),
     }));
 
     return {
       success: true,
       data: {
         id: sale.id,
-        orderNumber: sale.id.slice(0, 8).toUpperCase(),
+        orderNumber: meta.order_number || sale.id.slice(0, 8).toUpperCase(),
         createdAt: sale.created_at,
         totalArs: Number(sale.total_ars || 0),
         paymentStatus: sale.payment_status || sale.status || 'pending',
-        metadata: (sale.payment_methods as Record<string, any>) || {},
+        metadata: meta,
         items,
         storeSettings: settingsRes.data,
       },

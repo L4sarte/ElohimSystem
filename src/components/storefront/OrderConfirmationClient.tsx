@@ -50,24 +50,34 @@ export function OrderConfirmationClient({ order }: OrderConfirmationClientProps)
     minute: '2-digit',
   });
 
-  // Generar mensaje de WhatsApp preformateado para enviar comprobante
+  // Generar mensaje de WhatsApp estructurado oficial
   const getWhatsAppConfirmationLink = () => {
-    const rawPhone = settings.phone || '5491155550199';
+    const rawPhone = settings.phone || '5493472438524';
     const cleanPhone = rawPhone.replace(/[^0-9]/g, '');
     const clientName = meta.client_name || 'Cliente';
+    const clientPhone = meta.client_phone || '';
     const totalText = order.totalArs.toLocaleString('es-AR');
+
+    const deliveryText =
+      meta.delivery_method === 'pickup'
+        ? 'Retiro en Showroom'
+        : `Envío a Domicilio (${meta.shipping_address || 'Sin dirección'}${meta.shipping_city ? `, ${meta.shipping_city}` : ''}${meta.shipping_postal_code ? ` - CP: ${meta.shipping_postal_code}` : ''})`;
 
     const itemsSummary = order.items
       .map((i) => `• ${i.quantity}x ${i.name} ($${i.totalArs.toLocaleString('es-AR')})`)
       .join('\n');
 
-    const message = `¡Hola ${settings.trade_name}! 👋\nAcabo de realizar el pedido *#${order.orderNumber}* a nombre de *${clientName}* por un total de *$${totalText} ARS*.\n\n*Detalle del Pedido:*\n${itemsSummary}\n\nAdjunto el comprobante de mi pago para confirmar la compra. ¿Me confirman cuando lo reciban? ¡Muchas gracias!`;
+    const notesBlock = meta.shipping_notes
+      ? `\n📝 *Notas:* ${meta.shipping_notes}\n`
+      : '\n';
+
+    const message = `✨ *NUEVO PEDIDO - ${(settings.trade_name || 'ELOHIM IMPORT').toUpperCase()}* ✨\n📋 *Orden:* #${order.orderNumber}\n👤 *Cliente:* ${clientName}\n📱 *Teléfono:* ${clientPhone}\n📍 *Entrega:* ${deliveryText}${notesBlock}\n🛍️ *DETALLE DEL PEDIDO:*\n${itemsSummary}\n\n💵 *TOTAL A PAGAR:* $${totalText} ARS\n\n¡Hola! Quiero confirmar este pedido y coordinar el pago/envío.`;
 
     return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
   };
 
-  const isTransfer = meta.payment_method === 'transfer';
   const isPickup = meta.delivery_method === 'pickup';
+  const isTransfer = meta.payment_method === 'transfer' || !meta.payment_method || Boolean(settings.bank_alias);
 
   return (
     <div className="min-h-screen bg-[#08130E] text-zinc-100 flex flex-col font-sans selection:bg-[#D0A96B]/30 selection:text-[#E5C158]">
@@ -107,10 +117,10 @@ export function OrderConfirmationClient({ order }: OrderConfirmationClientProps)
               href={getWhatsAppConfirmationLink()}
               target="_blank"
               rel="noopener noreferrer"
-              className="w-full flex items-center justify-center gap-2.5 h-12 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs uppercase tracking-wider shadow-lg shadow-emerald-600/20 transition-all cursor-pointer"
+              className="w-full flex items-center justify-center gap-2.5 h-13 py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs uppercase tracking-wider shadow-lg shadow-emerald-600/20 transition-all cursor-pointer"
             >
-              <MessageCircle className="h-4.5 w-4.5" />
-              <span>Enviar Comprobante por WhatsApp</span>
+              <MessageCircle className="h-5 w-5 fill-current" />
+              <span>Abrir Conversación en WhatsApp 📲</span>
             </a>
           </div>
         </div>

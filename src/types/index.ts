@@ -34,6 +34,7 @@ export interface Product {
   base_price_ars: number;     // Precio de venta base (ARS)
   stock_quantity: number;     // Cantidad de stock (unidades para bottle/supply, ml para decant_liquid)
   volume_ml?: number;         // Capacidad en ml (opcional para botellas)
+  image_url?: string;         // URL de imagen optimizada en WebP
   created_at: string;
 }
 
