@@ -1,11 +1,12 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useSupplyChainStore } from '@/store/supplyChainStore';
 import { PurchaseOrder, CheckInItemPayload } from '@/types/supplyChain';
+import { getTreasuryAccounts, TreasuryAccount } from '@/app/actions/treasury';
 import { 
   PackageCheck, AlertTriangle, RefreshCw, X, CheckCircle, 
-  DollarSign, ArrowUpRight, ShieldCheck, Box
+  DollarSign, ArrowUpRight, ShieldCheck, Box, Wallet, Calendar
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card';
@@ -29,6 +30,30 @@ export function CheckInModal({ order, isOpen, onClose }: CheckInModalProps) {
 
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+
+  // Estados financieros de tesorería y condición de pago
+  const [treasuryAccounts, setTreasuryAccounts] = useState<TreasuryAccount[]>([]);
+  const [loadingAccounts, setLoadingAccounts] = useState(false);
+  const [paymentType, setPaymentType] = useState<'immediate' | 'cxp'>('immediate');
+  const [selectedTreasuryAccountId, setSelectedTreasuryAccountId] = useState<string>('');
+  const [dueDate, setDueDate] = useState<string>(() => {
+    const d = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+    return d.toISOString().split('T')[0];
+  });
+
+  useEffect(() => {
+    if (!isOpen) return;
+    async function loadAccounts() {
+      setLoadingAccounts(true);
+      const res = await getTreasuryAccounts();
+      if (res.success && res.data && res.data.length > 0) {
+        setTreasuryAccounts(res.data);
+        setSelectedTreasuryAccountId(res.data[0].id);
+      }
+      setLoadingAccounts(false);
+    }
+    loadAccounts();
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -55,6 +80,13 @@ export function CheckInModal({ order, isOpen, onClose }: CheckInModalProps) {
   // Gasto logístico prorrateado por unidad ingresada
   const expensePerUnit = totalUnitsReceived > 0 ? totalExpenses / totalUnitsReceived : 0;
 
+  // Total estimado de mercadería y orden
+  const totalMerchandiseCost = receivedItems.reduce((sum, item) => {
+    const origItem = order.items?.find(i => i.id === item.item_id);
+    return sum + (Number(item.received_quantity || 0) * Number(origItem?.unit_cost || 0));
+  }, 0);
+  const grandTotalEstimated = totalMerchandiseCost + totalExpenses;
+
   const handleConfirmStockIngress = async () => {
     setErrorMsg(null);
     setSuccessMsg(null);
@@ -76,9 +108,23 @@ export function CheckInModal({ order, isOpen, onClose }: CheckInModalProps) {
       return;
     }
 
+    if (paymentType === 'immediate' && !selectedTreasuryAccountId) {
+      setErrorMsg('Debe seleccionar una cuenta de tesorería de origen para el pago al contado.');
+      return;
+    }
+
     try {
-      await confirmCheckIn(order.id, cleanedPayload);
-      setSuccessMsg('¡Mercadería ingresada exitosamente! El stock y costo promedio fueron actualizados.');
+      await confirmCheckIn(order.id, cleanedPayload, {
+        isPaid: paymentType === 'immediate',
+        treasuryAccountId: paymentType === 'immediate' ? selectedTreasuryAccountId : undefined,
+        dueDate: paymentType === 'cxp' ? dueDate : null,
+      });
+
+      setSuccessMsg(
+        paymentType === 'immediate'
+          ? '¡Mercadería ingresada exitosamente! Fondos debitados contablemente de la cuenta de tesorería.'
+          : '¡Mercadería ingresada exitosamente! Registrada en Cuentas por Pagar (CxP) pendiente de liquidación.'
+      );
       setTimeout(() => {
         onClose();
       }, 1500);
@@ -227,6 +273,126 @@ export function CheckInModal({ order, isOpen, onClose }: CheckInModalProps) {
                 +${expensePerUnit.toLocaleString('es-AR', { minimumFractionDigits: 2 })} / unidad
               </span>
             </div>
+          </div>
+
+          {/* CONDICIÓN FINANCIERA & IMPUTACIÓN DE PAGO EN TESORERÍA */}
+          <div className="p-4 rounded-xl border border-slate-200 dark:border-[#1B362A] bg-slate-50/70 dark:bg-[#08130E]/80 space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-zinc-200 flex items-center gap-1.5">
+                <Wallet className="h-4 w-4 text-[#D0A96B]" />
+                Condición Financiera & Pago a Proveedor
+              </span>
+              <span className="text-xs font-mono font-black text-emerald-600 dark:text-emerald-400">
+                Total a liquidar: ${grandTotalEstimated.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Opción A: Pagado al Contado / Inmediato */}
+              <label 
+                className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
+                  paymentType === 'immediate'
+                    ? 'border-emerald-500 bg-emerald-500/10 text-slate-900 dark:text-white shadow-sm'
+                    : 'border-slate-200 dark:border-[#1B362A] hover:bg-slate-100 dark:hover:bg-[#13261E] text-slate-600 dark:text-zinc-400'
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="paymentType"
+                  value="immediate"
+                  checked={paymentType === 'immediate'}
+                  onChange={() => setPaymentType('immediate')}
+                  className="mt-0.5 accent-emerald-500"
+                />
+                <div className="text-xs">
+                  <span className="font-bold block text-emerald-700 dark:text-emerald-400">
+                    Pagado al Contado / Inmediato
+                  </span>
+                  <span className="text-[10px] text-slate-500 dark:text-zinc-400 block mt-0.5 leading-snug">
+                    Descuenta los fondos automáticamente de la cuenta de tesorería hoy.
+                  </span>
+                </div>
+              </label>
+
+              {/* Opción B: Pendiente de Pago (CxP) */}
+              <label 
+                className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
+                  paymentType === 'cxp'
+                    ? 'border-amber-500 bg-amber-500/10 text-slate-900 dark:text-white shadow-sm'
+                    : 'border-slate-200 dark:border-[#1B362A] hover:bg-slate-100 dark:hover:bg-[#13261E] text-slate-600 dark:text-zinc-400'
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="paymentType"
+                  value="cxp"
+                  checked={paymentType === 'cxp'}
+                  onChange={() => setPaymentType('cxp')}
+                  className="mt-0.5 accent-amber-500"
+                />
+                <div className="text-xs">
+                  <span className="font-bold block text-amber-700 dark:text-amber-400">
+                    Pendiente de Pago (CxP)
+                  </span>
+                  <span className="text-[10px] text-slate-500 dark:text-zinc-400 block mt-0.5 leading-snug">
+                    Registra la orden como deuda exigible sin debitar tesorería hoy.
+                  </span>
+                </div>
+              </label>
+            </div>
+
+            {/* Selector de Cuenta de Tesorería */}
+            {paymentType === 'immediate' && (
+              <div className="space-y-1.5 pt-1">
+                <div className="flex items-center justify-between">
+                  <label className="text-[11px] font-bold text-slate-600 dark:text-zinc-400 uppercase">
+                    Cuenta Financiera de Tesorería (Origen del Egreso) *
+                  </label>
+                  {loadingAccounts && (
+                    <span className="text-[10px] text-slate-400 flex items-center gap-1">
+                      <RefreshCw className="h-3 w-3 animate-spin" /> Cargando cuentas...
+                    </span>
+                  )}
+                </div>
+
+                <select
+                  value={selectedTreasuryAccountId}
+                  onChange={(e) => setSelectedTreasuryAccountId(e.target.value)}
+                  className="w-full h-10 rounded-lg border border-slate-300 dark:border-[#1B362A] bg-white dark:bg-[#08130E] px-3 text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500 font-medium"
+                >
+                  {treasuryAccounts.length === 0 ? (
+                    <option value="">-- No hay cuentas de tesorería activas --</option>
+                  ) : (
+                    treasuryAccounts.map((acc) => (
+                      <option key={acc.id} value={acc.id}>
+                        {acc.account_name} ({acc.account_type === 'bank' ? 'Banco' : acc.account_type === 'wallet' ? 'Billetera' : 'Efectivo'}) — Saldo disponible: ${acc.balance_ars.toLocaleString('es-AR')} ARS
+                      </option>
+                    ))
+                  )}
+                </select>
+                <p className="text-[10px] text-slate-400 leading-snug">
+                  • El egreso se registrará como pago a proveedor, descontando de tesorería sin computarse como gasto OPEX.
+                </p>
+              </div>
+            )}
+
+            {/* Selector de Fecha de Vencimiento para CxP */}
+            {paymentType === 'cxp' && (
+              <div className="space-y-1.5 pt-1">
+                <label className="text-[11px] font-bold text-slate-600 dark:text-zinc-400 uppercase flex items-center gap-1">
+                  <Calendar className="h-3.5 w-3.5 text-amber-500" /> Fecha Límite de Pago a Proveedor (Vencimiento CxP)
+                </label>
+                <input
+                  type="date"
+                  value={dueDate}
+                  onChange={(e) => setDueDate(e.target.value)}
+                  className="w-full h-10 rounded-lg border border-slate-300 dark:border-[#1B362A] bg-white dark:bg-[#08130E] px-3 text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-amber-500 font-mono font-bold"
+                />
+                <p className="text-[10px] text-amber-600/90 dark:text-amber-400/90 leading-snug">
+                  • La orden figurará en la pestaña "Cuentas por Pagar" con botón de liquidación posterior.
+                </p>
+              </div>
+            )}
           </div>
         </div>
 

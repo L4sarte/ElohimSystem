@@ -11,7 +11,8 @@ import {
   Supplier, 
   PurchaseOrder, 
   CreatePOPayload, 
-  CheckInItemPayload 
+  CheckInItemPayload,
+  CheckInPaymentDetails
 } from '@/types/supplyChain';
 
 export class SupplyChainService {
@@ -67,8 +68,12 @@ export class SupplyChainService {
   /**
    * Ejecuta la recepción de la orden de compra llamando a la Server Action de RPC transaccional
    */
-  static async confirmCheckIn(po_id: string, items: CheckInItemPayload[]): Promise<{ success: boolean; message: string }> {
-    const res = await confirmCheckInAction(po_id, items);
+  static async confirmCheckIn(
+    po_id: string, 
+    items: CheckInItemPayload[], 
+    paymentDetails?: CheckInPaymentDetails
+  ): Promise<{ success: boolean; message: string }> {
+    const res = await confirmCheckInAction(po_id, items, paymentDetails);
     if (!res.success) {
       throw new Error(res.error || 'Error al confirmar ingreso a stock');
     }

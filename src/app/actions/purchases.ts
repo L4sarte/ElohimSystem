@@ -2,10 +2,11 @@
 
 import { getServiceSupabase, isSupabaseConfigured } from '@/lib/supabase';
 import { UserRole } from '@/types';
-import { CreatePOPayload, PurchaseOrder, CheckInItemPayload } from '@/types/supplyChain';
+import { CreatePOPayload, PurchaseOrder, CheckInItemPayload, CheckInPaymentDetails } from '@/types/supplyChain';
 import { revalidatePath } from 'next/cache';
 import { requireAdmin } from '@/lib/auth-checks';
 import { purchaseInputSchema } from '@/lib/purchase-validation';
+import { withdrawFromAccount, getTreasuryAccounts } from '@/app/actions/treasury';
 
 export interface PurchaseItemInput {
   product_id: string;
@@ -412,14 +413,15 @@ export async function getPurchaseOrdersByStatusAction(status?: string): Promise<
  */
 export async function confirmCheckInAction(
   poId: string,
-  items: CheckInItemPayload[]
+  items: CheckInItemPayload[],
+  paymentDetails?: CheckInPaymentDetails
 ): Promise<{
   success: boolean;
   message?: string;
   error?: string;
 }> {
   try {
-    await requireAdmin();
+    const adminUser = await requireAdmin();
 
     if (!isSupabaseConfigured()) {
       return { success: true, message: 'Recepción simulada correctamente' };
@@ -432,7 +434,10 @@ export async function confirmCheckInAction(
       .from('purchase_orders')
       .select(`
         id,
+        supplier_id,
         status,
+        notes,
+        created_at,
         suppliers ( name ),
         purchase_order_items (
           id,
@@ -579,12 +584,106 @@ export async function confirmCheckInAction(
     // 7. Actualizar la orden purchase_orders a 'received'
     const grandTotal = totalMerchandiseCost + totalExpenses;
 
+    // 8. Procesamiento Financiero Contable y Deducción de Tesorería
+    const isPaid = paymentDetails ? Boolean(paymentDetails.isPaid) : true;
+    let paymentNote = '';
+    let usedAccountName = '';
+
+    if (isPaid) {
+      // Opción A: Pagado al Contado / Inmediato
+      let targetAccId = paymentDetails?.treasuryAccountId;
+      if (!targetAccId) {
+        const resAcc = await getTreasuryAccounts();
+        if (resAcc.success && resAcc.data && resAcc.data.length > 0) {
+          targetAccId = resAcc.data[0].id;
+          usedAccountName = resAcc.data[0].account_name;
+        }
+      } else {
+        const { data: accData } = await supabase
+          .from('treasury_accounts')
+          .select('account_name')
+          .eq('id', targetAccId)
+          .single();
+        if (accData) usedAccountName = accData.account_name;
+      }
+
+      if (targetAccId && grandTotal > 0) {
+        // Debitar saldo de la cuenta de tesorería seleccionada (sin tocar OPEX)
+        await withdrawFromAccount(targetAccId, grandTotal);
+
+        // Registrar movimiento en treasury_movements (si la tabla existe)
+        try {
+          await supabase.from('treasury_movements').insert({
+            account_id: targetAccId,
+            type: 'EGRESO_COMPRA_PROVEEDOR',
+            amount_ars: grandTotal,
+            description: `Pago a Proveedor ${(po.suppliers as any)?.name || 'B2B'} - Orden #${poId.slice(0, 8).toUpperCase()}`,
+            reference_id: poId,
+          });
+        } catch (tmErr) {
+          console.warn('Nota: Inserción en treasury_movements omitida:', tmErr);
+        }
+      }
+
+      paymentNote = `[PAGADO CONTADO: ${usedAccountName || 'Tesorería'} - $${grandTotal.toLocaleString('es-AR')}]`;
+
+      // Sincronizar en tabla purchases para reflejar en Historial de Compras B2B
+      try {
+        await supabase.from('purchases').upsert({
+          id: poId,
+          supplier_id: po.supplier_id,
+          admin_id: adminUser.id,
+          total_ars: grandTotal,
+          total_usd: 0,
+          status: 'received',
+          payment_status: 'paid',
+          created_at: (po as any).created_at || new Date().toISOString(),
+        });
+      } catch (purErr) {
+        console.warn('Nota: Sincronización en purchases:', purErr);
+      }
+    } else {
+      // Opción B: Pendiente de Pago (Cuentas por Pagar - CxP)
+      const dueDate = paymentDetails?.dueDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+      paymentNote = `[PENDIENTE CxP - Vence: ${dueDate}]`;
+
+      // Sincronizar en tabla purchases como unpaid
+      try {
+        await supabase.from('purchases').upsert({
+          id: poId,
+          supplier_id: po.supplier_id,
+          admin_id: adminUser.id,
+          total_ars: grandTotal,
+          total_usd: 0,
+          status: 'received',
+          payment_status: 'unpaid',
+          created_at: (po as any).created_at || new Date().toISOString(),
+        });
+
+        // Insertar en tabla accounts_payable para impactar el módulo de Deudas Pendientes
+        await supabase.from('accounts_payable').insert({
+          supplier_id: po.supplier_id,
+          purchase_id: poId,
+          total_amount_ars: grandTotal,
+          paid_amount_ars: 0,
+          due_date: dueDate,
+          status: 'pending',
+        });
+      } catch (cxpErr) {
+        console.warn('Nota: Registro en accounts_payable:', cxpErr);
+      }
+    }
+
+    const previousNotes = (po as any).notes;
+    const finalNotes = previousNotes ? `${previousNotes} | ${paymentNote}` : paymentNote;
+
     const { error: updatePoErr } = await supabase
       .from('purchase_orders')
       .update({
         status: 'received',
         total_expenses: totalExpenses,
         grand_total: grandTotal,
+        notes: finalNotes,
         updated_at: new Date().toISOString(),
       })
       .eq('id', poId);
@@ -597,17 +696,23 @@ export async function confirmCheckInAction(
       };
     }
 
-    // 8. Revalidar rutas clave del sistema
+    // 9. Revalidar rutas clave del sistema
     revalidatePath('/compras');
     revalidatePath('/productos');
+    revalidatePath('/admin/finanzas/tesoreria');
+    revalidatePath('/admin/finanzas/cxcobrar');
     revalidatePath('/admin/inventario/kardex');
     revalidatePath('/admin/inventario/insumos');
     revalidatePath('/admin/proveedores');
     revalidatePath('/');
 
+    const financialFeedback = isPaid
+      ? `Fondos de $${grandTotal.toLocaleString('es-AR')} debitados contablemente de ${usedAccountName || 'Tesorería'}.`
+      : `Orden registrada en Cuentas por Pagar (CxP) pendiente de liquidación.`;
+
     return {
       success: true,
-      message: `¡Mercadería ingresada exitosamente! Se sumaron +${totalReceivedUnits} unidades al stock disponible con costo landed actualizado.`,
+      message: `¡Mercadería ingresada exitosamente! Se sumaron +${totalReceivedUnits} unidades al stock. ${financialFeedback}`,
     };
   } catch (error: unknown) {
     console.error('Error en confirmCheckInAction:', error);
@@ -616,6 +721,138 @@ export async function confirmCheckInAction(
       : typeof error === 'object' && error !== null && 'message' in error
         ? String((error as any).message)
         : 'Error inesperado al confirmar ingreso a stock';
+    return { success: false, error: msg };
+  }
+}
+
+export interface RegisterPurchasePaymentInput {
+  purchaseId: string;
+  treasuryAccountId: string;
+  notes?: string;
+}
+
+/**
+ * Registra el pago a proveedor de una orden de compra previamente pendiente (CxP).
+ * Descuenta los fondos contables de la cuenta de tesorería y cancela la deuda.
+ */
+export async function registerPurchasePaymentAction(
+  role: UserRole,
+  input: RegisterPurchasePaymentInput
+): Promise<{ success: boolean; message?: string; error?: string }> {
+  try {
+    const adminUser = await requireAdmin();
+
+    if (!input.purchaseId || !input.treasuryAccountId) {
+      return { success: false, error: 'Debe especificar la orden de compra y la cuenta de tesorería de origen.' };
+    }
+
+    if (!isSupabaseConfigured()) {
+      return { success: true, message: 'Pago registrado en modo simulación' };
+    }
+
+    const supabase = getServiceSupabase();
+
+    // 1. Obtener la orden o compra
+    let totalArs = 0;
+    let supplierName = 'Proveedor';
+    let supplierId = '';
+
+    const { data: po } = await supabase
+      .from('purchase_orders')
+      .select('id, grand_total, supplier_id, suppliers(name), notes')
+      .eq('id', input.purchaseId)
+      .single();
+
+    if (po) {
+      totalArs = Number(po.grand_total || 0);
+      supplierName = (po.suppliers as any)?.name || 'Proveedor';
+      supplierId = po.supplier_id;
+    } else {
+      const { data: pur } = await supabase
+        .from('purchases')
+        .select('id, total_ars, supplier_id, suppliers(name)')
+        .eq('id', input.purchaseId)
+        .single();
+
+      if (!pur) {
+        return { success: false, error: 'Orden de compra no encontrada en el sistema.' };
+      }
+      totalArs = Number(pur.total_ars || 0);
+      supplierName = (pur.suppliers as any)?.name || 'Proveedor';
+      supplierId = pur.supplier_id;
+    }
+
+    if (totalArs <= 0) {
+      return { success: false, error: 'El importe a liquidar es inválido ($0 ARS).' };
+    }
+
+    // 2. Obtener datos de la cuenta de tesorería
+    const { data: acc, error: accErr } = await supabase
+      .from('treasury_accounts')
+      .select('id, account_name, balance_ars')
+      .eq('id', input.treasuryAccountId)
+      .single();
+
+    if (accErr || !acc) {
+      return { success: false, error: 'Cuenta de tesorería de origen no encontrada.' };
+    }
+
+    // 3. Descontar fondos contables de tesorería
+    const withdrawOk = await withdrawFromAccount(input.treasuryAccountId, totalArs);
+    if (!withdrawOk) {
+      return { success: false, error: 'No se pudo debitar el saldo de la cuenta de tesorería.' };
+    }
+
+    // 4. Registrar en treasury_movements (si la tabla existe)
+    try {
+      await supabase.from('treasury_movements').insert({
+        account_id: input.treasuryAccountId,
+        type: 'PAGO_PROVEEDOR',
+        amount_ars: totalArs,
+        description: `Pago a Proveedor ${supplierName} - Orden #${input.purchaseId.slice(0, 8).toUpperCase()}`,
+        reference_id: input.purchaseId,
+      });
+    } catch (tmErr) {
+      console.warn('Nota: Inserción en treasury_movements omitida:', tmErr);
+    }
+
+    // 5. Actualizar purchases a payment_status = 'paid'
+    await supabase
+      .from('purchases')
+      .update({ payment_status: 'paid' })
+      .eq('id', input.purchaseId);
+
+    // 6. Actualizar accounts_payable si existía registro
+    await supabase
+      .from('accounts_payable')
+      .update({
+        status: 'paid',
+        paid_amount_ars: totalArs,
+      })
+      .eq('purchase_id', input.purchaseId);
+
+    // 7. Actualizar notas en purchase_orders
+    const paymentNote = `[PAGADO: ${acc.account_name} - $${totalArs.toLocaleString('es-AR')}]`;
+    if (po) {
+      const updatedNotes = po.notes ? `${po.notes} | ${paymentNote}` : paymentNote;
+      await supabase
+        .from('purchase_orders')
+        .update({ notes: updatedNotes, updated_at: new Date().toISOString() })
+        .eq('id', input.purchaseId);
+    }
+
+    // 8. Revalidar rutas
+    revalidatePath('/compras');
+    revalidatePath('/admin/finanzas/tesoreria');
+    revalidatePath('/admin/finanzas/cxcobrar');
+
+    return {
+      success: true,
+      message: `¡Pago de $${totalArs.toLocaleString('es-AR')} a ${supplierName} liquidado con éxito desde ${acc.account_name}!`,
+    };
+  } catch (error: unknown) {
+    console.error('Error en registerPurchasePaymentAction:', error);
+    const msg = error instanceof Error ? error.message : 'Error inesperado al registrar pago a proveedor';
     return { success: false, error: msg };
   }
 }

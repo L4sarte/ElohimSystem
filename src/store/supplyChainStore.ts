@@ -4,6 +4,7 @@ import {
   PurchaseOrder,
   CreatePOPayload,
   CheckInItemPayload,
+  CheckInPaymentDetails,
 } from '@/types/supplyChain';
 import { SupplyChainService } from '@/services/supplyChainService';
 
@@ -18,7 +19,7 @@ interface SupplyChainState {
   fetchSuppliers: () => Promise<void>;
   fetchInTransitOrders: () => Promise<void>;
   createPurchaseOrder: (payload: CreatePOPayload) => Promise<PurchaseOrder>;
-  confirmCheckIn: (poId: string, items: CheckInItemPayload[]) => Promise<void>;
+  confirmCheckIn: (poId: string, items: CheckInItemPayload[], paymentDetails?: CheckInPaymentDetails) => Promise<void>;
   addSupplier: (supplier: Omit<Supplier, 'id' | 'created_at' | 'updated_at'>) => Promise<Supplier>;
 }
 
@@ -70,7 +71,7 @@ export const useSupplyChainStore = create<SupplyChainState>((set, get) => ({
     }
   },
 
-  confirmCheckIn: async (poId: string, items: CheckInItemPayload[]) => {
+  confirmCheckIn: async (poId, items, paymentDetails) => {
     set({ isLoading: true, error: null });
 
     // Mutación optimista: Remover temporalmente la orden de inTransitOrders
@@ -80,7 +81,7 @@ export const useSupplyChainStore = create<SupplyChainState>((set, get) => ({
     });
 
     try {
-      await SupplyChainService.confirmCheckIn(poId, items);
+      await SupplyChainService.confirmCheckIn(poId, items, paymentDetails);
       set({ isLoading: false });
     } catch (err: unknown) {
       const msg = err instanceof Error 

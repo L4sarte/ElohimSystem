@@ -10,12 +10,13 @@ import { RoleSelector } from '@/components/products/RoleSelector';
 import { ExchangeRateWidget } from '@/components/rates/ExchangeRateWidget';
 import { 
   ArrowLeft, Plus, Truck, PackagePlus, Clock, Check, RefreshCw, 
-  AlertCircle, ShieldAlert, DollarSign, FileText, CreditCard, Building, Sparkles 
+  AlertCircle, ShieldAlert, DollarSign, FileText, CreditCard, Building, Sparkles, Wallet 
 } from 'lucide-react';
 import Link from 'next/link';
 
 import { InTransitDashboard } from '@/components/supply-chain/InTransitDashboard';
 import { POBuilder } from '@/components/supply-chain/POBuilder';
+import { RegisterPaymentModal } from '@/components/supply-chain/RegisterPaymentModal';
 import { useSearchParams } from 'next/navigation';
 
 function ComprasDashboardContent() {
@@ -35,6 +36,19 @@ function ComprasDashboardContent() {
   const [activeTab, setActiveTab] = useState<'in_transit' | 'po_builder' | 'purchases' | 'payables'>(
     productIdParam || tabParam === 'po_builder' ? 'po_builder' : 'in_transit'
   );
+
+  // Modal de Pago a Proveedor
+  const [selectedPurchaseForPayment, setSelectedPurchaseForPayment] = useState<{
+    id: string;
+    total_ars: number;
+    supplier_name?: string;
+  } | null>(null);
+  const [isPayModalOpen, setIsPayModalOpen] = useState(false);
+
+  const handleOpenPayModal = (item: { id: string; total_ars: number; supplier_name?: string }) => {
+    setSelectedPurchaseForPayment(item);
+    setIsPayModalOpen(true);
+  };
 
   const fetchDashboardData = async () => {
     if (role !== 'admin') return;
@@ -310,14 +324,29 @@ function ComprasDashboardContent() {
                         </td>
 
                         <td className="p-4 text-center">
-                          <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-[10px] font-bold ${
-                            p.payment_status === 'paid'
-                              ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-400'
-                              : 'bg-amber-100 text-amber-800 dark:bg-amber-500/10 dark:text-amber-400'
-                          }`}>
-                            {p.payment_status === 'paid' ? <Check className="h-3 w-3" /> : <Clock className="h-3 w-3" />}
-                            {p.payment_status === 'paid' ? 'Pagada' : 'Pendiente (CxP)'}
-                          </span>
+                          <div className="flex flex-col items-center gap-1.5">
+                            <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-[10px] font-bold ${
+                              p.payment_status === 'paid'
+                                ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-400'
+                                : 'bg-amber-100 text-amber-800 dark:bg-amber-500/10 dark:text-amber-400'
+                            }`}>
+                              {p.payment_status === 'paid' ? <Check className="h-3 w-3" /> : <Clock className="h-3 w-3" />}
+                              {p.payment_status === 'paid' ? 'Pagada' : 'Pendiente (CxP)'}
+                            </span>
+                            {p.payment_status !== 'paid' && (
+                              <Button
+                                size="sm"
+                                onClick={() => handleOpenPayModal({
+                                  id: p.id,
+                                  total_ars: Number(p.total_ars || 0),
+                                  supplier_name: p.suppliers?.name
+                                })}
+                                className="h-6 px-2 text-[10px] font-bold bg-emerald-600 hover:bg-emerald-500 text-white cursor-pointer shadow-sm flex items-center gap-1"
+                              >
+                                <Wallet className="h-3 w-3" /> Registrar Pago
+                              </Button>
+                            )}
+                          </div>
                         </td>
 
                         <td className="p-4 pr-6">
@@ -375,13 +404,28 @@ function ComprasDashboardContent() {
                         </td>
 
                         <td className="p-4 text-center">
-                          <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-[10px] font-bold ${
-                            cxp.status === 'paid'
-                              ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-400'
-                              : 'bg-amber-100 text-amber-800 dark:bg-amber-500/10 dark:text-amber-400'
-                          }`}>
-                            {cxp.status === 'paid' ? 'Saldada' : 'Pendiente'}
-                          </span>
+                          <div className="flex flex-col items-center gap-1.5">
+                            <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-[10px] font-bold ${
+                              cxp.status === 'paid'
+                                ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-400'
+                                : 'bg-amber-100 text-amber-800 dark:bg-amber-500/10 dark:text-amber-400'
+                            }`}>
+                              {cxp.status === 'paid' ? 'Saldada' : 'Pendiente'}
+                            </span>
+                            {cxp.status !== 'paid' && (
+                              <Button
+                                size="sm"
+                                onClick={() => handleOpenPayModal({
+                                  id: cxp.purchases?.id || cxp.purchase_id || cxp.id,
+                                  total_ars: Number(cxp.total_amount_ars || 0),
+                                  supplier_name: cxp.suppliers?.name
+                                })}
+                                className="h-6 px-2 text-[10px] font-bold bg-emerald-600 hover:bg-emerald-500 text-white cursor-pointer shadow-sm flex items-center gap-1"
+                              >
+                                <Wallet className="h-3 w-3" /> Pagar a Proveedor
+                              </Button>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -393,6 +437,15 @@ function ComprasDashboardContent() {
           </CardContent>
         </Card>
         )}
+
+        {/* MODAL REGISTRAR PAGO A PROVEEDOR */}
+        <RegisterPaymentModal
+          isOpen={isPayModalOpen}
+          onClose={() => setIsPayModalOpen(false)}
+          onSuccess={fetchDashboardData}
+          role={role}
+          purchase={selectedPurchaseForPayment}
+        />
 
       </main>
 

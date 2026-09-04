@@ -85,3 +85,11 @@ export interface CheckInItemPayload {
   item_id: string;
   received_quantity: number;
 }
+
+export interface CheckInPaymentDetails {
+  isPaid: boolean;
+  treasuryAccountId?: string;
+  dueDate?: string | null;
+  notes?: string;
+}
+
