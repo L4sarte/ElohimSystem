@@ -17,7 +17,7 @@ interface CheckInModalProps {
 }
 
 export function CheckInModal({ order, isOpen, onClose }: CheckInModalProps) {
-  const { confirmCheckIn, isLoading } = useSupplyChainStore();
+  const { confirmCheckIn, error: storeError, isLoading } = useSupplyChainStore();
 
   // Mapear los items esperados a un estado local editable de cantidades verdaderamente recibidas
   const [receivedItems, setReceivedItems] = useState<CheckInItemPayload[]>(
@@ -32,10 +32,15 @@ export function CheckInModal({ order, isOpen, onClose }: CheckInModalProps) {
 
   if (!isOpen) return null;
 
-  const handleQuantityChange = (itemId: string, newQty: number) => {
+  const handleQuantityChange = (itemId: string, rawVal: string | number) => {
+    // Limpieza estricta de ceros iniciales (evita "096")
+    const cleanStr = String(rawVal).replace(/^0+(?=\d)/, '');
+    const cleanNum = parseInt(cleanStr, 10);
+    const validQty = isNaN(cleanNum) || cleanNum < 0 ? 0 : cleanNum;
+
     setReceivedItems(prev => prev.map(item => {
       if (item.item_id === itemId) {
-        return { ...item, received_quantity: newQty < 0 ? 0 : newQty };
+        return { ...item, received_quantity: validQty };
       }
       return item;
     }));
@@ -54,19 +59,36 @@ export function CheckInModal({ order, isOpen, onClose }: CheckInModalProps) {
     setErrorMsg(null);
     setSuccessMsg(null);
 
-    if (totalUnitsReceived <= 0) {
+    // Parsing estricto para evitar errores con entradas como "096"
+    const cleanedPayload: CheckInItemPayload[] = receivedItems.map(item => {
+      const cleanStr = String(item.received_quantity ?? '').replace(/^0+/, '');
+      const cleanQty = parseInt(cleanStr, 10) || 0;
+      return {
+        item_id: item.item_id,
+        received_quantity: Math.max(0, cleanQty)
+      };
+    });
+
+    const totalCleanUnits = cleanedPayload.reduce((sum, item) => sum + item.received_quantity, 0);
+
+    if (totalCleanUnits <= 0) {
       setErrorMsg('Debe confirmar la recepción de al menos 1 unidad para ingresar a stock.');
       return;
     }
 
     try {
-      await confirmCheckIn(order.id, receivedItems);
+      await confirmCheckIn(order.id, cleanedPayload);
       setSuccessMsg('¡Mercadería ingresada exitosamente! El stock y costo promedio fueron actualizados.');
       setTimeout(() => {
         onClose();
       }, 1500);
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Error al ejecutar el check-in de mercadería.';
+      console.error('Error al confirmar check-in:', err);
+      const msg = err instanceof Error 
+        ? err.message 
+        : typeof err === 'object' && err !== null && 'message' in err 
+          ? String((err as any).message) 
+          : 'Error al ejecutar el check-in de mercadería.';
       setErrorMsg(msg);
     }
   };
@@ -102,10 +124,10 @@ export function CheckInModal({ order, isOpen, onClose }: CheckInModalProps) {
 
         {/* CUERPO DEL MODAL */}
         <div className="p-6 space-y-5 max-h-[70vh] overflow-y-auto">
-          {errorMsg && (
+          {(errorMsg || storeError) && (
             <div className="p-3.5 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold flex items-center gap-2 dark:bg-rose-950/30 dark:border-rose-900/40 dark:text-rose-400">
               <AlertTriangle className="h-4 w-4 shrink-0" />
-              <span>{errorMsg}</span>
+              <span>{errorMsg || storeError}</span>
             </div>
           )}
 
@@ -166,8 +188,9 @@ export function CheckInModal({ order, isOpen, onClose }: CheckInModalProps) {
                           type="number"
                           min="0"
                           max={Number(item.expected_quantity)}
-                          value={currentReceived}
-                          onChange={(e) => handleQuantityChange(item.id!, parseFloat(e.target.value) || 0)}
+                          value={currentReceived === 0 ? '' : currentReceived}
+                          placeholder="0"
+                          onChange={(e) => handleQuantityChange(item.id!, e.target.value)}
                           className={`w-24 rounded border p-1 text-center font-bold text-xs ${
                             isDifference
                               ? 'border-amber-500 bg-amber-50 text-amber-900 dark:bg-amber-950/40 dark:text-amber-300'

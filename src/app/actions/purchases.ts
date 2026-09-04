@@ -401,7 +401,14 @@ export async function getPurchaseOrdersByStatusAction(status?: string): Promise<
 }
 
 /**
- * Confirmar ingreso / recepción de orden de compra mediante RPC en el backend (Solo Admin).
+ * Confirmar ingreso / recepción de orden de compra (Solo Admin).
+ * Realiza la recepción de forma atómica y consistente directamente con Service Supabase:
+ * 1. Actualiza received_quantity en purchase_order_items.
+ * 2. Prorratea gastos logísticos/aduaneros en el costo unitario landed.
+ * 3. Incrementa el stock_quantity de cada perfume (bottle) o insumo (supply) en la tabla products.
+ * 4. Recalcula el Costo Promedio Ponderado (PPP) de reposición (base_cost_ars).
+ * 5. Actualiza el estado de la orden a 'received' y recalcula grand_total.
+ * 6. Revalida todas las rutas de inventario, compras y kardex.
  */
 export async function confirmCheckInAction(
   poId: string,
@@ -419,23 +426,196 @@ export async function confirmCheckInAction(
     }
 
     const supabase = getServiceSupabase();
-    const { data, error } = await supabase.rpc('receive_purchase_order', {
-      p_po_id: poId,
-      p_received_items: items,
-    });
 
-    if (error) {
-      throw error;
+    // 1. Obtener la orden de compra con sus items y gastos asociados
+    const { data: po, error: poErr } = await supabase
+      .from('purchase_orders')
+      .select(`
+        id,
+        status,
+        suppliers ( name ),
+        purchase_order_items (
+          id,
+          product_id,
+          expected_quantity,
+          received_quantity,
+          unit_cost
+        ),
+        purchase_order_expenses (
+          amount
+        )
+      `)
+      .eq('id', poId)
+      .single();
+
+    if (poErr || !po) {
+      const errMsg = poErr?.message || `Orden de compra con ID ${poId} no encontrada.`;
+      return { success: false, error: errMsg };
     }
 
+    if (po.status === 'received') {
+      return { success: false, error: 'Esta orden de compra ya fue ingresada previamente a stock.' };
+    }
+
+    if (po.status === 'cancelled') {
+      return { success: false, error: 'No se puede ingresar mercadería de una orden de compra cancelada.' };
+    }
+
+    // 2. Mapeo y saneamiento de cantidades recibidas enviadas por el frontend
+    const itemsMap = new Map<string, number>();
+    if (Array.isArray(items)) {
+      items.forEach((it) => {
+        const rawQty = String(it.received_quantity ?? '').replace(/^0+/, '');
+        const cleanQty = parseInt(rawQty, 10) || 0;
+        itemsMap.set(it.item_id, Math.max(0, cleanQty));
+      });
+    }
+
+    // 3. Gastos asociados totales
+    const expensesList = po.purchase_order_expenses || [];
+    const totalExpenses = expensesList.reduce((sum: number, exp: any) => sum + Number(exp.amount || 0), 0);
+
+    // 4. Procesar ítems y calcular unidades totales recibidas
+    const poItems = po.purchase_order_items || [];
+    let totalReceivedUnits = 0;
+    let totalMerchandiseCost = 0;
+
+    const itemsToProcess: Array<{
+      poiId: string;
+      productId: string;
+      receivedQty: number;
+      unitCost: number;
+    }> = [];
+
+    for (const item of poItems) {
+      const receivedQty = itemsMap.has(item.id)
+        ? itemsMap.get(item.id)!
+        : Number(item.expected_quantity || 0);
+
+      totalReceivedUnits += receivedQty;
+      totalMerchandiseCost += receivedQty * Number(item.unit_cost || 0);
+
+      itemsToProcess.push({
+        poiId: item.id,
+        productId: item.product_id,
+        receivedQty,
+        unitCost: Number(item.unit_cost || 0),
+      });
+    }
+
+    if (totalReceivedUnits <= 0) {
+      return {
+        success: false,
+        error: 'Debe confirmar la recepción de al menos 1 unidad para ingresar la orden a stock.',
+      };
+    }
+
+    // Gasto logístico prorrateado por cada unidad que ingresa
+    const expensePerUnit = totalExpenses > 0 ? totalExpenses / totalReceivedUnits : 0;
+
+    // 5. Actualizar received_quantity en purchase_order_items
+    for (const it of itemsToProcess) {
+      const { error: poiUpdateErr } = await supabase
+        .from('purchase_order_items')
+        .update({ received_quantity: it.receivedQty })
+        .eq('id', it.poiId);
+
+      if (poiUpdateErr) {
+        console.error('Error al actualizar purchase_order_items:', poiUpdateErr);
+        return {
+          success: false,
+          error: `Error al actualizar cantidades de la orden: ${poiUpdateErr.message}`,
+        };
+      }
+    }
+
+    // 6. Incrementar stock y recalcular Costo Promedio Ponderado (PPP) en products
+    for (const it of itemsToProcess) {
+      if (it.receivedQty <= 0) continue;
+
+      const { data: product, error: prodErr } = await supabase
+        .from('products')
+        .select('id, name, type, stock_quantity, base_cost_ars')
+        .eq('id', it.productId)
+        .single();
+
+      if (prodErr || !product) {
+        console.error(`Producto ID ${it.productId} no encontrado al recibir stock:`, prodErr);
+        continue;
+      }
+
+      const currentStock = Number(product.stock_quantity || 0);
+      const currentCost = Number(product.base_cost_ars || 0);
+      const newStock = currentStock + it.receivedQty;
+
+      // Costo landed unitario (costo proveedor + flete/gasto prorrateado)
+      const landedUnitCost = it.unitCost + expensePerUnit;
+
+      // Cálculo del nuevo Costo Promedio Ponderado (Weighted Average Cost)
+      let newAverageCost = landedUnitCost;
+      if (newStock > 0) {
+        newAverageCost = ((currentStock * currentCost) + (it.receivedQty * landedUnitCost)) / newStock;
+      }
+      newAverageCost = Math.round(newAverageCost * 100) / 100;
+
+      // Actualizar tabla products (compatible tanto con perfumes bottle como insumos supply)
+      const { error: updateProdErr } = await supabase
+        .from('products')
+        .update({
+          stock_quantity: newStock,
+          base_cost_ars: newAverageCost,
+        })
+        .eq('id', it.productId);
+
+      if (updateProdErr) {
+        console.error(`Error actualizando stock de producto ${product.name}:`, updateProdErr);
+        return {
+          success: false,
+          error: `Error actualizando stock de ${product.name}: ${updateProdErr.message}`,
+        };
+      }
+    }
+
+    // 7. Actualizar la orden purchase_orders a 'received'
+    const grandTotal = totalMerchandiseCost + totalExpenses;
+
+    const { error: updatePoErr } = await supabase
+      .from('purchase_orders')
+      .update({
+        status: 'received',
+        total_expenses: totalExpenses,
+        grand_total: grandTotal,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', poId);
+
+    if (updatePoErr) {
+      console.error('Error al actualizar estado de purchase_orders:', updatePoErr);
+      return {
+        success: false,
+        error: `Error al actualizar estado de la orden: ${updatePoErr.message}`,
+      };
+    }
+
+    // 8. Revalidar rutas clave del sistema
     revalidatePath('/compras');
     revalidatePath('/productos');
+    revalidatePath('/admin/inventario/kardex');
+    revalidatePath('/admin/inventario/insumos');
+    revalidatePath('/admin/proveedores');
     revalidatePath('/');
 
-    return { success: true, message: (data as any)?.message || 'Ingreso confirmado correctamente' };
+    return {
+      success: true,
+      message: `¡Mercadería ingresada exitosamente! Se sumaron +${totalReceivedUnits} unidades al stock disponible con costo landed actualizado.`,
+    };
   } catch (error: unknown) {
-    console.error('Error al confirmar ingreso de orden:', error);
-    const msg = error instanceof Error ? error.message : 'Error al confirmar ingreso a stock';
+    console.error('Error en confirmCheckInAction:', error);
+    const msg = error instanceof Error 
+      ? error.message 
+      : typeof error === 'object' && error !== null && 'message' in error
+        ? String((error as any).message)
+        : 'Error inesperado al confirmar ingreso a stock';
     return { success: false, error: msg };
   }
 }

@@ -83,7 +83,11 @@ export const useSupplyChainStore = create<SupplyChainState>((set, get) => ({
       await SupplyChainService.confirmCheckIn(poId, items);
       set({ isLoading: false });
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Error al confirmar ingreso';
+      const msg = err instanceof Error 
+        ? err.message 
+        : typeof err === 'object' && err !== null && 'message' in err
+          ? String((err as any).message)
+          : 'Error al confirmar ingreso';
       // Revertir mutación si ocurre error
       set({ inTransitOrders: previousOrders, error: msg, isLoading: false });
       throw err;
