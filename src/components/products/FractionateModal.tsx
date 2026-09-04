@@ -14,13 +14,28 @@ interface FractionateModalProps {
   onSuccess: () => void;
   bottle: Product | null;
   role: UserRole;
+  availableBottles?: Product[];
 }
 
-export function FractionateModal({ isOpen, onClose, onSuccess, bottle, role }: FractionateModalProps) {
+export function FractionateModal({ isOpen, onClose, onSuccess, bottle, role, availableBottles = [] }: FractionateModalProps) {
   const [decants, setDecants] = useState<Product[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingData, setLoadingData] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Estados de Selección de Botella (si no fue provista externamente)
+  const [selectedBottleId, setSelectedBottleId] = useState<string>(bottle?.id || '');
+
+  useEffect(() => {
+    if (bottle) {
+      setSelectedBottleId(bottle.id);
+    } else if (availableBottles.length > 0 && !selectedBottleId) {
+      const firstWithStock = availableBottles.find(b => b.stock_quantity > 0) || availableBottles[0];
+      if (firstWithStock) setSelectedBottleId(firstWithStock.id);
+    }
+  }, [bottle, availableBottles]);
+
+  const activeBottle = bottle || availableBottles.find(b => b.id === selectedBottleId) || null;
 
   // Estados de Selección del Decant Destino
   const [targetDecantId, setTargetDecantId] = useState<string>(''); // ID de decant existente o 'create_new'
@@ -33,9 +48,8 @@ export function FractionateModal({ isOpen, onClose, onSuccess, bottle, role }: F
 
   // Cargar lista de decants y autodetectar coincidencias
   useEffect(() => {
-    if (!isOpen || !bottle) return;
-    
-    const activeBottle = bottle;
+    const currentBottle = activeBottle;
+    if (!isOpen || !currentBottle) return;
     
     async function loadDecants() {
       setLoadingData(true);
@@ -43,13 +57,13 @@ export function FractionateModal({ isOpen, onClose, onSuccess, bottle, role }: F
       const res = await getDecantLiquids(role);
       setLoadingData(false);
 
-      if (res.success && res.data) {
+      if (res.success && res.data && currentBottle) {
         setDecants(res.data);
         
         // Buscar si existe un decant con el mismo perfume/marca
         const matchingDecant = res.data.find(d => 
-          d.brand.toLowerCase() === activeBottle.brand.toLowerCase() &&
-          d.name.toLowerCase().replace(/[\s()\-]/g, '').includes(activeBottle.name.toLowerCase().replace(/[\s()\-]/g, ''))
+          d.brand.toLowerCase() === currentBottle.brand.toLowerCase() &&
+          d.name.toLowerCase().replace(/[\s()\-]/g, '').includes(currentBottle.name.toLowerCase().replace(/[\s()\-]/g, ''))
         );
 
         if (matchingDecant) {
@@ -64,28 +78,32 @@ export function FractionateModal({ isOpen, onClose, onSuccess, bottle, role }: F
     }
 
     loadDecants();
-  }, [bottle, isOpen, role]);
+  }, [activeBottle, isOpen, role]);
 
   // Pre-llenar formulario de nuevo decant
   useEffect(() => {
-    if (bottle && targetDecantId === 'create_new') {
-      setNewDecantSku(`${bottle.sku}-DEC`);
-      setNewDecantName(`${bottle.name} (Líquido a Granel)`);
+    if (activeBottle && targetDecantId === 'create_new') {
+      setNewDecantSku(`${activeBottle.sku}-DEC`);
+      setNewDecantName(`${activeBottle.name} (Líquido a Granel)`);
       
       // Estimar costo por ml (costo botella / capacidad ml)
-      const costPerMl = bottle.volume_ml ? (bottle.base_cost_ars / bottle.volume_ml) : 0;
+      const costPerMl = activeBottle.volume_ml ? (activeBottle.base_cost_ars / activeBottle.volume_ml) : 0;
       setNewDecantCost(costPerMl.toFixed(2));
       
       // Estimar precio sugerido de venta por ml (1.8x el costo estimado por ml)
       setNewDecantPrice((costPerMl * 1.8).toFixed(2));
     }
-  }, [bottle, targetDecantId]);
+  }, [activeBottle, targetDecantId]);
 
-  if (!isOpen || !bottle) return null;
+  if (!isOpen) return null;
 
   const handleFractionate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (bottle.stock_quantity < 1) {
+    if (!activeBottle) {
+      setError('Debes seleccionar una botella para fraccionar.');
+      return;
+    }
+    if (activeBottle.stock_quantity < 1) {
       setError('No hay stock disponible de esta botella para realizar el fraccionamiento.');
       return;
     }
@@ -101,7 +119,7 @@ export function FractionateModal({ isOpen, onClose, onSuccess, bottle, role }: F
         const createRes = await createProduct(role, {
           sku: newDecantSku.trim(),
           name: newDecantName.trim(),
-          brand: bottle.brand,
+          brand: activeBottle.brand,
           type: 'decant_liquid',
           base_cost_ars: parseFloat(newDecantCost) || 0,
           base_price_ars: parseFloat(newDecantPrice) || 0,
@@ -116,8 +134,8 @@ export function FractionateModal({ isOpen, onClose, onSuccess, bottle, role }: F
       }
 
       // 2. Ejecutar la transacción de fraccionamiento seguro en Supabase
-      const volumeToFractionate = bottle.volume_ml || 100;
-      const fracRes = await fractionateBottle(role, bottle.id, finalDecantId, volumeToFractionate);
+      const volumeToFractionate = activeBottle.volume_ml || 100;
+      const fracRes = await fractionateBottle(role, activeBottle.id, finalDecantId, volumeToFractionate);
 
       if (!fracRes.success) {
         throw new Error(fracRes.error || 'Error al procesar el fraccionamiento en base de datos');
@@ -165,24 +183,52 @@ export function FractionateModal({ isOpen, onClose, onSuccess, bottle, role }: F
               </div>
             )}
 
+            {/* SELECTOR DE BOTELLA SI NO FUE PRE-SELECCIONADA */}
+            {!bottle && availableBottles.length > 0 && (
+              <div className="space-y-2">
+                <label className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400">
+                  Seleccionar Botella Sellada a Abrir *
+                </label>
+                <select
+                  value={selectedBottleId}
+                  onChange={(e) => setSelectedBottleId(e.target.value)}
+                  className="flex h-9 w-full rounded-lg border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus:outline-none focus:ring-1 focus:ring-ring dark:border-input/40 dark:bg-input/10 dark:text-white"
+                >
+                  {availableBottles
+                    .filter((b) => b.type === 'bottle' && b.stock_quantity > 0)
+                    .map((b) => (
+                      <option key={b.id} value={b.id}>
+                        {b.name} ({b.brand} • Stock: {b.stock_quantity} u • {b.volume_ml || 100}ml)
+                      </option>
+                    ))}
+                </select>
+              </div>
+            )}
+
             {/* RESUMEN DE LA BOTELLA ORIGEN */}
-            <div className="rounded-lg border border-slate-200 bg-slate-50/50 p-4 dark:border-[#1B362A] dark:bg-[#13261E]/30 space-y-2">
-              <div className="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-500">
-                Botella de Origen a Abrir
-              </div>
-              <div className="flex justify-between items-start">
-                <div>
-                  <h4 className="font-bold text-slate-950 dark:text-zinc-50">{bottle.name}</h4>
-                  <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">Marca: {bottle.brand} • SKU: {bottle.sku}</p>
+            {activeBottle && (
+              <div className="rounded-lg border border-slate-200 bg-slate-50/50 p-4 dark:border-[#1B362A] dark:bg-[#13261E]/30 space-y-2">
+                <div className="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-500">
+                  Botella de Origen a Abrir
                 </div>
-                <div className="text-right">
-                  <span className="text-xs rounded bg-violet-100 px-2 py-0.5 font-bold text-violet-800 dark:bg-[#D0A96B]/10 dark:text-[#D0A96B]">
-                    -{bottle.volume_ml || 100} ml
-                  </span>
-                  <p className="text-[10px] text-slate-400 mt-1">Stock actual: {bottle.stock_quantity} uds</p>
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h4 className="font-bold text-slate-950 dark:text-zinc-50">{activeBottle.name}</h4>
+                    <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">
+                      Marca: {activeBottle.brand} • SKU: {activeBottle.sku}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-xs rounded bg-violet-100 px-2 py-0.5 font-bold text-violet-800 dark:bg-[#D0A96B]/10 dark:text-[#D0A96B]">
+                      -{activeBottle.volume_ml || 100} ml
+                    </span>
+                    <p className="text-[10px] text-slate-400 mt-1">
+                      Stock actual: {activeBottle.stock_quantity} uds
+                    </p>
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
 
             {/* SELECCIÓN DEL DECANT DESTINO */}
             <div className="space-y-2">
@@ -283,8 +329,8 @@ export function FractionateModal({ isOpen, onClose, onSuccess, bottle, role }: F
                 Al confirmar el proceso se ejecutará una Transacción SQL:
               </p>
               <ul className="list-disc list-inside mt-1.5 space-y-1 opacity-90 pl-1">
-                <li>Se descontará **1 unidad** comercial de {bottle.name} en el inventario.</li>
-                <li>Se sumarán **+{bottle.volume_ml || 100} ml** líquidos al decant seleccionado.</li>
+                <li>Se descontará **1 unidad** comercial de {activeBottle?.name || 'la botella seleccionada'} en el inventario.</li>
+                <li>Se sumarán **+{activeBottle?.volume_ml || 100} ml** líquidos al decant seleccionado.</li>
                 <li>Se registrará automáticamente la auditoría histórica de apertura.</li>
               </ul>
             </div>

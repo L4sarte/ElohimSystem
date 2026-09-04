@@ -18,6 +18,7 @@ import {
 import Link from 'next/link';
 
 const ADJUSTMENT_TYPES = [
+  { label: '🧪 Apertura de Tester / Muestra Showroom (Marketing)', value: 'Apertura de Tester' },
   { label: '💧 Derrame / Pérdida de Líquido', value: 'Derrame/Pérdida' },
   { label: '💥 Rotura de Frasco / Botella', value: 'Rotura' },
   { label: '🎁 Regalo Promocional / Muestra', value: 'Regalo Promocional' },

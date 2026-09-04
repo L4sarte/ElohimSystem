@@ -8,7 +8,7 @@ import {
   ShoppingBag, LayoutGrid, Users, CreditCard, Package, Archive, 
   PackageX, Globe, BarChart3, Coins, DollarSign, TrendingUp, 
   ShieldCheck, Menu, X, Sparkles, ChevronRight, Home, Percent, Landmark,
-  Truck, Settings, Printer, Calculator, LogOut
+  Truck, Settings, Printer, Calculator, LogOut, Droplet, Activity
 } from 'lucide-react';
 import { logoutAction } from '@/app/actions/auth';
 
@@ -42,6 +42,8 @@ export function Sidebar() {
       title: 'INVENTARIO & PACKAGING',
       items: [
         { name: 'Catálogo Productos', href: '/productos', icon: Package, color: 'text-violet-400' },
+        { name: 'Hub Decants & Granel', href: '/admin/inventario/decants', icon: Droplet, color: 'text-cyan-400', adminOnly: true },
+        { name: 'Kardex & Movimientos', href: '/admin/inventario/kardex', icon: Activity, color: 'text-emerald-400', adminOnly: true },
         { name: 'Recetas Decants (BOM)', href: '/admin/inventario/recetas', icon: Calculator, color: 'text-[#D0A96B]', adminOnly: true },
         { name: 'Insumos de Packaging', href: '/admin/inventario/insumos', icon: Archive, color: 'text-amber-400', adminOnly: true },
         { name: 'Ajustes / Mermas', href: '/admin/inventario/ajustes', icon: PackageX, color: 'text-rose-400', adminOnly: true },
@@ -51,6 +53,7 @@ export function Sidebar() {
     {
       title: 'COMPRAS & LOGÍSTICA',
       items: [
+        { name: 'Órdenes de Compra (PO)', href: '/compras', icon: ShoppingBag, color: 'text-emerald-400', adminOnly: true },
         { name: 'Proveedores & Compras', href: '/admin/proveedores', icon: ShoppingBag, color: 'text-sky-400', adminOnly: true },
         { name: 'Logística & Envíos', href: '/admin/envios', icon: Truck, color: 'text-indigo-400' },
       ]

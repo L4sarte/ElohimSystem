@@ -16,8 +16,13 @@ import Link from 'next/link';
 
 import { InTransitDashboard } from '@/components/supply-chain/InTransitDashboard';
 import { POBuilder } from '@/components/supply-chain/POBuilder';
+import { useSearchParams } from 'next/navigation';
 
-export default function ComprasDashboardPage() {
+function ComprasDashboardContent() {
+  const searchParams = useSearchParams();
+  const productIdParam = searchParams.get('productId') || undefined;
+  const tabParam = searchParams.get('tab');
+
   const { role } = useUserStore();
   const { refresh: refreshRate } = useExchangeRate();
 
@@ -27,7 +32,9 @@ export default function ComprasDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [activeTab, setActiveTab] = useState<'in_transit' | 'po_builder' | 'purchases' | 'payables'>('in_transit');
+  const [activeTab, setActiveTab] = useState<'in_transit' | 'po_builder' | 'purchases' | 'payables'>(
+    productIdParam || tabParam === 'po_builder' ? 'po_builder' : 'in_transit'
+  );
 
   const fetchDashboardData = async () => {
     if (role !== 'admin') return;
@@ -242,7 +249,7 @@ export default function ComprasDashboardPage() {
         {activeTab === 'in_transit' ? (
           <InTransitDashboard />
         ) : activeTab === 'po_builder' ? (
-          <POBuilder onSuccess={() => setActiveTab('in_transit')} />
+          <POBuilder initialProductId={productIdParam} onSuccess={() => setActiveTab('in_transit')} />
         ) : (
           <Card className="border-slate-200 dark:border-[#1B362A] rounded-2xl overflow-hidden shadow-xl">
             <CardContent className="p-0 overflow-x-auto">
@@ -390,5 +397,17 @@ export default function ComprasDashboardPage() {
       </main>
 
     </div>
+  );
+}
+
+export default function ComprasDashboardPage() {
+  return (
+    <React.Suspense fallback={
+      <div className="flex min-h-screen items-center justify-center bg-[#08130E] text-zinc-400">
+        <RefreshCw className="h-8 w-8 animate-spin text-emerald-500" />
+      </div>
+    }>
+      <ComprasDashboardContent />
+    </React.Suspense>
   );
 }

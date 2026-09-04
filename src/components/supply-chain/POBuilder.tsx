@@ -38,9 +38,10 @@ interface ExpenseItem {
 
 interface POBuilderProps {
   onSuccess?: () => void;
+  initialProductId?: string;
 }
 
-export function POBuilder({ onSuccess }: POBuilderProps) {
+export function POBuilder({ onSuccess, initialProductId }: POBuilderProps) {
   const { suppliers, fetchSuppliers, createPurchaseOrder, isLoading, error: storeError } = useSupplyChainStore();
 
   // Estado del Wizard Step (1: Proveedor, 2: Carrito Perfumes, 3: Gastos y Confirmación)
@@ -102,6 +103,30 @@ export function POBuilder({ onSuccess }: POBuilderProps) {
       isMounted = false;
     };
   }, []);
+
+  // Si se ingresó con un initialProductId desde el Asistente de Reorden, auto-incorporarlo al carrito
+  useEffect(() => {
+    if (initialProductId && availableItems.length > 0) {
+      const targetProd = availableItems.find(p => p.id === initialProductId);
+      if (targetProd) {
+        setCartItems(prev => {
+          if (!prev.some(i => i.product.id === targetProd.id)) {
+            const reorderQty = Math.max(5, 10 - targetProd.stock_quantity);
+            toast.info(`Producto "${targetProd.name}" preseleccionado con ${reorderQty} unidades.`);
+            return [
+              ...prev,
+              {
+                product: targetProd,
+                expected_quantity: reorderQty,
+                unit_cost: targetProd.base_cost_ars || 0,
+              },
+            ];
+          }
+          return prev;
+        });
+      }
+    }
+  }, [initialProductId, availableItems]);
 
   // Filtrado reactivo en memoria (0ms latencia, insensible a mayúsculas/minúsculas y espacios)
   const filteredProducts = useMemo(() => {

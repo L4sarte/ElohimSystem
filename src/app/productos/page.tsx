@@ -8,13 +8,14 @@ import { ExchangeRateWidget } from '@/components/rates/ExchangeRateWidget';
 import { ProductList } from '@/components/products/ProductList';
 import { BundleManager } from '@/components/products/BundleManager';
 import { InventoryValuationWidget } from '@/components/inventory/InventoryValuationWidget';
+import { ReorderAssistant } from '@/components/inventory/ReorderAssistant';
 import Link from 'next/link';
-import { ArrowLeft, Package, RefreshCw, Layers } from 'lucide-react';
+import { ArrowLeft, Package, RefreshCw, Layers, AlertTriangle } from 'lucide-react';
 
 export default function ProductosPage() {
   const { role } = useUserStore();
   const { rate, loading: loadingRate, error: rateError } = useExchangeRate();
-  const [activeTab, setActiveTab] = React.useState<'perfumes' | 'combos' | 'insumos'>('perfumes');
+  const [activeTab, setActiveTab] = React.useState<'perfumes' | 'combos' | 'insumos' | 'reorden'>('perfumes');
 
   return (
     <div className="flex flex-col min-h-screen bg-slate-50 text-slate-900 dark:bg-[#08130E] dark:text-zinc-50 transition-colors duration-300">
@@ -117,6 +118,17 @@ export default function ProductosPage() {
             >
               📦 Insumos de Packaging
             </button>
+            <button
+              onClick={() => setActiveTab('reorden')}
+              className={`px-4 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                activeTab === 'reorden'
+                  ? 'bg-rose-600 text-white shadow-md shadow-rose-600/20'
+                  : 'text-zinc-400 hover:text-rose-300'
+              }`}
+            >
+              <AlertTriangle className="h-3.5 w-3.5 text-amber-400" />
+              <span>🚨 Reorden & Alertas</span>
+            </button>
           </div>
 
           {activeTab === 'insumos' && (
@@ -127,6 +139,15 @@ export default function ProductosPage() {
               Ver Panel Dedicado Insumos →
             </Link>
           )}
+
+          {activeTab === 'reorden' && (
+            <Link
+              href="/compras"
+              className="text-xs text-rose-400 font-bold hover:underline flex items-center gap-1"
+            >
+              <span>Ir a Módulo Compras B2B →</span>
+            </Link>
+          )}
         </div>
 
         {/* CONTENIDO SEGÚN LA PESTAÑA SELECCIONADA */}
@@ -134,7 +155,7 @@ export default function ProductosPage() {
           <ProductList role={role} excludeSupplies={true} />
         ) : activeTab === 'combos' ? (
           <BundleManager />
-        ) : (
+        ) : activeTab === 'insumos' ? (
           <div className="space-y-4">
             <div className="p-6 rounded-2xl bg-[#13261E]/90 border border-[#1B362A] text-center space-y-3">
               <h2 className="text-lg font-bold text-white font-serif">Insumos y Envases de Fraccionamiento (JIT)</h2>
@@ -148,6 +169,8 @@ export default function ProductosPage() {
               </Link>
             </div>
           </div>
+        ) : (
+          <ReorderAssistant role={role} />
         )}
 
       </main>
