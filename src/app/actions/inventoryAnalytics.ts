@@ -68,6 +68,30 @@ export async function getInventoryValuation(role: UserRole): Promise<InventoryVa
       };
     }
 
+    // Consultar recetas de productos para soportar valuación dinámica multi-medida
+    const { data: recipesData } = await supabase
+      .from('product_recipes')
+      .select(`
+        id,
+        product_id,
+        name,
+        recipe_items (
+          component_type,
+          quantity
+        )
+      `);
+
+    const recipeMap = new Map<string, { size_ml: number }>();
+    if (recipesData) {
+      recipesData.forEach((rec: any) => {
+        const liquidItem = rec.recipe_items?.find((it: any) => it.component_type === 'liquid');
+        const sizeMl = Number(rec.size_ml || liquidItem?.quantity || 5);
+        if (sizeMl > 0) {
+          recipeMap.set(rec.product_id, { size_ml: sizeMl });
+        }
+      });
+    }
+
     let capitalCostArs = 0;
     let capitalCostUsd = 0;
     let potentialRevenueArs = 0;
@@ -82,14 +106,36 @@ export async function getInventoryValuation(role: UserRole): Promise<InventoryVa
 
       const priceArs = Number(item.base_price_ars ?? item.price_ars) || 0;
       const costArs = Number(item.base_cost_ars ?? item.cost_ars) || 0;
-      const costUsd = Number(item.cost_usd) || (exchangeRate > 0 && costArs > 0 ? costArs / exchangeRate : 0);
-      const priceUsd = Number(item.base_price_usd ?? item.price_usd) || (exchangeRate > 0 && priceArs > 0 ? priceArs / exchangeRate : 0);
 
-      capitalCostArs += stock * costArs;
-      capitalCostUsd += stock * costUsd;
-      potentialRevenueArs += stock * priceArs;
-      potentialRevenueUsd += stock * priceUsd;
-      totalUnidades += stock;
+      if (item.type === 'decant_liquid') {
+        // 1. Modelo de Costo por Mililitro en Granel:
+        // base_cost_ars representa estrictamente el costo por 1 ml (Costo Botella / Volumen Botella)
+        const capitalItemArs = stock * costArs;
+        const capitalItemUsd = exchangeRate > 0 && capitalItemArs > 0 ? capitalItemArs / exchangeRate : 0;
+
+        // 2. Valuación Dinámica de Venta Vinculada a Recetas o Catálogo Base:
+        const recipe = recipeMap.get(item.id);
+        const presentationMl = recipe && recipe.size_ml > 0 ? recipe.size_ml : (Number(item.volume_ml) || 5);
+        const revenuePerMl = presentationMl > 0 ? priceArs / presentationMl : priceArs / 5;
+        const revenueItemArs = stock * revenuePerMl;
+        const revenueItemUsd = exchangeRate > 0 && revenueItemArs > 0 ? revenueItemArs / exchangeRate : 0;
+
+        capitalCostArs += capitalItemArs;
+        capitalCostUsd += capitalItemUsd;
+        potentialRevenueArs += revenueItemArs;
+        potentialRevenueUsd += revenueItemUsd;
+        totalUnidades += Math.floor(stock / presentationMl);
+      } else {
+        // Perfumes Sellados (bottle)
+        const costUsd = Number(item.cost_usd) || (exchangeRate > 0 && costArs > 0 ? costArs / exchangeRate : 0);
+        const priceUsd = Number(item.base_price_usd ?? item.price_usd) || (exchangeRate > 0 && priceArs > 0 ? priceArs / exchangeRate : 0);
+
+        capitalCostArs += stock * costArs;
+        capitalCostUsd += stock * costUsd;
+        potentialRevenueArs += stock * priceArs;
+        potentialRevenueUsd += stock * priceUsd;
+        totalUnidades += stock;
+      }
     });
 
     const potentialNetProfitArs = Math.max(0, potentialRevenueArs - capitalCostArs);

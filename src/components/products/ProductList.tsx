@@ -521,27 +521,70 @@ export function ProductList({ role, excludeSupplies = true }: ProductListProps) 
 
                     {/* Stock */}
                     <td className="p-4 font-medium text-slate-900 dark:text-white">
-                      {product.stock_quantity}
-                      <span className="text-xs text-slate-400 font-normal ml-1">
-                        {product.type === 'decant_liquid' ? 'ml' : 'uds'}
-                      </span>
-                      {product.volume_ml && (
-                        <div className="text-[10px] text-slate-400 font-normal">
-                          Capacidad: {product.volume_ml} ml
+                      {product.type === 'decant_liquid' ? (
+                        <div>
+                          <div className="flex items-center gap-1.5 font-bold text-cyan-600 dark:text-cyan-400">
+                            <Droplet className="h-3.5 w-3.5 text-cyan-600 dark:text-cyan-400 shrink-0" />
+                            <span>{product.stock_quantity} ml</span>
+                          </div>
+                          <div className="text-[10px] text-cyan-700/80 dark:text-cyan-300/70 font-normal mt-0.5">
+                            Granel en depósito
+                          </div>
                         </div>
+                      ) : (
+                        <>
+                          {product.stock_quantity}
+                          <span className="text-xs text-slate-400 font-normal ml-1">
+                            uds
+                          </span>
+                          {product.volume_ml && (
+                            <div className="text-[10px] text-slate-400 font-normal">
+                              Capacidad: {product.volume_ml} ml
+                            </div>
+                          )}
+                        </>
                       )}
                     </td>
 
                     {/* Costo Adquisición (Solo Admin) */}
                     {role === 'admin' && (
                       <td className="p-4 font-mono font-medium text-[#D0A96B] dark:text-[#D0A96B]">
-                        {formatArs(product.base_cost_ars)}
+                        {product.type === 'decant_liquid' ? (
+                          <div>
+                            <div className="flex items-baseline gap-1">
+                              <span>{formatArs(product.base_cost_ars)}</span>
+                              <span className="text-[10px] text-slate-400 font-normal">/ ml</span>
+                            </div>
+                            <div className="text-[10px] text-slate-400 font-normal mt-0.5">
+                              Total: {formatArs((Number(product.stock_quantity) || 0) * (Number(product.base_cost_ars) || 0))}
+                            </div>
+                          </div>
+                        ) : (
+                          formatArs(product.base_cost_ars)
+                        )}
                       </td>
                     )}
 
                     {/* Precio de Venta (ARS Fijo) */}
                     <td className="p-4 font-mono font-bold text-slate-950 dark:text-zinc-50">
-                      {formatArs(product.base_price_ars)}
+                      {product.type === 'decant_liquid' ? (
+                        <div>
+                          <div className="flex items-baseline gap-1">
+                            <span>{formatArs(product.base_price_ars)}</span>
+                            <span className="text-[11px] font-normal text-slate-400">/ {product.volume_ml || 5}ml</span>
+                          </div>
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            <span className="inline-block px-1.5 py-0.5 text-[9px] font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 rounded">
+                              Base {product.volume_ml || 5}ml
+                            </span>
+                            <span className="inline-block px-1.5 py-0.5 text-[9px] font-medium bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 rounded">
+                              +10ml disponible
+                            </span>
+                          </div>
+                        </div>
+                      ) : (
+                        formatArs(product.base_price_ars)
+                      )}
                     </td>
 
                     {/* Precio de Referencia (USD Blue) */}

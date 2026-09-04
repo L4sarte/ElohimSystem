@@ -106,8 +106,10 @@ export function exportStockToCsv({
     const minAlert = Number(p.min_stock_alert ?? 5);
     const costUnit = isAdmin ? Number(p.base_cost_ars || 0) : 0;
     const priceUnit = Number(p.base_price_ars || 0);
+    const presentationMl = Number(p.volume_ml) || 5;
+    const revenuePerMl = p.type === 'decant_liquid' ? (presentationMl > 0 ? priceUnit / presentationMl : priceUnit) : priceUnit;
     const valCost = stock * costUnit;
-    const valSale = stock * priceUnit;
+    const valSale = stock * revenuePerMl;
     const priceUsd = exchangeRate > 0 ? Number((priceUnit / exchangeRate).toFixed(2)) : 0;
     const status = getStockStatus(stock, minAlert);
 
@@ -134,9 +136,9 @@ export function exportStockToCsv({
       String(stock),
       p.type === 'decant_liquid' ? 'ml' : 'uds',
       String(minAlert),
-      isAdmin ? costUnit.toFixed(2) : '"[Confidencial]"',
+      isAdmin ? (p.type === 'decant_liquid' ? `"${costUnit.toFixed(2)}/ml"` : costUnit.toFixed(2)) : '"[Confidencial]"',
       isAdmin ? valCost.toFixed(2) : '"[Confidencial]"',
-      priceUnit.toFixed(2),
+      p.type === 'decant_liquid' ? `"${priceUnit.toFixed(2)} (${presentationMl}ml)"` : priceUnit.toFixed(2),
       valSale.toFixed(2),
       priceUsd.toFixed(2),
       `"${status.label}"`,
@@ -249,6 +251,10 @@ export function exportStockToPdf({
     const minAlert = Number(p.min_stock_alert ?? 5);
     const costUnit = isAdmin ? Number(p.base_cost_ars || 0) : 0;
     const priceUnit = Number(p.base_price_ars || 0);
+    const presentationMl = Number(p.volume_ml) || 5;
+    const revenuePerMl = p.type === 'decant_liquid' ? (presentationMl > 0 ? priceUnit / presentationMl : priceUnit) : priceUnit;
+    const valCost = stock * costUnit;
+    const valSale = stock * revenuePerMl;
     const status = getStockStatus(stock, minAlert);
 
     if (p.type === 'decant_liquid') {
@@ -261,9 +267,9 @@ export function exportStockToPdf({
     if (status.code === 'low') lowStockCount++;
 
     if (isAdmin) {
-      totalCostValuation += stock * costUnit;
+      totalCostValuation += valCost;
     }
-    totalSaleValuation += stock * priceUnit;
+    totalSaleValuation += valSale;
   });
 
   // 3. TARJETAS DE KPIS SINTÉTICOS (HEADER CARDS)
@@ -354,6 +360,7 @@ export function exportStockToPdf({
     const minAlert = Number(p.min_stock_alert ?? 5);
     const costUnit = isAdmin ? Number(p.base_cost_ars || 0) : 0;
     const priceUnit = Number(p.base_price_ars || 0);
+    const presentationMl = Number(p.volume_ml) || 5;
     const valCost = stock * costUnit;
     const status = getStockStatus(stock, minAlert);
 
@@ -364,9 +371,9 @@ export function exportStockToPdf({
       p.brand || 'Elohim',
       getProductTypeLabel(p.type),
       `${stock} ${p.type === 'decant_liquid' ? 'ml' : 'ud'}`,
-      isAdmin ? formatARS(costUnit) : '-',
+      isAdmin ? (p.type === 'decant_liquid' ? `${formatARS(costUnit)}/ml` : formatARS(costUnit)) : '-',
       isAdmin ? formatARS(valCost) : '-',
-      formatARS(priceUnit),
+      p.type === 'decant_liquid' ? `${formatARS(priceUnit)} (${presentationMl}ml)` : formatARS(priceUnit),
       status.label,
     ];
   });
