@@ -209,11 +209,14 @@ export async function getFinancialReport(
         saleItems.forEach((item) => {
           const qty = new Decimal(item.quantity || 1);
 
-          // Ejecutar cadena de resolución inteligente
+          // Ejecutar cadena de resolución inteligente canónica
           const costResolution = resolveItemUnitCost({
             itemUnitCostAtMoment: item.unit_cost_at_moment,
             productBaseCostArs: item.products?.base_cost_ars,
             lastPurchaseOrderCostArs: poCostMap[item.product_id]?.toNumber(),
+            productType: item.products?.type,
+            decantMl: 5,
+            supplyCostArs: 559,
           });
 
           if (!costResolution.hasCost) {
@@ -321,15 +324,14 @@ export async function getFinancialReport(
       }
     });
 
-    // 5. Consultar Cuentas por Cobrar globales (Dinero en la calle)
-    const { data: pendingSalesData } = await serviceClient
-      .from('sales')
-      .select('amount_due_ars')
-      .neq('status', 'voided')
-      .gt('amount_due_ars', 0);
+    // 5. Consultar Cuentas por Cobrar globales activas (Dinero en la calle)
+    const { data: pendingReceivablesData } = await serviceClient
+      .from('accounts_receivable')
+      .select('total_amount_ars, paid_amount_ars')
+      .in('status', ['pending', 'overdue']);
 
-    const totalAmountDueGlobal = (pendingSalesData || []).reduce(
-      (sum: number, s: any) => sum + Number(s.amount_due_ars || 0),
+    const totalAmountDueGlobal = (pendingReceivablesData || []).reduce(
+      (sum: number, r: any) => sum + Math.max(0, Number(r.total_amount_ars || 0) - Number(r.paid_amount_ars || 0)),
       0
     );
 

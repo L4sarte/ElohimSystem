@@ -131,7 +131,7 @@ export async function getVisualDashboardData(role?: UserRole): Promise<{
     if (allSaleIds.length > 0) {
       const { data: itemsData, error: itemsErr } = await supabase
         .from('sale_items')
-        .select('sale_id, product_id, quantity, price_ars_at_moment, products(name, brand, base_cost_ars)')
+        .select('sale_id, product_id, quantity, price_ars_at_moment, products(name, brand, type, base_cost_ars)')
         .in('sale_id', allSaleIds);
 
       if (!itemsErr && itemsData) {
@@ -139,12 +139,14 @@ export async function getVisualDashboardData(role?: UserRole): Promise<{
       }
     }
 
-    // Mapear costo por venta
+    // Mapear costo canónico por venta
     const saleCogsMap = new Map<string, Decimal>();
-    allItems.forEach((item) => {
+    allItems.forEach((item: any) => {
       const qty = new Decimal(item.quantity || 1);
-      const cost = new Decimal(item.products?.base_cost_ars || 0);
-      const itemCost = cost.times(qty);
+      const isDecant = item.products?.type === 'decant_liquid';
+      const mlCost = Number(item.products?.base_cost_ars || 0);
+      const unitCost = isDecant ? (mlCost * 5) + 559 : mlCost;
+      const itemCost = new Decimal(unitCost).times(qty);
 
       const prev = saleCogsMap.get(item.sale_id) || new Decimal(0);
       saleCogsMap.set(item.sale_id, prev.plus(itemCost));

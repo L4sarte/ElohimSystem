@@ -83,21 +83,25 @@ export interface ResolveItemCostParams {
   productBaseCostArs?: number | null;
   recipeCostArs?: number | null;
   lastPurchaseOrderCostArs?: number | null;
+  productType?: string | null;
+  decantMl?: number | null;
+  supplyCostArs?: number | null;
 }
 
 export interface ResolvedCostResult {
   unitCost: number;
-  source: 'unit_cost_at_moment' | 'catalog_base_cost' | 'recipe_bom' | 'purchase_order' | 'none';
+  source: 'unit_cost_at_moment' | 'catalog_base_cost' | 'recipe_bom' | 'purchase_order' | 'decant_calculated' | 'none';
   hasCost: boolean;
 }
 
 /**
- * Cadena de Resolución de Costo Unitario (Fallback Inteligente para COGS).
+ * Cadena de Resolución de Costo Unitario Canónica (Fallback Inteligente para COGS).
  * 1º: sale_items.unit_cost_at_moment (si fue guardado al momento de la venta y es > 0).
- * 2º: products.base_cost_ars (costo actual de catálogo).
- * 3º: Costo dinámico de receta BOM (si es decant/fraccionado).
- * 4º: Último costo registrado en purchase_order_items para ese producto.
- * 5º: Alerta si no tiene costo configurado en ningún lado (retorna 0).
+ * 2º: Si es decant_liquid, calcula (ml * costo_ml) + costo_frasco.
+ * 3º: Costo dinámico de receta BOM (si está precalculado).
+ * 4º: products.base_cost_ars (costo actual de catálogo para botellas/insumos).
+ * 5º: Último costo registrado en purchase_order_items para ese producto.
+ * 6º: Alerta si no tiene costo configurado en ningún lado (retorna 0).
  */
 export function resolveItemUnitCost(params: ResolveItemCostParams): ResolvedCostResult {
   if (params.itemUnitCostAtMoment !== undefined && params.itemUnitCostAtMoment !== null && Number(params.itemUnitCostAtMoment) > 0) {
@@ -108,18 +112,42 @@ export function resolveItemUnitCost(params: ResolveItemCostParams): ResolvedCost
     };
   }
 
-  if (params.productBaseCostArs !== undefined && params.productBaseCostArs !== null && Number(params.productBaseCostArs) > 0) {
-    return {
-      unitCost: Number(params.productBaseCostArs),
-      source: 'catalog_base_cost',
-      hasCost: true,
-    };
+  // Soporte especializado para decants / perfumes fraccionados
+  if (params.productType === 'decant_liquid') {
+    const ml = Number(params.decantMl || 5);
+    const mlCost = Number(params.productBaseCostArs || 0);
+    const supplyCost = Number(params.supplyCostArs || 559); // Costo frasco con válvula por defecto
+
+    if (params.recipeCostArs !== undefined && params.recipeCostArs !== null && Number(params.recipeCostArs) > 0) {
+      return {
+        unitCost: Number(params.recipeCostArs),
+        source: 'recipe_bom',
+        hasCost: true,
+      };
+    }
+
+    if (mlCost > 0) {
+      const calculatedDecantCost = new Decimal(mlCost).times(ml).plus(supplyCost).toNumber();
+      return {
+        unitCost: calculatedDecantCost,
+        source: 'decant_calculated',
+        hasCost: true,
+      };
+    }
   }
 
   if (params.recipeCostArs !== undefined && params.recipeCostArs !== null && Number(params.recipeCostArs) > 0) {
     return {
       unitCost: Number(params.recipeCostArs),
       source: 'recipe_bom',
+      hasCost: true,
+    };
+  }
+
+  if (params.productBaseCostArs !== undefined && params.productBaseCostArs !== null && Number(params.productBaseCostArs) > 0) {
+    return {
+      unitCost: Number(params.productBaseCostArs),
+      source: 'catalog_base_cost',
       hasCost: true,
     };
   }
@@ -138,3 +166,14 @@ export function resolveItemUnitCost(params: ResolveItemCostParams): ResolvedCost
     hasCost: false,
   };
 }
+
+/**
+ * Calcula el Margen Bruto de una venta absorbiendo correctamente descuentos comerciales.
+ * Margen Bruto = total_ars - COGS_total
+ */
+export function calculateSaleGrossMargin(totalArs: number | string, cogsArs: number | string): number {
+  const dTotal = new Decimal(totalArs || 0);
+  const dCogs = new Decimal(cogsArs || 0);
+  return dTotal.minus(dCogs).toNumber();
+}
+

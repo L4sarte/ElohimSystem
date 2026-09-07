@@ -294,6 +294,22 @@ export async function transferBetweenAccounts(
       throw updToErr;
     }
 
+    // 6. Registrar movimientos de auditoría
+    await supabase.from('treasury_movements').insert([
+      {
+        account_id: clean.fromAccountId,
+        type: 'transfer',
+        amount: amount,
+        description: `Transferencia enviada a ${toAcc.account_name}${clean.notes ? ` (${clean.notes})` : ''}`,
+      },
+      {
+        account_id: clean.toAccountId,
+        type: 'transfer',
+        amount: amount,
+        description: `Transferencia recibida desde ${fromAcc.account_name}${clean.notes ? ` (${clean.notes})` : ''}`,
+      },
+    ]);
+
     revalidatePath('/admin/finanzas/tesoreria');
     return { success: true };
   } catch (error: unknown) {
@@ -304,9 +320,14 @@ export async function transferBetweenAccounts(
 }
 
 /**
- * Helper interno para impactar un ingreso en una cuenta de tesorería determinada.
+ * Helper interno para impactar un ingreso en una cuenta de tesorería determinada con trazabilidad.
  */
-export async function depositToAccount(accountId: string, amountArs: number): Promise<boolean> {
+export async function depositToAccount(
+  accountId: string,
+  amountArs: number,
+  description?: string,
+  referenceId?: string
+): Promise<boolean> {
   try {
     if (!accountId || amountArs <= 0) return false;
     if (!isSupabaseConfigured()) return true;
@@ -328,6 +349,15 @@ export async function depositToAccount(accountId: string, amountArs: number): Pr
       .update({ balance_ars: newBalance })
       .eq('id', accountId);
 
+    // Registro de auditoría en libro de movimientos
+    await supabase.from('treasury_movements').insert({
+      account_id: accountId,
+      type: 'in',
+      amount: Math.round(amountArs),
+      description: description || 'Ingreso por cobro comercial',
+      reference_id: referenceId || null,
+    });
+
     return true;
   } catch (err) {
     console.error('Error al acreditar en cuenta de tesorería:', err);
@@ -336,9 +366,14 @@ export async function depositToAccount(accountId: string, amountArs: number): Pr
 }
 
 /**
- * Helper interno para debitar fondos de una cuenta de tesorería.
+ * Helper interno para debitar fondos de una cuenta de tesorería con trazabilidad.
  */
-export async function withdrawFromAccount(accountId: string, amountArs: number): Promise<boolean> {
+export async function withdrawFromAccount(
+  accountId: string,
+  amountArs: number,
+  description?: string,
+  referenceId?: string
+): Promise<boolean> {
   try {
     if (!accountId || amountArs <= 0) return false;
     if (!isSupabaseConfigured()) return true;
@@ -359,6 +394,15 @@ export async function withdrawFromAccount(accountId: string, amountArs: number):
       .from('treasury_accounts')
       .update({ balance_ars: newBalance })
       .eq('id', accountId);
+
+    // Registro de auditoría en libro de movimientos
+    await supabase.from('treasury_movements').insert({
+      account_id: accountId,
+      type: 'out',
+      amount: Math.round(amountArs),
+      description: description || 'Egreso de tesorería',
+      reference_id: referenceId || null,
+    });
 
     return true;
   } catch (err) {

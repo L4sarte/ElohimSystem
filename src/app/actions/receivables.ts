@@ -162,6 +162,29 @@ export async function registerDebtPayment(
 
     if (updateError) throw updateError;
 
+    // 2b. SINCRONIZACIÓN BIDIRECCIONAL CON TABLA SALES
+    if (receivable.sale_id) {
+      const { data: saleRecord } = await supabase
+        .from('sales')
+        .select('amount_due_ars')
+        .eq('id', receivable.sale_id)
+        .single();
+
+      if (saleRecord) {
+        const currentDue = Number(saleRecord.amount_due_ars || 0);
+        const newDue = Math.max(0, currentDue - Number(clean.amount_paid));
+        const newPaymentStatus = newDue <= 0 ? 'paid' : 'partial';
+
+        await supabase
+          .from('sales')
+          .update({
+            amount_due_ars: newDue,
+            payment_status: newPaymentStatus,
+          })
+          .eq('id', receivable.sale_id);
+      }
+    }
+
     // 3. REGISTRO EN CAJA FÍSICA ACTIVA (cash_movements)
     // Verificar si el vendedor tiene un turno de caja abierto en cash_shifts
     const { data: openShift } = await supabase

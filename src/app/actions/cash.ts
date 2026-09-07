@@ -180,11 +180,18 @@ export async function getActiveCashShift(role?: UserRole): Promise<{
 
     if (movError) throw movError;
 
-    // 3. Obtener ventas realizadas desde la apertura del turno
-    const { data: sales, error: salesError } = await serviceClient
+    // 3. Obtener ventas realizadas desde la apertura del turno por el vendedor activo (excluyendo anuladas)
+    let salesQuery = serviceClient
       .from('sales')
-      .select('id, payment_methods, created_at')
+      .select('id, payment_methods, created_at, seller_id, status')
+      .neq('status', 'voided')
       .gte('created_at', shift.opened_at);
+
+    if (shift.seller_id) {
+      salesQuery = salesQuery.eq('seller_id', shift.seller_id);
+    }
+
+    const { data: sales, error: salesError } = await salesQuery;
 
     if (salesError) throw salesError;
 

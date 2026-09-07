@@ -61,13 +61,14 @@ export default function DashboardPage() {
   const { refresh: refreshRate } = useExchangeRate();
 
   const [stats, setStats] = useState<any>(null);
+  const [period, setPeriod] = useState<'current_month' | 'all_time'>('current_month');
   const [loadingStats, setLoadingStats] = useState<boolean>(true);
   const [selectedSaleId, setSelectedSaleId] = useState<string | null>(null);
 
-  const loadDashboardData = async () => {
+  const loadDashboardData = async (selectedPeriod: 'current_month' | 'all_time' = period) => {
     if (role === 'admin') {
       setLoadingStats(true);
-      const res = await getDashboardData(role);
+      const res = await getDashboardData(role, selectedPeriod);
       if (res.success && res.data) {
         setStats(res.data);
       }
@@ -78,8 +79,8 @@ export default function DashboardPage() {
   };
 
   useEffect(() => {
-    loadDashboardData();
-  }, [role]);
+    loadDashboardData(period);
+  }, [role, period]);
 
   return (
     <div className="flex flex-col min-h-screen bg-[#08130E] text-zinc-50 transition-colors duration-300">
@@ -120,6 +121,44 @@ export default function DashboardPage() {
         {role === 'admin' && (
           <div className="space-y-6">
             
+            {/* CONTROL DE PERÍODO DEL DASHBOARD */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#1B362A] pb-4">
+              <div>
+                <h2 className="text-lg font-bold font-serif text-white flex items-center gap-2">
+                  <Sparkles className="h-5 w-5 text-[#D0A96B]" />
+                  {period === 'current_month' ? 'Resumen Financiero del Mes en Curso' : 'Resumen Financiero Histórico Total'}
+                </h2>
+                <p className="text-xs text-zinc-400">
+                  {period === 'current_month' 
+                    ? 'Facturación real, margen comercial bruto, OPEX y rentabilidad neta del mes actual.' 
+                    : 'Acumulado comercial histórico consolidado de todas las operaciones.'}
+                </p>
+              </div>
+
+              <div className="flex items-center gap-1.5 bg-[#08130E] border border-[#1B362A] p-1 rounded-xl self-start sm:self-auto">
+                <button
+                  onClick={() => setPeriod('current_month')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                    period === 'current_month'
+                      ? 'bg-[#13261E] text-[#D0A96B] border border-[#D0A96B]/30 shadow-sm'
+                      : 'text-zinc-400 hover:text-white'
+                  }`}
+                >
+                  Mes Actual
+                </button>
+                <button
+                  onClick={() => setPeriod('all_time')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                    period === 'all_time'
+                      ? 'bg-[#13261E] text-[#D0A96B] border border-[#D0A96B]/30 shadow-sm'
+                      : 'text-zinc-400 hover:text-white'
+                  }`}
+                >
+                  Histórico Total
+                </button>
+              </div>
+            </div>
+
             {loadingStats ? (
               <div className="flex flex-col items-center justify-center py-24 gap-3 border border-[#1B362A] bg-[#13261E]/60 rounded-2xl">
                 <RefreshCw className="h-8 w-8 animate-spin text-[#D0A96B]" />
@@ -130,14 +169,19 @@ export default function DashboardPage() {
                 {/* GRILLA KPI CARDS CON JERARQUÍA TYPOGRAPHY Y ICONOS DORADOS */}
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                   
-                  {/* Ingresos ARS */}
+                  {/* Card 1: Facturación / Ingresos Totales */}
                   <Card className="border border-[#1B362A] bg-[#13261E]/90 rounded-2xl shadow-xl transition-all duration-300 hover:border-[#D0A96B]/50">
                     <CardHeader className="pb-3 flex flex-row items-center justify-between space-y-0">
                       <div>
-                        <CardDescription className="text-[10px] font-extrabold uppercase tracking-widest text-zinc-400">Ingresos Totales (ARS)</CardDescription>
-                        <CardTitle className="text-3xl sm:text-4xl font-bold tracking-tight text-white mt-1.5 font-serif">
+                        <CardDescription className="text-[10px] font-extrabold uppercase tracking-widest text-zinc-400">
+                          {period === 'current_month' ? 'Facturación del Mes (ARS)' : 'Facturación Total (ARS)'}
+                        </CardDescription>
+                        <CardTitle className="text-3xl font-bold tracking-tight text-white mt-1.5 font-serif">
                           ${Math.round(stats.totalRevenueArs).toLocaleString('es-AR')}
                         </CardTitle>
+                        <p className="text-[11px] text-zinc-400 font-mono mt-1">
+                          u$s {stats.totalRevenueUsd.toFixed(2)} equiv.
+                        </p>
                       </div>
                       <div className="h-11 w-11 rounded-xl bg-[#D0A96B]/10 border border-[#D0A96B]/30 flex items-center justify-center text-[#D0A96B] shrink-0">
                         <Coins className="h-6 w-6" />
@@ -145,14 +189,19 @@ export default function DashboardPage() {
                     </CardHeader>
                   </Card>
 
-                  {/* Volumen USD */}
+                  {/* Card 2: Margen Bruto Comercial */}
                   <Card className="border border-[#1B362A] bg-[#13261E]/90 rounded-2xl shadow-xl transition-all duration-300 hover:border-[#D0A96B]/50">
                     <CardHeader className="pb-3 flex flex-row items-center justify-between space-y-0">
                       <div>
-                        <CardDescription className="text-[10px] font-extrabold uppercase tracking-widest text-zinc-400">Volumen Comercial (USD)</CardDescription>
-                        <CardTitle className="text-3xl sm:text-4xl font-bold tracking-tight text-white mt-1.5 font-serif">
-                          u$s {stats.totalRevenueUsd.toFixed(2)}
+                        <CardDescription className="text-[10px] font-extrabold uppercase tracking-widest text-zinc-400">
+                          Margen Comercial Bruto
+                        </CardDescription>
+                        <CardTitle className="text-3xl font-bold tracking-tight text-[#D0A96B] mt-1.5 font-serif">
+                          ${Math.round(stats.grossMarginArs || 0).toLocaleString('es-AR')}
                         </CardTitle>
+                        <p className="text-[11px] text-zinc-400 font-mono mt-1">
+                          {stats.grossMarginPercent}% sobre ventas
+                        </p>
                       </div>
                       <div className="h-11 w-11 rounded-xl bg-[#D0A96B]/10 border border-[#D0A96B]/30 flex items-center justify-center text-[#D0A96B] shrink-0">
                         <TrendingUp className="h-6 w-6" />
@@ -160,34 +209,44 @@ export default function DashboardPage() {
                     </CardHeader>
                   </Card>
 
-                  {/* Ganancias ARS */}
-                  <Card className="border border-[#1B362A] bg-[#13261E]/90 rounded-2xl shadow-xl transition-all duration-300 hover:border-emerald-500/40">
+                  {/* Card 3: Gastos Operativos (OPEX) */}
+                  <Card className="border border-[#1B362A] bg-[#13261E]/90 rounded-2xl shadow-xl transition-all duration-300 hover:border-amber-500/40">
                     <CardHeader className="pb-3 flex flex-row items-center justify-between space-y-0">
                       <div>
-                        <CardDescription className="text-[10px] font-extrabold uppercase tracking-widest text-zinc-400">Ganancia Neta (ARS)</CardDescription>
-                        <CardTitle className="text-3xl sm:text-4xl font-bold tracking-tight text-emerald-400 mt-1.5 font-serif">
-                          ${Math.round(stats.estimatedProfitArs).toLocaleString('es-AR')}
+                        <CardDescription className="text-[10px] font-extrabold uppercase tracking-widest text-zinc-400">
+                          Gastos Operativos (OPEX)
+                        </CardDescription>
+                        <CardTitle className="text-3xl font-bold tracking-tight text-amber-400 mt-1.5 font-serif">
+                          ${Math.round(stats.opexArs || 0).toLocaleString('es-AR')}
                         </CardTitle>
+                        <p className="text-[11px] text-zinc-400 font-mono mt-1">
+                          Testers, mermas y suministros
+                        </p>
                       </div>
-                      <div className="h-11 w-11 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0">
-                        <DollarSign className="h-6 w-6 text-[#D0A96B]" />
+                      <div className="h-11 w-11 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 shrink-0">
+                        <CreditCard className="h-6 w-6 text-amber-400" />
                       </div>
                     </CardHeader>
                   </Card>
 
-                  {/* Rentabilidad promedio */}
-                  <Card className="border border-[#1B362A] bg-[#13261E]/90 rounded-2xl shadow-xl transition-all duration-300 hover:border-[#D0A96B]/50">
+                  {/* Card 4: Ganancia Neta Real */}
+                  <Card className="border border-[#1B362A] bg-[#13261E]/90 rounded-2xl shadow-xl transition-all duration-300 hover:border-emerald-500/40">
                     <CardHeader className="pb-3 flex flex-row items-center justify-between space-y-0">
                       <div>
-                        <CardDescription className="text-[10px] font-extrabold uppercase tracking-widest text-zinc-400">Rentabilidad Promedio</CardDescription>
-                        <CardTitle className="text-3xl sm:text-4xl font-bold tracking-tight text-[#E5C158] mt-1.5 font-serif">
-                          {stats.totalRevenueArs > 0 
-                            ? `${((stats.estimatedProfitArs / stats.totalRevenueArs) * 100).toFixed(1)}%` 
-                            : '0.0%'}
+                        <CardDescription className="text-[10px] font-extrabold uppercase tracking-widest text-zinc-400">
+                          Ganancia Neta Real (ARS)
+                        </CardDescription>
+                        <CardTitle className="text-3xl font-bold tracking-tight text-emerald-400 mt-1.5 font-serif">
+                          ${Math.round(stats.estimatedProfitArs).toLocaleString('es-AR')}
                         </CardTitle>
+                        <p className="text-[11px] text-emerald-400/90 font-mono mt-1">
+                          {stats.totalRevenueArs > 0 
+                            ? `${((stats.estimatedProfitArs / stats.totalRevenueArs) * 100).toFixed(1)}% margen neto` 
+                            : '0.0% margen neto'}
+                        </p>
                       </div>
-                      <div className="h-11 w-11 rounded-xl bg-[#D0A96B]/10 border border-[#D0A96B]/30 flex items-center justify-center text-[#D0A96B] shrink-0">
-                        <Percent className="h-6 w-6" />
+                      <div className="h-11 w-11 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0">
+                        <DollarSign className="h-6 w-6 text-[#D0A96B]" />
                       </div>
                     </CardHeader>
                   </Card>
@@ -368,7 +427,7 @@ export default function DashboardPage() {
                 <AlertCircle className="h-10 w-10 text-rose-500" />
                 <h3 className="font-bold text-white">Error de Carga</h3>
                 <p className="text-xs text-zinc-500">No se pudieron recuperar las métricas desde la base de datos.</p>
-                <Button onClick={loadDashboardData} className="mt-2">Reintentar</Button>
+                <Button onClick={() => loadDashboardData(period)} className="mt-2">Reintentar</Button>
               </div>
             )}
 

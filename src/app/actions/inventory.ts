@@ -233,13 +233,13 @@ export async function adjustInventory(
     if (clean.quantity < 0) {
       const { data: product } = await supabase
         .from('products')
-        .select('name, base_cost_ars')
+        .select('name, base_cost_ars, type')
         .eq('id', clean.productId)
         .single();
 
       if (product) {
         const unitCost = Number(product.base_cost_ars || 0);
-        const lossAmountArs = Math.abs(clean.quantity) * unitCost;
+        const lossAmountArs = Math.round(Math.abs(clean.quantity) * unitCost);
 
         if (lossAmountArs > 0) {
           let exchangeRate = 1250;

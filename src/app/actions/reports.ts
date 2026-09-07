@@ -79,9 +79,13 @@ export interface RecentSaleItem {
 }
 
 export interface DashboardData {
+  period: 'current_month' | 'all_time';
   totalRevenueArs: number;
   totalRevenueUsd: number;
-  estimatedProfitArs: number;
+  grossMarginArs: number;
+  grossMarginPercent: number;
+  opexArs: number;
+  estimatedProfitArs: number; // Ganancia Neta Real (Margen Bruto - OPEX - Comisiones)
   estimatedProfitUsd: number;
   salesByDate: Array<{ date: string; Ventas: number; Ganancias: number; VentasMesAnterior: number }>;
   criticalStock: CriticalStockItem[];
@@ -91,10 +95,13 @@ export interface DashboardData {
 interface DbSaleRow {
   id: string;
   total_ars: number;
+  subtotal_ars?: number | null;
+  discount_amount_ars?: number | null;
   total_usd_equivalent: number;
   exchange_rate_used: number;
   created_at: string;
   status: string;
+  gateway_fee_ars?: number | null;
   clients?: {
     name: string;
   } | null;
@@ -105,17 +112,24 @@ interface DbSaleItemRow {
   quantity: number;
   price_ars_at_moment: number;
   price_usd_at_moment: number;
+  unit_cost_at_moment?: number | null;
   products?: {
-    base_cost_ars: number;
+    id: string;
+    name: string;
+    type?: string | null;
+    base_cost_ars?: number | null;
   } | null;
 }
 
 /**
  * Obtener todos los datos necesarios para el Dashboard Administrativo de Elohim Import ERP.
- * Incluye KPIs financieros, ventas agrupadas para gráficos, productos con stock crítico (< 3)
- * y el feed de las últimas 5 ventas con el nombre del cliente.
+ * Admite filtro de período: 'current_month' (por defecto) o 'all_time'.
+ * Deduce con exactitud COGS (incluyendo decants y envases), descuentos, comisiones y OPEX.
  */
-export async function getDashboardData(role?: UserRole): Promise<{
+export async function getDashboardData(
+  role?: UserRole,
+  period: 'current_month' | 'all_time' = 'current_month'
+): Promise<{
   success: boolean;
   data?: DashboardData;
   error?: string;
@@ -127,8 +141,12 @@ export async function getDashboardData(role?: UserRole): Promise<{
       return {
         success: true,
         data: {
+          period,
           totalRevenueArs: 0,
           totalRevenueUsd: 0,
+          grossMarginArs: 0,
+          grossMarginPercent: 0,
+          opexArs: 0,
           estimatedProfitArs: 0,
           estimatedProfitUsd: 0,
           salesByDate: [],
@@ -139,17 +157,56 @@ export async function getDashboardData(role?: UserRole): Promise<{
     }
 
     const supabase = getServiceSupabase();
+    const now = new Date();
 
-    // 1. Obtener todas las ventas activas (excluyendo anuladas) para KPIs y gráfico
-    const { data: salesData, error: salesError } = await supabase
+    const startOfMonth = new Date(Date.UTC(now.getFullYear(), now.getMonth(), 1, 0, 0, 0)).toISOString();
+    const endOfMonth = new Date(Date.UTC(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999)).toISOString();
+    const dateStartString = startOfMonth.split('T')[0];
+    const dateEndString = endOfMonth.split('T')[0];
+
+    // Fechas para cálculo histórico real del mes anterior (mismo día relativo)
+    const prevMonthYear = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
+    const prevMonthIndex = now.getMonth() === 0 ? 11 : now.getMonth() - 1;
+    const startOfPrevMonth = new Date(Date.UTC(prevMonthYear, prevMonthIndex, 1, 0, 0, 0)).toISOString();
+    const endOfPrevMonth = new Date(Date.UTC(prevMonthYear, prevMonthIndex + 1, 0, 23, 59, 59, 999)).toISOString();
+
+    // 1. Obtener ventas activas según el período seleccionado
+    let salesQuery = supabase
       .from('sales')
-      .select('id, total_ars, total_usd_equivalent, exchange_rate_used, created_at, status')
+      .select('id, total_ars, subtotal_ars, discount_amount_ars, total_usd_equivalent, exchange_rate_used, created_at, status, gateway_fee_ars')
       .neq('status', 'voided')
       .order('created_at', { ascending: true });
 
-    if (salesError) throw salesError;
+    if (period === 'current_month') {
+      salesQuery = salesQuery.gte('created_at', startOfMonth).lte('created_at', endOfMonth);
+    }
 
-    const sales = (salesData || []) as unknown as DbSaleRow[];
+    // Consultas concurrentes: Ventas del período, Ventas del mes anterior (para comparativa real) y Gastos OPEX
+    const [salesRes, prevSalesRes, expensesRes] = await Promise.all([
+      salesQuery,
+      supabase
+        .from('sales')
+        .select('total_ars, created_at')
+        .neq('status', 'voided')
+        .gte('created_at', startOfPrevMonth)
+        .lte('created_at', endOfPrevMonth),
+      period === 'current_month'
+        ? supabase
+            .from('operating_expenses')
+            .select('amount_ars, expense_date')
+            .gte('expense_date', dateStartString)
+            .lte('expense_date', dateEndString)
+        : supabase
+            .from('operating_expenses')
+            .select('amount_ars, expense_date'),
+    ]);
+
+    if (salesRes.error) throw salesRes.error;
+
+    const sales = (salesRes.data || []) as unknown as DbSaleRow[];
+    const prevSales = (prevSalesRes.data || []) as unknown as Array<{ total_ars: number; created_at: string }>;
+    const expenses = (expensesRes.data || []) as unknown as Array<{ amount_ars: number; expense_date: string }>;
+
     const validSaleIds = sales.map((s) => s.id);
 
     // 2. Obtener los ítems de ventas activas con costo para rentabilidad
@@ -163,6 +220,9 @@ export async function getDashboardData(role?: UserRole): Promise<{
           price_ars_at_moment,
           price_usd_at_moment,
           products (
+            id,
+            name,
+            type,
             base_cost_ars
           )
         `)
@@ -182,10 +242,9 @@ export async function getDashboardData(role?: UserRole): Promise<{
       .limit(5);
 
     if (stockError) throw stockError;
-
     const criticalStock = (stockData || []) as unknown as CriticalStockItem[];
 
-    // 4. Obtener las últimas 5 ventas completadas (excluyendo anuladas)
+    // 4. Obtener las últimas 5 ventas completadas
     const { data: recentData, error: recentError } = await supabase
       .from('sales')
       .select(`
@@ -202,70 +261,110 @@ export async function getDashboardData(role?: UserRole): Promise<{
       .limit(5);
 
     if (recentError) throw recentError;
-
     const recentSalesDb = (recentData || []) as unknown as DbSaleRow[];
 
-    // --- Procesamiento de métricas ---
-    let totalRevenueArs = 0;
-    let totalRevenueUsd = 0;
-    let estimatedProfitArs = 0;
-    const itemProfitMap: Record<string, number> = {};
+    // --- Procesamiento canónico de métricas y COGS ---
+    const saleCogsMap: Record<string, number> = {};
 
     saleItems.forEach((item) => {
-      const qty = Number(item.quantity || 0);
-      const priceArs = Number(item.price_ars_at_moment || 0);
-      const costArs = item.products ? Number(item.products.base_cost_ars || 0) : 0;
-      
-      const itemProfit = (priceArs - costArs) * qty;
-      estimatedProfitArs += itemProfit;
-      
-      if (!itemProfitMap[item.sale_id]) {
-        itemProfitMap[item.sale_id] = 0;
+      const qty = Number(item.quantity || 1);
+      const isDecant = item.products?.type === 'decant_liquid';
+      const mlCost = Number(item.products?.base_cost_ars || 0);
+
+      // Costo unitario: Si es decant, 5ml de perfume + costo del frasco ($559). Si es botella, costo de catálogo.
+      const unitCost = isDecant
+        ? (mlCost * 5) + 559
+        : mlCost;
+
+      const itemCost = unitCost * qty;
+
+      if (!saleCogsMap[item.sale_id]) {
+        saleCogsMap[item.sale_id] = 0;
       }
-      itemProfitMap[item.sale_id] += itemProfit;
+      saleCogsMap[item.sale_id] += itemCost;
     });
 
+    let totalRevenueArs = 0;
+    let totalRevenueUsd = 0;
+    let totalCogsArs = 0;
+    let totalGatewayFees = 0;
+    const saleProfitMap: Record<string, number> = {};
+
     sales.forEach((sale) => {
-      totalRevenueArs += Number(sale.total_ars || 0);
+      const saleTotal = Number(sale.total_ars || 0);
+      const saleCogs = saleCogsMap[sale.id] || 0;
+      const saleFee = Number(sale.gateway_fee_ars || 0);
+
+      // Margen Bruto de la Venta (con descuento comercial ya descontado en total_ars)
+      const saleGrossMargin = Math.max(0, saleTotal - saleCogs);
+
+      totalRevenueArs += saleTotal;
       totalRevenueUsd += Number(sale.total_usd_equivalent || 0);
+      totalCogsArs += saleCogs;
+      totalGatewayFees += saleFee;
+
+      saleProfitMap[sale.id] = saleGrossMargin;
     });
+
+    const totalOpexArs = expenses.reduce((sum, e) => sum + Number(e.amount_ars || 0), 0);
+    const grossMarginArs = Math.max(0, totalRevenueArs - totalCogsArs);
+    const estimatedProfitArs = Math.round(grossMarginArs - totalOpexArs - totalGatewayFees);
+
+    const grossMarginPercent = totalRevenueArs > 0
+      ? Number(((grossMarginArs / totalRevenueArs) * 100).toFixed(1))
+      : 0;
 
     const estimatedProfitUsd = totalRevenueUsd * (totalRevenueArs > 0 ? (estimatedProfitArs / totalRevenueArs) : 0);
 
-    // Agrupar ventas para gráfico (últimas 10 fechas activas)
-    const salesGrouped: Record<string, { total: number; profit: number }> = {};
+    // Mapeo de ventas reales del mes anterior por día para comparativa histórica exacta
+    const prevMonthSalesByDay: Record<number, number> = {};
+    prevSales.forEach((ps) => {
+      const pDate = new Date(ps.created_at);
+      const dayNum = pDate.getDate();
+      prevMonthSalesByDay[dayNum] = (prevMonthSalesByDay[dayNum] || 0) + Number(ps.total_ars || 0);
+    });
+
+    // Agrupar ventas para gráfico
+    const salesGrouped: Record<string, { total: number; profit: number; dayNum: number }> = {};
     sales.forEach((sale) => {
-      const dateStr = new Date(sale.created_at).toLocaleDateString('es-AR', {
+      const sDate = new Date(sale.created_at);
+      const dateStr = sDate.toLocaleDateString('es-AR', {
         day: '2-digit',
         month: '2-digit',
       });
-      const saleProfit = itemProfitMap[sale.id] || 0;
+      const saleGross = saleProfitMap[sale.id] || 0;
 
       if (!salesGrouped[dateStr]) {
-        salesGrouped[dateStr] = { total: 0, profit: 0 };
+        salesGrouped[dateStr] = { total: 0, profit: 0, dayNum: sDate.getDate() };
       }
       salesGrouped[dateStr].total += Number(sale.total_ars || 0);
-      salesGrouped[dateStr].profit += saleProfit;
+      salesGrouped[dateStr].profit += saleGross;
     });
 
     const salesByDate = Object.keys(salesGrouped).map((date) => {
-      const currentTotal = Math.round(salesGrouped[date].total);
-      const prevMonthTotal = Math.round(currentTotal * 0.82);
+      const group = salesGrouped[date];
+      const currentTotal = Math.round(group.total);
+      const realPrevMonthTotal = Math.round(prevMonthSalesByDay[group.dayNum] || 0);
+
       return {
         date,
         Ventas: currentTotal,
-        Ganancias: Math.round(salesGrouped[date].profit),
-        VentasMesAnterior: prevMonthTotal,
+        Ganancias: Math.round(group.profit),
+        VentasMesAnterior: realPrevMonthTotal,
       };
     });
 
     return {
       success: true,
       data: {
-        totalRevenueArs,
-        totalRevenueUsd,
+        period,
+        totalRevenueArs: Math.round(totalRevenueArs),
+        totalRevenueUsd: Number(totalRevenueUsd.toFixed(2)),
+        grossMarginArs: Math.round(grossMarginArs),
+        grossMarginPercent,
+        opexArs: Math.round(totalOpexArs),
         estimatedProfitArs,
-        estimatedProfitUsd,
+        estimatedProfitUsd: Number(estimatedProfitUsd.toFixed(2)),
         salesByDate: salesByDate.slice(-10),
         criticalStock,
         recentSales: recentSalesDb.map((sale) => ({
@@ -311,12 +410,14 @@ interface DbRetailItemRow {
     name: string;
     brand: string;
     sku: string;
+    type?: string | null;
     base_cost_ars?: number | null;
   } | null;
 }
 
 /**
  * Obtiene los KPIs de Retail (AOV y Top Best Sellers) para el mes en curso o rango personalizado.
+ * Calcula con precisión los costos de botellas cerradas y decants fraccionados.
  */
 export async function getRetailKPIs(
   role?: UserRole,
@@ -374,7 +475,7 @@ export async function getRetailKPIs(
     let topBestSellers: BestSellerProduct[] = [];
 
     if (monthSaleIds.length > 0) {
-      // 2. Consultar ítems vendidos en el mes con su costo base
+      // 2. Consultar ítems vendidos en el mes con su tipo y costo base
       const { data: itemsData, error: itemsError } = await supabase
         .from('sale_items')
         .select(`
@@ -386,6 +487,7 @@ export async function getRetailKPIs(
             name,
             brand,
             sku,
+            type,
             base_cost_ars
           )
         `)
@@ -400,10 +502,15 @@ export async function getRetailKPIs(
         const pId = item.product_id;
         const qty = Number(item.quantity || 0);
         const unitPrice = Number(item.price_ars_at_moment || 0);
-        const unitCost = Number(item.products?.base_cost_ars || 0);
+        const pInfo = item.products;
+        const isDecant = pInfo?.type === 'decant_liquid';
+        const rawCost = Number(pInfo?.base_cost_ars || 0);
+
+        // Costo canónico para decants (5ml de perfume + frasco) vs botella sellada
+        const unitCost = isDecant ? (rawCost * 5) + 559 : rawCost;
+
         const revenue = qty * unitPrice;
         const cost = qty * unitCost;
-        const pInfo = item.products;
 
         if (!productGroupMap[pId]) {
           productGroupMap[pId] = {
@@ -426,7 +533,7 @@ export async function getRetailKPIs(
 
       // Calcular márgenes por producto
       Object.values(productGroupMap).forEach((p) => {
-        p.net_margin_ars = p.total_revenue_ars - p.total_cost_ars;
+        p.net_margin_ars = Math.max(0, p.total_revenue_ars - p.total_cost_ars);
         p.margin_percent = p.total_revenue_ars > 0
           ? Number(((p.net_margin_ars / p.total_revenue_ars) * 100).toFixed(1))
           : 0;
@@ -452,3 +559,4 @@ export async function getRetailKPIs(
     return { success: false, error: msg };
   }
 }
+
