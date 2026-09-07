@@ -6,6 +6,7 @@ import { revalidatePath } from 'next/cache';
 import { depositToAccount, getTreasuryAccounts } from '@/app/actions/treasury';
 import { requireAuth, requireAdmin } from '@/lib/auth-checks';
 import { saleInputSchema, calculatePreciseTotal } from '@/lib/sales-validation';
+import { calculateDiscount, DiscountType } from '@/lib/discount-calculations';
 import Decimal from 'decimal.js';
 
 export interface ClientRecord {
@@ -95,6 +96,11 @@ export interface PackagingUsedInput {
 export interface SaleInput {
   client_id: string | null;
   seller_id: string | null;
+  subtotal_ars?: number;
+  discount_type?: DiscountType;
+  discount_value?: number;
+  discount_amount_ars?: number;
+  discount_percentage?: number;
   total_ars: number;
   total_usd_equivalent: number;
   exchange_rate_used: number;
@@ -114,6 +120,14 @@ export interface SaleInput {
     vibepoints_used?: {
       points: number;
       discount_ars: number;
+    } | null;
+    discount?: {
+      type: DiscountType;
+      value: number;
+      amount_ars: number;
+      percentage: number;
+      subtotal_ars: number;
+      final_ars: number;
     } | null;
     [key: string]: unknown;
   };
@@ -141,6 +155,39 @@ export async function createSaleTransaction(
     }
 
     const cleanSaleData = validation.data;
+
+    // Validación y cálculo matemático del descuento
+    const rawDiscountType = (cleanSaleData.discount_type || 'none') as DiscountType;
+    const rawDiscountValue = Number(cleanSaleData.discount_value || 0);
+    const declaredSubtotal = cleanSaleData.subtotal_ars !== undefined
+      ? Number(cleanSaleData.subtotal_ars)
+      : calculatePreciseTotal(cleanSaleData.items);
+
+    const discountCalc = calculateDiscount(declaredSubtotal, rawDiscountType, rawDiscountValue);
+
+    if (!discountCalc.isValid) {
+      return { success: false, error: discountCalc.errorMessage || 'Configuración de descuento inválida.' };
+    }
+
+    // Regla de negocio: Vendedores (sellers) tienen un tope máximo del 20%
+    if (currentUser.role !== 'admin' && discountCalc.discountPercentage > 20) {
+      return {
+        success: false,
+        error: `Permiso denegado: Los vendedores solo pueden aplicar un descuento de hasta el 20%. Descuento solicitado: ${discountCalc.discountPercentage}%. Se requiere autorización de un Administrador.`,
+      };
+    }
+
+    // Adjuntar snapshot de descuento a payment_methods para auditoría y retrocompatibilidad inmediata
+    if (discountCalc.discountAmountArs > 0) {
+      cleanSaleData.payment_methods.discount = {
+        type: discountCalc.discountType,
+        value: discountCalc.discountValue,
+        amount_ars: discountCalc.discountAmountArs,
+        percentage: discountCalc.discountPercentage,
+        subtotal_ars: discountCalc.subtotalArs,
+        final_ars: discountCalc.totalArs,
+      };
+    }
 
     // 3. Modo desarrollo sin Supabase
     if (!isSupabaseConfigured()) {
@@ -232,15 +279,35 @@ export async function createSaleTransaction(
 
     // 8. Actualizar registro de venta en tabla sales
     if (saleId) {
-      await serviceClient
+      const baseUpdatePayload = {
+        gateway_fee_ars: gatewayFeeArs,
+        net_received_ars: netReceivedArs,
+        payment_status: paymentStatus,
+        amount_due_ars: amountDueArs,
+      };
+
+      const fullUpdatePayload = {
+        ...baseUpdatePayload,
+        subtotal_ars: discountCalc.subtotalArs,
+        discount_type: discountCalc.discountType,
+        discount_value: discountCalc.discountValue,
+        discount_amount_ars: discountCalc.discountAmountArs,
+        discount_percentage: discountCalc.discountPercentage,
+      };
+
+      const { error: updateErr } = await serviceClient
         .from('sales')
-        .update({
-          gateway_fee_ars: gatewayFeeArs,
-          net_received_ars: netReceivedArs,
-          payment_status: paymentStatus,
-          amount_due_ars: amountDueArs,
-        })
+        .update(fullUpdatePayload)
         .eq('id', saleId);
+
+      // Si falla por columnas aún no migradas en Supabase, aplicar fallback seguro
+      if (updateErr) {
+        console.warn('Aviso: columnas de descuento no presentes en sales, aplicando actualización base:', updateErr.message);
+        await serviceClient
+          .from('sales')
+          .update(baseUpdatePayload)
+          .eq('id', saleId);
+      }
     }
 
     // 9. Registrar pago inicial en sale_installments
@@ -443,6 +510,11 @@ export async function createSaleTransaction(
 
 export interface SaleDetailRecord {
   id: string;
+  subtotal_ars?: number;
+  discount_type?: string;
+  discount_value?: number;
+  discount_amount_ars?: number;
+  discount_percentage?: number;
   total_ars: number;
   total_usd_equivalent: number;
   exchange_rate_used: number;

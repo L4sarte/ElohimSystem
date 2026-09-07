@@ -17,6 +17,8 @@ export interface ReceiptTicketProps {
   clientName?: string;
   items: ReceiptItem[];
   subtotalArs: number;
+  discountAmountArs?: number;
+  discountPercentage?: number;
   surchargeArs?: number;
   totalArs: number;
   totalUsd: number;
@@ -32,6 +34,8 @@ export function ReceiptTicket({
   clientName = 'Consumidor Final',
   items = [],
   subtotalArs,
+  discountAmountArs = 0,
+  discountPercentage = 0,
   surchargeArs = 0,
   totalArs,
   totalUsd,
@@ -171,9 +175,23 @@ export function ReceiptTicket({
         {/* DESGLOSE FINANCIERO */}
         <div className="py-2.5 border-b border-dashed border-black space-y-1.5 text-black">
           <div className="flex justify-between">
-            <span>Subtotal Base ARS:</span>
+            <span>Subtotal Original ARS:</span>
             <span>${subtotalArs.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
           </div>
+
+          {(discountAmountArs > 0 || (paymentMethods?.discount?.amount_ars > 0)) && (
+            <div className="flex justify-between font-bold text-[10px]">
+              <span>
+                Descuento aplicado
+                {(discountPercentage > 0 || paymentMethods?.discount?.percentage > 0)
+                  ? ` (${discountPercentage || paymentMethods?.discount?.percentage}%)`
+                  : ''}:
+              </span>
+              <span>
+                -${(discountAmountArs || paymentMethods?.discount?.amount_ars || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+              </span>
+            </div>
+          )}
 
           {surchargeArs > 0 && (
             <div className="flex justify-between font-bold text-[10px]">

@@ -12,7 +12,13 @@ import { ReceiptTicket, ReceiptTicketProps } from '@/components/pos/ReceiptTicke
 import { CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { X, DollarSign, CreditCard, Landmark, CheckCircle, RefreshCw, AlertCircle, Sparkles, Percent, Printer, ShoppingBag, ShieldCheck, MessageSquare, Package, ChevronDown, ChevronUp, Plus, Trash2, Download } from 'lucide-react';
+import { X, DollarSign, CreditCard, Landmark, CheckCircle, RefreshCw, AlertCircle, Sparkles, Percent, Printer, ShoppingBag, ShieldCheck, MessageSquare, Package, ChevronDown, ChevronUp, Plus, Trash2, Download, Tag, TrendingDown, BadgePercent } from 'lucide-react';
+import {
+  DiscountType,
+  DiscountCalculationResult,
+  calculateDiscount,
+  convertDiscountValueBetweenModes
+} from '@/lib/discount-calculations';
 import { toast } from 'sonner';
 
 interface CheckoutModalProps {
@@ -58,6 +64,10 @@ export function CheckoutModal({
 
   const [amountPaidTodayInput, setAmountPaidTodayInput] = useState<string>('');
   const [useVibePoints, setUseVibePoints] = useState(false);
+
+  // Ajuste de Precio / Descuentos en Checkout
+  const [discountType, setDiscountType] = useState<DiscountType>('none');
+  const [discountInputValue, setDiscountInputValue] = useState<string>('');
 
   // Insumos de Packaging Utilizados en la Venta
   const [availableSupplies, setAvailableSupplies] = useState<any[]>([]);
@@ -115,6 +125,8 @@ export function CheckoutModal({
     setCashUsd('');
     setClientId('default');
     setSelectedMethodId('');
+    setDiscountType('none');
+    setDiscountInputValue('');
     setAmountPaidTodayInput('');
     setUseVibePoints(false);
     setSelectedPackaging([]);
@@ -144,29 +156,56 @@ export function CheckoutModal({
   const fixedFeeArs = selectedMethod ? Number(selectedMethod.fixed_fee_ars || 0) : 0;
   const passFeeToCustomer = selectedMethod ? Boolean(selectedMethod.pass_fee_to_customer) : false;
 
-  // Subtotal base sin recargos
-  const subtotalArs = totalArs;
+  // Subtotal base original directo del carrito
+  const subtotalOriginalArs = totalArs;
 
-  // Comisión calculada de la pasarela
+  // Cálculo del Descuento con Decimal.js
+  const discountResult: DiscountCalculationResult = calculateDiscount(
+    subtotalOriginalArs,
+    discountType,
+    discountInputValue
+  );
+
+  // Validación de tope de vendedor (máx 20%)
+  const isSellerOverLimit = role !== 'admin' && discountResult.discountPercentage > 20;
+
+  // Subtotal neto tras aplicar descuento
+  const subtotalAfterDiscountArs = discountResult.totalArs;
+
+  // Costo total del carrito para alerta de margen negativo
+  const totalCartCogs = cartItems.reduce((sum, item) => {
+    let itemCost = Number(item.product.base_cost_ars || 0);
+    if (item.product.type === 'decant_liquid' && item.decantMl) {
+      itemCost = Number(item.product.base_cost_ars || 0) * item.decantMl;
+    }
+    return sum + (itemCost * item.quantity);
+  }, 0);
+
+  const isBelowCogs = discountResult.discountAmountArs > 0 && subtotalAfterDiscountArs < totalCartCogs;
+
+  // Subtotal base sin recargos (mantiene subtotalArs para retrocompatibilidad interna)
+  const subtotalArs = subtotalOriginalArs;
+
+  // Comisión calculada de la pasarela sobre el subtotal con descuento
   const calculatedGatewayFeeArs = (feePercent > 0 || fixedFeeArs > 0)
-    ? Math.round(subtotalArs * (feePercent / 100) + fixedFeeArs)
+    ? Math.round(subtotalAfterDiscountArs * (feePercent / 100) + fixedFeeArs)
     : 0;
 
   let totalSurchargeArs = 0;
-  let finalTotalArsToCharge = subtotalArs;
-  let netReceivedArs = subtotalArs;
+  let finalTotalArsToCharge = subtotalAfterDiscountArs;
+  let netReceivedArs = subtotalAfterDiscountArs;
 
   if (calculatedGatewayFeeArs > 0) {
     if (passFeeToCustomer) {
       // Recargo transferido al cliente (se le suma al total a pagar)
       totalSurchargeArs = calculatedGatewayFeeArs;
-      finalTotalArsToCharge = subtotalArs + totalSurchargeArs;
-      netReceivedArs = subtotalArs;
+      finalTotalArsToCharge = subtotalAfterDiscountArs + totalSurchargeArs;
+      netReceivedArs = subtotalAfterDiscountArs;
     } else {
-      // Elohim absorbe la comisión (el cliente paga el subtotal)
+      // Elohim absorbe la comisión (el cliente paga el subtotal con descuento)
       totalSurchargeArs = 0;
-      finalTotalArsToCharge = subtotalArs;
-      netReceivedArs = Math.max(0, subtotalArs - calculatedGatewayFeeArs);
+      finalTotalArsToCharge = subtotalAfterDiscountArs;
+      netReceivedArs = Math.max(0, subtotalAfterDiscountArs - calculatedGatewayFeeArs);
     }
   }
 
@@ -193,9 +232,32 @@ export function CheckoutModal({
 
   const isCovered = totalPaidArs >= amountPaidToday - 0.01;
   const isRegisteredClient = clientId !== 'default' && clientId !== '';
-  const canProceed = isCovered || (amountDueArs > 0 && isRegisteredClient);
+  const canProceed = !isSellerOverLimit && discountResult.isValid && (isCovered || (amountDueArs > 0 && isRegisteredClient));
 
   const totalUsd = effectiveTotalArsToPay / exchangeRate;
+
+  // Handlers para cambio de modo y botones rápidos de porcentaje
+  const handleModeChange = (newMode: DiscountType) => {
+    if (newMode === discountType) return;
+    if (newMode === 'none') {
+      setDiscountType('none');
+      setDiscountInputValue('');
+      return;
+    }
+
+    const converted = convertDiscountValueBetweenModes(
+      discountResult,
+      newMode,
+      subtotalOriginalArs
+    );
+    setDiscountType(newMode);
+    setDiscountInputValue(converted);
+  };
+
+  const handleQuickPercent = (pct: number) => {
+    setDiscountType('percentage');
+    setDiscountInputValue(pct.toString());
+  };
 
   // Funciones auxiliares para la gestión de Insumos de Packaging
   const handleAddPackagingItem = () => {
@@ -288,6 +350,16 @@ export function CheckoutModal({
       const methodName = selectedMethod ? (selectedMethod.method_name || selectedMethod.name || 'Digital') : 'Efectivo / Directo';
       
       const breakdown = [];
+
+      if (discountResult.discountAmountArs > 0) {
+        breakdown.push({
+          method_name: `Descuento Comercial (${discountResult.discountPercentage}%)`,
+          amount_base: discountResult.discountAmountArs,
+          surcharge_applied: 0,
+          final_amount: -discountResult.discountAmountArs
+        });
+      }
+
       if (valCashArs > 0) {
         breakdown.push({
           method_name: 'Efectivo ARS',
@@ -345,14 +417,27 @@ export function CheckoutModal({
           points: vibePointsCountUsed,
           discount_ars: vibePointsDiscountArs
         } : null,
+        discount: discountResult.discountAmountArs > 0 ? {
+          type: discountResult.discountType,
+          value: discountResult.discountValue,
+          amount_ars: discountResult.discountAmountArs,
+          percentage: discountResult.discountPercentage,
+          subtotal_ars: discountResult.subtotalArs,
+          final_ars: discountResult.totalArs
+        } : null,
         treasury_account_id: selectedTreasuryAccountId,
         breakdown
       };
 
-      // 4. Enviar transacción con el TOTAL FINAL, abonado hoy, saldo pendiente y packaging
+      // 4. Enviar transacción con el TOTAL FINAL, subtotal, descuento, abonado hoy, saldo pendiente y packaging
       const res = await createSaleTransaction(role, {
         client_id: clientId === 'default' ? null : clientId,
         seller_id: null,
+        subtotal_ars: subtotalOriginalArs,
+        discount_type: discountResult.discountType,
+        discount_value: discountResult.discountValue,
+        discount_amount_ars: discountResult.discountAmountArs,
+        discount_percentage: discountResult.discountPercentage,
         total_ars: finalTotalArsToCharge,
         total_usd_equivalent: totalUsd,
         exchange_rate_used: exchangeRate,
@@ -407,7 +492,9 @@ export function CheckoutModal({
         createdAt: new Date(),
         clientName: selectedClientObj ? selectedClientObj.name : 'Consumidor Final',
         items: receiptItems,
-        subtotalArs,
+        subtotalArs: subtotalOriginalArs,
+        discountAmountArs: discountResult.discountAmountArs,
+        discountPercentage: discountResult.discountPercentage,
         surchargeArs: totalSurchargeArs,
         totalArs: finalTotalArsToCharge,
         totalUsd,
@@ -593,6 +680,196 @@ export function CheckoutModal({
                 )}
               </div>
 
+              {/* ================================================================= */}
+              {/* AJUSTE DE PRECIO / DESCUENTOS EN VENTA POS                         */}
+              {/* ================================================================= */}
+              <div className="rounded-xl bg-[#08130E] border border-[#1B362A] p-3.5 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-[#D0A96B]">
+                    <Tag className="h-3.5 w-3.5" />
+                    <span>Ajuste de Precio / Descuento</span>
+                  </div>
+                  {role !== 'admin' ? (
+                    <span className="text-[10px] font-semibold text-zinc-400 bg-[#13261E] px-2 py-0.5 rounded border border-[#1B362A]">
+                      Tope vendedor: 20%
+                    </span>
+                  ) : (
+                    <span className="text-[10px] font-semibold text-[#D0A96B] bg-[#D0A96B]/10 px-2 py-0.5 rounded border border-[#D0A96B]/30">
+                      Administrador (Sin tope)
+                    </span>
+                  )}
+                </div>
+
+                {/* SELECTOR DE MODOS (Pills / Segmented Control) */}
+                <div className="grid grid-cols-5 gap-1 bg-[#13261E] p-1 rounded-lg border border-[#1B362A] text-[11px] font-medium">
+                  <button
+                    type="button"
+                    onClick={() => handleModeChange('none')}
+                    className={`py-1 rounded text-center transition-all cursor-pointer ${
+                      discountType === 'none'
+                        ? 'bg-[#D0A96B] text-[#08130E] font-bold shadow-sm'
+                        : 'text-zinc-400 hover:text-white'
+                    }`}
+                  >
+                    Sin desc.
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleModeChange('percentage')}
+                    className={`py-1 rounded text-center transition-all cursor-pointer ${
+                      discountType === 'percentage'
+                        ? 'bg-[#D0A96B] text-[#08130E] font-bold shadow-sm'
+                        : 'text-zinc-400 hover:text-white'
+                    }`}
+                  >
+                    Desc. %
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleModeChange('fixed')}
+                    className={`py-1 rounded text-center transition-all cursor-pointer ${
+                      discountType === 'fixed'
+                        ? 'bg-[#D0A96B] text-[#08130E] font-bold shadow-sm'
+                        : 'text-zinc-400 hover:text-white'
+                    }`}
+                  >
+                    Desc. $
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleModeChange('target_amount')}
+                    className={`py-1 rounded text-center transition-all cursor-pointer ${
+                      discountType === 'target_amount'
+                        ? 'bg-[#D0A96B] text-[#08130E] font-bold shadow-sm'
+                        : 'text-zinc-400 hover:text-white'
+                    }`}
+                  >
+                    Cobrar $
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleModeChange('target_percentage')}
+                    className={`py-1 rounded text-center transition-all cursor-pointer ${
+                      discountType === 'target_percentage'
+                        ? 'bg-[#D0A96B] text-[#08130E] font-bold shadow-sm'
+                        : 'text-zinc-400 hover:text-white'
+                    }`}
+                  >
+                    Cobrar %
+                  </button>
+                </div>
+
+                {/* BOTONES RÁPIDOS DE PORCENTAJE (CHIPS) */}
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="text-[10px] text-zinc-400 font-mono">Rápidos:</span>
+                  {[5, 10, 15, 20, 25].map((pct) => {
+                    const isExceedingSeller = role !== 'admin' && pct > 20;
+                    return (
+                      <button
+                        key={pct}
+                        type="button"
+                        onClick={() => handleQuickPercent(pct)}
+                        disabled={isExceedingSeller}
+                        className={`px-2 py-0.5 rounded text-[11px] font-mono font-bold transition-all cursor-pointer ${
+                          discountType === 'percentage' && Number(discountInputValue) === pct
+                            ? 'bg-[#D0A96B] text-[#08130E]'
+                            : isExceedingSeller
+                            ? 'bg-[#13261E]/40 text-zinc-600 border border-zinc-800 cursor-not-allowed'
+                            : 'bg-[#13261E] text-zinc-300 hover:text-white hover:bg-[#1B362A] border border-[#1B362A]'
+                        }`}
+                        title={isExceedingSeller ? 'Excede el límite del 20% para vendedores' : `Aplicar ${pct}%`}
+                      >
+                        {pct}%
+                      </button>
+                    );
+                  })}
+                  {discountType !== 'none' && (
+                    <button
+                      type="button"
+                      onClick={() => handleModeChange('none')}
+                      className="text-[10px] text-rose-400 hover:text-rose-300 ml-auto underline cursor-pointer"
+                    >
+                      Quitar descuento
+                    </button>
+                  )}
+                </div>
+
+                {/* INPUT CONDICIONAL SEGÚN EL MODO SELECCIONADO */}
+                {discountType !== 'none' && (
+                  <div className="space-y-1.5">
+                    <div className="relative">
+                      <span className="absolute left-3 top-2 text-xs font-bold text-zinc-400">
+                        {discountType === 'percentage' && '% Descuento:'}
+                        {discountType === 'fixed' && '$ Descuento:'}
+                        {discountType === 'target_amount' && '$ Cobrar:'}
+                        {discountType === 'target_percentage' && '% Cobrar:'}
+                      </span>
+                      <Input
+                        type="number"
+                        step={discountType === 'percentage' || discountType === 'target_percentage' ? '0.1' : '1'}
+                        min="0"
+                        max={discountType === 'percentage' || discountType === 'target_percentage' ? '100' : subtotalOriginalArs.toString()}
+                        value={discountInputValue}
+                        onChange={(e) => setDiscountInputValue(e.target.value)}
+                        placeholder={
+                          discountType === 'percentage'
+                            ? 'Ej. 10'
+                            : discountType === 'fixed'
+                            ? 'Ej. 5000'
+                            : discountType === 'target_amount'
+                            ? `Ej. ${Math.round(subtotalOriginalArs * 0.9)}`
+                            : 'Ej. 90'
+                        }
+                        className="pl-28 bg-[#13261E] border-[#1B362A] text-white font-mono font-bold text-sm h-8"
+                      />
+                    </div>
+
+                    {/* ERROR DE VALIDACIÓN DEL MOTOR O TOPE DE VENDEDOR */}
+                    {(!discountResult.isValid || isSellerOverLimit) && (
+                      <div className="text-[11px] text-rose-400 bg-rose-500/10 p-2 rounded-lg border border-rose-500/20 font-medium">
+                        {isSellerOverLimit
+                          ? `⚠️ Límite superado: Los vendedores solo pueden aplicar hasta un 20% de descuento (solicitado: ${discountResult.discountPercentage}%). Se requiere autorización de un Administrador.`
+                          : discountResult.errorMessage}
+                      </div>
+                    )}
+
+                    {/* ALERTA DE MARGEN NEGATIVO (SUBTOTAL < COGS) */}
+                    {isBelowCogs && (
+                      <div className="text-[11px] text-amber-400 bg-amber-500/10 p-2 rounded-lg border border-amber-500/20 font-medium flex items-center gap-1.5">
+                        <AlertCircle className="h-4 w-4 shrink-0 text-amber-400" />
+                        <span>
+                          ⚠️ <strong>Alerta de Margen:</strong> El precio final (${subtotalAfterDiscountArs.toLocaleString('es-AR')}) está por debajo del costo de reposición estimado (${Math.round(totalCartCogs).toLocaleString('es-AR')}).
+                        </span>
+                      </div>
+                    )}
+
+                    {/* RESUMEN EN TIEMPO REAL DEL DESCUENTO */}
+                    {discountResult.isValid && discountResult.discountAmountArs > 0 && !isSellerOverLimit && (
+                      <div className="grid grid-cols-3 gap-2 p-2 rounded-lg bg-[#13261E]/60 border border-[#1B362A] text-[11px] font-mono">
+                        <div>
+                          <span className="text-zinc-500 block text-[9px] uppercase">Descuento</span>
+                          <span className="text-emerald-400 font-bold">
+                            -${discountResult.discountAmountArs.toLocaleString('es-AR')}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-zinc-500 block text-[9px] uppercase">Equiv. %</span>
+                          <span className="text-emerald-400 font-bold">
+                            {discountResult.discountPercentage}%
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-zinc-500 block text-[9px] uppercase">Nuevo Subtotal</span>
+                          <span className="text-white font-bold">
+                            ${subtotalAfterDiscountArs.toLocaleString('es-AR')}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
               {/* SELECCIÓN DE CUENTA DE DESTINO EN TESORERÍA */}
               <div className="space-y-1.5 pt-1">
                 <label className="text-xs font-bold uppercase tracking-wider text-[#D0A96B] flex items-center justify-between">
@@ -743,11 +1020,27 @@ export function CheckoutModal({
               {/* RESUMEN DE LA ORDEN CON SIMULADOR EN TIEMPO REAL */}
               <div className="rounded-xl bg-[#08130E] p-4 border border-[#1B362A] space-y-2.5">
                 <div className="flex justify-between items-center text-xs text-zinc-400">
-                  <span>Subtotal Base ARS:</span>
+                  <span>Subtotal Original ARS:</span>
                   <span className="font-mono font-bold text-white">
-                    ${subtotalArs.toLocaleString('es-AR')} ARS
+                    ${subtotalOriginalArs.toLocaleString('es-AR')} ARS
                   </span>
                 </div>
+
+                {discountResult.discountAmountArs > 0 && (
+                  <div className="flex justify-between items-center text-xs text-emerald-400 font-mono font-bold">
+                    <span className="flex items-center gap-1">
+                      <TrendingDown className="h-3.5 w-3.5" /> Descuento Comercial ({discountResult.discountPercentage}%):
+                    </span>
+                    <span>-${discountResult.discountAmountArs.toLocaleString('es-AR')} ARS</span>
+                  </div>
+                )}
+
+                {discountResult.discountAmountArs > 0 && (
+                  <div className="flex justify-between items-center text-xs text-zinc-300 font-mono">
+                    <span>Subtotal con Descuento:</span>
+                    <span className="font-bold text-white">${subtotalAfterDiscountArs.toLocaleString('es-AR')} ARS</span>
+                  </div>
+                )}
 
                 {/* DESGLOSE DINÁMICO DE COMISIÓN / RECARGO DE PASARELA */}
                 {calculatedGatewayFeeArs > 0 && passFeeToCustomer && (
@@ -759,7 +1052,7 @@ export function CheckoutModal({
                       <span>+${calculatedGatewayFeeArs.toLocaleString('es-AR')} ARS</span>
                     </div>
                     <div className="text-[10px] font-sans font-normal text-[#E5C158]">
-                      Subtotal: ${subtotalArs.toLocaleString('es-AR')} | Recargo Tarjeta: ${calculatedGatewayFeeArs.toLocaleString('es-AR')} | Total a Cobrar: ${finalTotalArsToCharge.toLocaleString('es-AR')}
+                      Base con Descuento: ${subtotalAfterDiscountArs.toLocaleString('es-AR')} | Recargo Tarjeta: +${calculatedGatewayFeeArs.toLocaleString('es-AR')} | Total a Cobrar: ${finalTotalArsToCharge.toLocaleString('es-AR')}
                     </div>
                   </div>
                 )}
@@ -773,7 +1066,7 @@ export function CheckoutModal({
                       <span>-${calculatedGatewayFeeArs.toLocaleString('es-AR')} ARS</span>
                     </div>
                     <div className="text-[10px] font-sans font-normal text-blue-300">
-                      El cliente abona: ${subtotalArs.toLocaleString('es-AR')} | Retención MP: -${calculatedGatewayFeeArs.toLocaleString('es-AR')} | Neto a tu cuenta: ${netReceivedArs.toLocaleString('es-AR')}
+                      El cliente abona: ${subtotalAfterDiscountArs.toLocaleString('es-AR')} | Retención MP: -${calculatedGatewayFeeArs.toLocaleString('es-AR')} | Neto a tu cuenta: ${netReceivedArs.toLocaleString('es-AR')}
                     </div>
                   </div>
                 )}
@@ -977,6 +1270,12 @@ export function CheckoutModal({
                   <span>Cliente:</span>
                   <span className="font-semibold text-zinc-200">{completedSaleData.clientName}</span>
                 </div>
+                {completedSaleData.discountAmountArs > 0 && (
+                  <div className="flex justify-between text-xs text-emerald-400 font-mono font-medium">
+                    <span>Descuento Aplicado:</span>
+                    <span>-${completedSaleData.discountAmountArs.toLocaleString('es-AR')} ({completedSaleData.discountPercentage}%)</span>
+                  </div>
+                )}
                 <div className="flex justify-between text-sm font-bold pt-2 border-t border-[#1B362A]">
                   <span>Total Cobrado:</span>
                   <span className="font-mono text-[#D0A96B]">${completedSaleData.totalArs.toLocaleString('es-AR')} ARS</span>

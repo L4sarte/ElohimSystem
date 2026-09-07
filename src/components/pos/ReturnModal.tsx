@@ -48,6 +48,10 @@ export function ReturnModal({
   const clientName = sale.clients?.name || 'Consumidor Final';
   const valRefundAmount = parseFloat(refundAmountInput) || 0;
 
+  const discountAmount = Number(sale.discount_amount_ars || sale.payment_methods?.discount?.amount_ars || 0);
+  const discountPct = Number(sale.discount_percentage || sale.payment_methods?.discount?.percentage || 0);
+  const subtotalOriginal = Number(sale.subtotal_ars || (sale.total_ars + discountAmount));
+
   const handleStartSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -125,9 +129,16 @@ export function ReturnModal({
               {/* DETALLES DE LA VENTA ORIGINAL */}
               <div className="p-3.5 rounded-xl bg-[#08130E] border border-[#1B362A] space-y-2 text-xs">
                 <div className="flex justify-between font-bold text-zinc-300 font-serif">
-                  <span>Productos Comprados:</span>
+                  <span>Total Cobrado:</span>
                   <span className="font-mono text-[#D0A96B]">${sale.total_ars?.toLocaleString('es-AR')} ARS</span>
                 </div>
+
+                {discountAmount > 0 && (
+                  <div className="flex justify-between text-emerald-400 font-mono text-[11px] pt-1 border-t border-[#1B362A]/40">
+                    <span>Subtotal Original: ${subtotalOriginal.toLocaleString('es-AR')}</span>
+                    <span>Descuento Aplicado: -${discountAmount.toLocaleString('es-AR')} ({discountPct}%)</span>
+                  </div>
+                )}
 
                 <div className="space-y-1 pt-1 border-t border-[#1B362A]/60 max-h-32 overflow-y-auto font-mono text-[11px]">
                   {sale.sale_items && sale.sale_items.length > 0 ? (

@@ -19,10 +19,17 @@ export const packagingUsedInputSchema = z.object({
   quantity_used: z.number().positive('La cantidad de packaging debe ser mayor a 0'),
 });
 
+export const discountTypeEnum = z.enum(['none', 'percentage', 'fixed', 'target_amount', 'target_percentage']);
+
 export const saleInputSchema = z.object({
   client_id: z.string().uuid('ID de cliente inválido').nullable().optional(),
   seller_id: z.string().uuid('ID de vendedor inválido').nullable().optional(),
-  total_ars: z.number().positive('El total en ARS debe ser mayor a 0'),
+  subtotal_ars: z.number().nonnegative().optional(),
+  discount_type: discountTypeEnum.optional().default('none'),
+  discount_value: z.number().nonnegative().optional().default(0),
+  discount_amount_ars: z.number().nonnegative().optional().default(0),
+  discount_percentage: z.number().min(0).max(100).optional().default(0),
+  total_ars: z.number().nonnegative('El total en ARS no puede ser negativo'),
   total_usd_equivalent: z.number().nonnegative().optional().default(0),
   exchange_rate_used: z.number().positive('La cotización del dólar debe ser mayor a 0'),
   amount_paid_today: z.number().nonnegative().optional(),
