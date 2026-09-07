@@ -571,14 +571,14 @@ export function ProductList({ role, excludeSupplies = true }: ProductListProps) 
                         <div>
                           <div className="flex items-baseline gap-1">
                             <span>{formatArs(product.base_price_ars)}</span>
-                            <span className="text-[11px] font-normal text-slate-400">/ {product.volume_ml || 5}ml</span>
+                            <span className="text-[11px] font-normal text-slate-400">/ ml</span>
                           </div>
                           <div className="flex flex-wrap gap-1 mt-1">
-                            <span className="inline-block px-1.5 py-0.5 text-[9px] font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 rounded">
-                              Base {product.volume_ml || 5}ml
+                            <span className="inline-block px-1.5 py-0.5 text-[9px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 rounded">
+                              5ml: {formatArs(product.base_price_ars * 5)}
                             </span>
-                            <span className="inline-block px-1.5 py-0.5 text-[9px] font-medium bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 rounded">
-                              +10ml disponible
+                            <span className="inline-block px-1.5 py-0.5 text-[9px] font-bold bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 rounded">
+                              10ml: {formatArs(product.base_price_ars * 10)}
                             </span>
                           </div>
                         </div>

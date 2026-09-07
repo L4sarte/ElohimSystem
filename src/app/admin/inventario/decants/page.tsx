@@ -320,10 +320,12 @@ export default function DecantsHubPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {filteredLiquids.map((liquid) => {
                   const currentMl = Number(liquid.stock_quantity || 0);
-                  const maxMlEstimate = Number(liquid.volume_ml) || 100;
+                  const maxMlEstimate = liquid.volume_ml && Number(liquid.volume_ml) > 1 ? Number(liquid.volume_ml) : 100;
                   const percent = Math.min(100, Math.round((currentMl / maxMlEstimate) * 100));
                   const costPerMl = Number(liquid.base_cost_ars || 0);
+                  const pricePerMl = Number(liquid.base_price_ars || 0);
                   const totalVal = currentMl * costPerMl;
+                  const totalSaleVal = currentMl * pricePerMl;
                   
                   // Colores de barra de progreso
                   let barColor = 'bg-emerald-500';
@@ -383,21 +385,48 @@ export default function DecantsHubPage() {
                           </span>
                         </div>
                         <div className="text-right">
-                          <span className="text-[10px] text-zinc-400 block">Valor Inmovilizado:</span>
-                          <span className="font-mono font-bold text-emerald-400">
+                          <span className="text-[10px] text-zinc-400 block">Precio Venta / ml:</span>
+                          <span className="font-mono font-bold text-[#D0A96B]">
+                            ${pricePerMl.toLocaleString('es-AR')} ARS
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2 text-[11px] font-mono">
+                        <div>
+                          <span className="text-[10px] text-zinc-500 block">Costo Inmovilizado:</span>
+                          <span className="text-emerald-400 font-bold">
                             ${Math.round(totalVal).toLocaleString('es-AR')} ARS
+                          </span>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-[10px] text-zinc-500 block">Potencial Venta:</span>
+                          <span className="text-cyan-400 font-bold">
+                            ${Math.round(totalSaleVal).toLocaleString('es-AR')} ARS
                           </span>
                         </div>
                       </div>
 
                       {/* RENDIMIENTO CALCULADO */}
-                      <div className="bg-[#08130E]/70 rounded-xl p-2.5 border border-[#1B362A] flex items-center justify-between text-[11px]">
-                        <span className="text-zinc-400">Rendimiento estimado:</span>
-                        <div className="flex items-center gap-2 font-mono font-bold">
-                          <span className="text-[#D0A96B]">{yields5ml}x 5ml</span>
-                          <span className="text-zinc-600">|</span>
-                          <span className="text-indigo-400">{yields10ml}x 10ml</span>
+                      <div className="bg-[#08130E]/70 rounded-xl p-2.5 border border-[#1B362A] flex flex-col gap-1.5 text-[11px]">
+                        <div className="flex items-center justify-between">
+                          <span className="text-zinc-400">Rendimiento estimado:</span>
+                          <div className="flex items-center gap-2 font-mono font-bold">
+                            <span className="text-[#D0A96B]">{yields5ml}x 5ml</span>
+                            <span className="text-zinc-600">|</span>
+                            <span className="text-indigo-400">{yields10ml}x 10ml</span>
+                          </div>
                         </div>
+                        {pricePerMl > 0 && (
+                          <div className="flex items-center justify-between pt-1 border-t border-[#1B362A]/50 text-[10px] font-mono text-zinc-400">
+                            <span>Muestras:</span>
+                            <div className="flex items-center gap-2">
+                              <span className="text-zinc-300">5ml: ${(pricePerMl * 5).toLocaleString('es-AR')}</span>
+                              <span>•</span>
+                              <span className="text-zinc-300">10ml: ${(pricePerMl * 10).toLocaleString('es-AR')}</span>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
                   );

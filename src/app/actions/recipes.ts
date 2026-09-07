@@ -322,7 +322,7 @@ export async function saveProductRecipe(
         .update(updateData)
         .eq('id', recipeId);
 
-      if (updateErr && updateErr.code === 'PGRST204') {
+      if (updateErr && (updateErr.code === 'PGRST204' || updateErr.code === '42703' || updateErr.message?.includes('size_ml'))) {
         delete updateData.size_ml;
         await supabase
           .from('product_recipes')
@@ -347,7 +347,7 @@ export async function saveProductRecipe(
         .select('id')
         .single();
 
-      if (insertErr && insertErr.code === 'PGRST204') {
+      if (insertErr && (insertErr.code === 'PGRST204' || insertErr.code === '42703' || insertErr.message?.includes('size_ml'))) {
         delete insertData.size_ml;
         const resRetry = await supabase
           .from('product_recipes')
@@ -380,8 +380,10 @@ export async function saveProductRecipe(
     // 3. Recalcular costo dinámico
     const calcResult = await calculateDynamicCost(clean.productId, clean.items);
 
-    // 4. Si autoUpdateProductCost es true, actualizar base_cost_ars SOLO SI EL PRODUCTO ES UN GRANEL
-    // BLINDAJE CRÍTICO: NUNCA pisar base_cost_ars si el producto es una BOTELLA sellada ('bottle')
+    // 4. Protección arquitectónica de costos base:
+    // NUNCA sobreescribir el costo base de 'decant_liquid' con el costo total de la muestra armada (BOM).
+    // El campo base_cost_ars de 'decant_liquid' representa estrictamente el costo de 1 mililitro (PPP).
+    // El costo total de la receta ($/muestra armada) se computa dinámicamente y se almacena a nivel receta.
     if (clean.autoUpdateProductCost && calcResult.success) {
       const { data: targetProd } = await supabase
         .from('products')
@@ -389,18 +391,9 @@ export async function saveProductRecipe(
         .eq('id', clean.productId)
         .maybeSingle();
 
-      if (targetProd && targetProd.type === 'decant_liquid') {
-        await supabase
-          .from('products')
-          .update({
-            base_cost_ars: calcResult.total_cost_ars,
-          })
-          .eq('id', clean.productId);
-      } else {
-        console.info(
-          `[RECIPE_PROTECTION] Se preserva intacto el costo base_cost_ars de "${targetProd?.name}" (tipo '${targetProd?.type}'). No se sobreescribe con el costo de decant.`
-        );
-      }
+      console.info(
+        `[RECIPE_PROTECTION] Receta guardada para "${targetProd?.name}". Se preserva intacto el costo de materia prima base_cost_ars ($/ml). Costo total de muestra armada calculado: $${calcResult.total_cost_ars} ARS.`
+      );
     }
 
     revalidatePath('/productos');

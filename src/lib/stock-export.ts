@@ -106,8 +106,7 @@ export function exportStockToCsv({
     const minAlert = Number(p.min_stock_alert ?? 5);
     const costUnit = isAdmin ? Number(p.base_cost_ars || 0) : 0;
     const priceUnit = Number(p.base_price_ars || 0);
-    const presentationMl = Number(p.volume_ml) || 5;
-    const revenuePerMl = p.type === 'decant_liquid' ? (presentationMl > 0 ? priceUnit / presentationMl : priceUnit) : priceUnit;
+    const revenuePerMl = priceUnit; // base_price_ars en decant_liquid representa el precio por 1 ml
     const valCost = stock * costUnit;
     const valSale = stock * revenuePerMl;
     const priceUsd = exchangeRate > 0 ? Number((priceUnit / exchangeRate).toFixed(2)) : 0;
@@ -138,7 +137,7 @@ export function exportStockToCsv({
       String(minAlert),
       isAdmin ? (p.type === 'decant_liquid' ? `"${costUnit.toFixed(2)}/ml"` : costUnit.toFixed(2)) : '"[Confidencial]"',
       isAdmin ? valCost.toFixed(2) : '"[Confidencial]"',
-      p.type === 'decant_liquid' ? `"${priceUnit.toFixed(2)} (${presentationMl}ml)"` : priceUnit.toFixed(2),
+      p.type === 'decant_liquid' ? `"${priceUnit.toFixed(2)}/ml (5ml: ${(priceUnit * 5).toFixed(2)})"` : priceUnit.toFixed(2),
       valSale.toFixed(2),
       priceUsd.toFixed(2),
       `"${status.label}"`,
@@ -251,8 +250,7 @@ export function exportStockToPdf({
     const minAlert = Number(p.min_stock_alert ?? 5);
     const costUnit = isAdmin ? Number(p.base_cost_ars || 0) : 0;
     const priceUnit = Number(p.base_price_ars || 0);
-    const presentationMl = Number(p.volume_ml) || 5;
-    const revenuePerMl = p.type === 'decant_liquid' ? (presentationMl > 0 ? priceUnit / presentationMl : priceUnit) : priceUnit;
+    const revenuePerMl = priceUnit; // base_price_ars en decant_liquid representa el precio por 1 ml
     const valCost = stock * costUnit;
     const valSale = stock * revenuePerMl;
     const status = getStockStatus(stock, minAlert);
@@ -373,7 +371,7 @@ export function exportStockToPdf({
       `${stock} ${p.type === 'decant_liquid' ? 'ml' : 'ud'}`,
       isAdmin ? (p.type === 'decant_liquid' ? `${formatARS(costUnit)}/ml` : formatARS(costUnit)) : '-',
       isAdmin ? formatARS(valCost) : '-',
-      p.type === 'decant_liquid' ? `${formatARS(priceUnit)} (${presentationMl}ml)` : formatARS(priceUnit),
+      p.type === 'decant_liquid' ? `${formatARS(priceUnit)}/ml (5ml: ${formatARS(priceUnit * 5)})` : formatARS(priceUnit),
       status.label,
     ];
   });

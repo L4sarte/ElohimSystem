@@ -317,8 +317,9 @@ export function CheckoutModal({
       // 1. Mapear ítems del carrito
       const items = cartItems.map(item => {
         let priceArs = item.product.base_price_ars;
-        if (item.product.type === 'decant_liquid' && item.decantMl && item.selectedSupplyPrice) {
-          priceArs = (item.product.base_price_ars * item.decantMl) + item.selectedSupplyPrice;
+        if (item.product.type === 'decant_liquid' && item.decantMl) {
+          const supplyPrice = Number(item.selectedSupplyPrice ?? 0);
+          priceArs = (item.product.base_price_ars * item.decantMl) + supplyPrice;
         }
 
         return {
@@ -458,8 +459,9 @@ export function CheckoutModal({
       const selectedClientObj = clients.find(c => c.id === clientId);
       const receiptItems = cartItems.map(item => {
         let priceArs = item.product.base_price_ars;
-        if (item.product.type === 'decant_liquid' && item.decantMl && item.selectedSupplyPrice) {
-          priceArs = (item.product.base_price_ars * item.decantMl) + item.selectedSupplyPrice;
+        if (item.product.type === 'decant_liquid' && item.decantMl) {
+          const supplyPrice = Number(item.selectedSupplyPrice ?? 0);
+          priceArs = (item.product.base_price_ars * item.decantMl) + supplyPrice;
         }
 
         let nameDisplay = item.product.name;

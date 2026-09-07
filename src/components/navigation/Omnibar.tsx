@@ -85,6 +85,11 @@ export function Omnibar() {
   };
 
   const handleAddToCart = (product: Product) => {
+    if (product.type === 'decant_liquid') {
+      setOpen(false);
+      router.push('/pos');
+      return;
+    }
     addItem(product);
     setOpen(false);
     router.push('/pos');
@@ -257,7 +262,7 @@ export function Omnibar() {
 
                     <div className="flex items-center gap-2 shrink-0">
                       <span className="text-xs font-mono font-bold text-[#D0A96B]">
-                        ${product.base_price_ars.toLocaleString('es-AR')}
+                        ${product.base_price_ars.toLocaleString('es-AR')}{product.type === 'decant_liquid' ? '/ml' : ''}
                       </span>
 
                       <button

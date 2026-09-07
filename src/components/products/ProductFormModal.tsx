@@ -688,14 +688,14 @@ export function ProductFormModal({ isOpen, onClose, onSuccess, product, role = '
                 {/* 1. COSTO ADQUISICIÓN ARS */}
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold uppercase tracking-wider text-[#D0A96B]">
-                    Costo (ARS) *
+                    {type === 'decant_liquid' ? 'Costo por ml (ARS/ml) *' : 'Costo (ARS) *'}
                   </label>
                   <div className="relative">
                     <span className="absolute left-3 top-2 px-0.5 text-sm text-slate-400 font-medium">$</span>
                     <Input
                       required
                       type="number"
-                      placeholder="Ej. 45000"
+                      placeholder={type === 'decant_liquid' ? 'Ej. 1000' : 'Ej. 45000'}
                       value={baseCostArs}
                       onChange={(e) => handleCostChange(e.target.value)}
                       className="pl-7 border-[#1B362A] focus-visible:ring-[#D0A96B] font-mono text-white"
@@ -727,14 +727,14 @@ export function ProductFormModal({ isOpen, onClose, onSuccess, product, role = '
                 {type !== 'supply' ? (
                   <div className="space-y-1.5">
                     <label className="text-xs font-bold uppercase tracking-wider text-emerald-400">
-                      Precio Venta (ARS) *
+                      {type === 'decant_liquid' ? 'Precio Venta por ml (ARS/ml) *' : 'Precio Venta (ARS) *'}
                     </label>
                     <div className="relative">
                       <span className="absolute left-3 top-2 px-0.5 text-sm text-[#D0A96B] font-bold">$</span>
                       <Input
                         required
                         type="number"
-                        placeholder="Ej. 75000"
+                        placeholder={type === 'decant_liquid' ? 'Ej. 2000' : 'Ej. 75000'}
                         value={basePriceArs}
                         onChange={(e) => handlePriceChange(e.target.value)}
                         className="pl-7 border-[#1B362A] focus-visible:ring-[#D0A96B] font-mono text-[#D0A96B] font-bold"
@@ -754,10 +754,24 @@ export function ProductFormModal({ isOpen, onClose, onSuccess, product, role = '
 
               </div>
 
+              {/* ESTIMADOR EN VIVO PARA DECANTS (MUESTRAS 5ML / 10ML) */}
+              {type === 'decant_liquid' && numPrice > 0 && (
+                <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 rounded-lg bg-[#08130E] border border-[#1B362A] text-xs font-mono">
+                  <span className="text-zinc-400 text-[11px]">Proyección de venta por muestra:</span>
+                  <div className="flex items-center gap-3">
+                    <span className="text-emerald-400 font-bold text-[11px]">5ml: ${(numPrice * 5).toLocaleString('es-AR')} ARS</span>
+                    <span className="text-zinc-600">|</span>
+                    <span className="text-indigo-400 font-bold text-[11px]">10ml: ${(numPrice * 10).toLocaleString('es-AR')} ARS</span>
+                  </div>
+                </div>
+              )}
+
               {/* FEEDBACK VISUAL EN TIEMPO REAL: GANANCIA NETA PROYECTADA */}
               {type !== 'supply' && numCost > 0 && numPrice > 0 && (
                 <div className="flex items-center justify-between text-xs pt-2 border-t border-[#1B362A]/60 font-mono">
-                  <span className="text-zinc-400">Ganancia neta proyectada por unidad:</span>
+                  <span className="text-zinc-400">
+                    {type === 'decant_liquid' ? 'Ganancia neta proyectada por ml:' : 'Ganancia neta proyectada por unidad:'}
+                  </span>
                   <span className={projectedNetProfit >= 0 ? 'text-[#D0A96B] font-extrabold text-sm' : 'text-rose-400 font-extrabold text-sm'}>
                     ${Math.round(projectedNetProfit).toLocaleString('es-AR')} ARS
                   </span>

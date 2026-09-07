@@ -165,8 +165,10 @@ export default function POSClientWrapper() {
 
   // Calcular totales del carrito
   const calculateItemTotal = (item: CartItem) => {
-    if (item.product.type === 'decant_liquid' && item.decantMl && item.selectedSupplyPrice) {
-      return item.quantity * ((item.product.base_price_ars * item.decantMl) + item.selectedSupplyPrice);
+    if (item.product.type === 'decant_liquid' && item.decantMl) {
+      const supplyPrice = Number(item.selectedSupplyPrice ?? 0);
+      const unitDecantPrice = (item.product.base_price_ars * item.decantMl) + supplyPrice;
+      return item.quantity * unitDecantPrice;
     }
     return item.quantity * item.product.base_price_ars;
   };
@@ -352,11 +354,19 @@ export default function POSClientWrapper() {
                               </div>
                             </div>
                             
-                            <div className="flex justify-between items-center bg-blue-50/30 dark:bg-blue-950/10 rounded-lg p-2 text-xs">
-                              <span className="text-slate-500 dark:text-zinc-400">Precio / ml:</span>
-                              <span className="font-bold text-slate-800 dark:text-zinc-200">
-                                ${product.base_price_ars.toLocaleString('es-AR')} ARS
-                              </span>
+                            <div className="space-y-1 bg-blue-50/30 dark:bg-blue-950/10 rounded-lg p-2 text-xs">
+                              <div className="flex justify-between items-center">
+                                <span className="text-slate-500 dark:text-zinc-400">Precio / ml:</span>
+                                <span className="font-bold text-slate-800 dark:text-zinc-200 font-mono">
+                                  ${product.base_price_ars.toLocaleString('es-AR')} ARS
+                                </span>
+                              </div>
+                              <div className="flex justify-between items-center text-[11px] pt-1 border-t border-blue-500/10">
+                                <span className="text-slate-500 dark:text-zinc-400">Total muestra ({config.ml || 5}ml):</span>
+                                <span className="font-black text-blue-600 dark:text-blue-400 font-mono">
+                                  ${((product.base_price_ars * (config.ml || 5)) + (emptyBottles.find(b => b.id === config.supplyId)?.base_price_ars || 0)).toLocaleString('es-AR')} ARS
+                                </span>
+                              </div>
                             </div>
                             
                             <Button

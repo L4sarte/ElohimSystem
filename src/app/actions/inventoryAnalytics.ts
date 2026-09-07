@@ -113,10 +113,11 @@ export async function getInventoryValuation(role: UserRole): Promise<InventoryVa
         const capitalItemArs = stock * costArs;
         const capitalItemUsd = exchangeRate > 0 && capitalItemArs > 0 ? capitalItemArs / exchangeRate : 0;
 
-        // 2. Valuación Dinámica de Venta Vinculada a Recetas o Catálogo Base:
+        // 2. Valuación Canónica de Venta por Mililitro:
+        // base_price_ars en 'decant_liquid' representa estrictamente el precio de venta por 1 ml
         const recipe = recipeMap.get(item.id);
-        const presentationMl = recipe && recipe.size_ml > 0 ? recipe.size_ml : (Number(item.volume_ml) || 5);
-        const revenuePerMl = presentationMl > 0 ? priceArs / presentationMl : priceArs / 5;
+        const presentationMl = recipe && recipe.size_ml > 0 ? recipe.size_ml : 5;
+        const revenuePerMl = priceArs;
         const revenueItemArs = stock * revenuePerMl;
         const revenueItemUsd = exchangeRate > 0 && revenueItemArs > 0 ? revenueItemArs / exchangeRate : 0;
 

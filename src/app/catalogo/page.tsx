@@ -52,10 +52,15 @@ export default function CatalogoPublicoPage() {
   const getWhatsAppLink = (product: Product) => {
     const phone = process.env.NEXT_PUBLIC_WHATSAPP_PHONE || '5491122334455';
     const cleanPhone = phone.replace(/[^0-9]/g, '');
+    const isDecant = product.type === 'decant_liquid';
     const priceText = product.base_price_ars.toLocaleString('es-AR');
-    const typeLabel = product.type === 'decant_liquid' ? 'Decant Fraccionado' : 'Botella Sellada';
+    const typeLabel = isDecant ? 'Decant Fraccionado' : 'Botella Sellada';
     
-    const message = `¡Hola Elohim Import! Vi el perfume *${product.name}* (${product.brand} - ${typeLabel}) en el catálogo digital a *$${priceText} ARS* y quiero encargarlo. ¿Tienen disponibilidad?`;
+    const pricingDetail = isDecant 
+      ? `*$${priceText} ARS / ml* (Muestra 5ml: *$${(product.base_price_ars * 5).toLocaleString('es-AR')} ARS*)`
+      : `*$${priceText} ARS*`;
+
+    const message = `¡Hola Elohim Import! Vi el perfume *${product.name}* (${product.brand} - ${typeLabel}) en el catálogo digital a ${pricingDetail} y quiero encargarlo. ¿Tienen disponibilidad?`;
     
     return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
   };
@@ -241,10 +246,20 @@ export default function CatalogoPublicoPage() {
                     
                     <div className="w-full flex items-baseline justify-between">
                       <div>
-                        <div className="text-[9px] font-extrabold uppercase tracking-widest text-zinc-500">Precio ARS</div>
-                        <div className="text-xl font-bold font-mono text-white tracking-tight">
-                          ${product.base_price_ars.toLocaleString('es-AR')}
+                        <div className="text-[9px] font-extrabold uppercase tracking-widest text-zinc-500">
+                          {isDecant ? 'Precio ARS / ml' : 'Precio ARS'}
                         </div>
+                        <div className="flex items-baseline gap-1">
+                          <span className="text-xl font-bold font-mono text-white tracking-tight">
+                            ${product.base_price_ars.toLocaleString('es-AR')}
+                          </span>
+                          {isDecant && <span className="text-xs text-zinc-400 font-mono">/ ml</span>}
+                        </div>
+                        {isDecant && (
+                          <div className="text-[11px] font-mono text-emerald-400 font-bold mt-0.5">
+                            5ml: ${(product.base_price_ars * 5).toLocaleString('es-AR')} ARS
+                          </div>
+                        )}
                       </div>
 
                       {exchangeRate && (

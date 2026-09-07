@@ -129,7 +129,7 @@ export function RecipeBuilderModal({
       );
 
       if (res.success) {
-        toast.success(`Receta guardada con éxito. Costo base actualizado a $${res.calculatedCostArs?.toLocaleString('es-AR')} ARS.`);
+        toast.success(`Receta guardada con éxito. Costo de producción de muestra: $${res.calculatedCostArs?.toLocaleString('es-AR')} ARS.`);
         if (onRecipeSaved) onRecipeSaved();
         onClose();
       } else {
