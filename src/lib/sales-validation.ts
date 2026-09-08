@@ -50,6 +50,15 @@ export const returnProcessInputSchema = z.object({
     .max(500, 'El motivo es demasiado extenso'),
   restock_item: z.boolean().default(true),
   refund_amount_ars: z.number().nonnegative('El monto a reembolsar no puede ser negativo'),
+  items_to_restock: z
+    .array(
+      z.object({
+        product_id: z.string(),
+        quantity: z.number().positive(),
+      })
+    )
+    .optional(),
+  treasury_account_id: z.string().optional(),
 });
 
 export const paymentMethodConfigInputSchema = z.object({

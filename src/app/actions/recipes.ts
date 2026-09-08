@@ -62,7 +62,8 @@ interface DbIngredientProduct {
  */
 export async function calculateDynamicCost(
   productId: string,
-  customItems?: RecipeItemInput[]
+  customItems?: RecipeItemInput[],
+  sizeMl?: number
 ): Promise<DynamicCostCalculationResult> {
   try {
     if (!productId || !productId.trim()) {
@@ -116,11 +117,14 @@ export async function calculateDynamicCost(
       itemsToCalculate = customItems;
     } else {
       // Consultar receta guardada en DB
-      const { data: recipe } = await supabase
+      const { data: recipeList } = await supabase
         .from('product_recipes')
         .select('id')
         .eq('product_id', productId.trim())
-        .maybeSingle();
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      const recipe = recipeList && recipeList.length > 0 ? recipeList[0] : null;
 
       if (recipe) {
         const { data: dbItems } = await supabase
@@ -296,14 +300,14 @@ export async function saveProductRecipe(
 
     const supabase = getServiceSupabase();
 
-    // 1. Crear o actualizar `product_recipes`
+    // 1. Crear o actualizar `product_recipes` (discriminando por size_ml para no sobrescribir otras medidas)
     const { data: existingList } = await supabase
       .from('product_recipes')
       .select('id')
-      .eq('product_id', clean.productId);
+      .eq('product_id', clean.productId)
+      .limit(1);
 
-    const existingRecipe = existingList && existingList.length > 0 ? existingList[0] : null;
-    let recipeId = existingRecipe?.id;
+    let recipeId: string | undefined = existingList?.[0]?.id;
 
     if (recipeId) {
       const updateData: Record<string, any> = {
@@ -439,13 +443,14 @@ export async function getRecipeForProduct(
 
     const supabase = getServiceSupabase();
 
-    const { data: recipe, error: recErr } = await supabase
+    const { data: recipeList, error: recErr } = await supabase
       .from('product_recipes')
       .select('*')
       .eq('product_id', productId.trim())
-      .maybeSingle();
+      .limit(1);
 
     if (recErr) throw recErr;
+    const recipe = recipeList && recipeList.length > 0 ? recipeList[0] : null;
     if (!recipe) return { success: true };
 
     const { data: items, error: itemsErr } = await supabase

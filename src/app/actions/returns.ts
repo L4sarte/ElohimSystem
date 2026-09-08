@@ -12,6 +12,8 @@ export interface ReturnProcessInput {
   return_reason: string;
   restock_item: boolean;
   refund_amount_ars: number;
+  items_to_restock?: Array<{ product_id: string; quantity: number }>;
+  treasury_account_id?: string;
 }
 
 interface SaleForReturn {
@@ -124,9 +126,13 @@ export async function processReturn(
 
     if (updateSaleErr) throw updateSaleErr;
 
-    // 4. Si restock_item === true, devolver el stock a la tabla `products`
-    if (restock_item && sale.sale_items && sale.sale_items.length > 0) {
-      for (const item of sale.sale_items) {
+    // 4. Si restock_item === true, devolver el stock a la tabla `products` de forma selectiva
+    if (restock_item) {
+      const itemsToRestore = input.items_to_restock && input.items_to_restock.length > 0
+        ? input.items_to_restock
+        : (refund_amount_ars >= Number(sale.total_ars || 0) ? (sale.sale_items || []) : []);
+
+      for (const item of itemsToRestore) {
         if (item.product_id && item.quantity > 0) {
           const { data: prod } = await serviceClient
             .from('products')
@@ -145,72 +151,69 @@ export async function processReturn(
       }
     }
 
-    // 5. Ajuste de VibePoints si la venta tuvo cliente asociado
+    // 5. Ajuste de VibePoints y total gastado si la venta tuvo cliente asociado
     if (sale.client_id) {
       const pm = sale.payment_methods as Record<string, unknown> | undefined;
       const vibepointsUsed = pm?.vibepoints_used as { points?: number } | undefined;
-
-      // Restablecer VibePoints canjeados
-      if (vibepointsUsed && typeof vibepointsUsed.points === 'number' && vibepointsUsed.points > 0) {
-        const ptsToRestore = Number(vibepointsUsed.points);
-        const { data: client } = await serviceClient
-          .from('clients')
-          .select('points_balance')
-          .eq('id', sale.client_id)
-          .single();
-
-        if (client) {
-          const currentPts = Number(client.points_balance || 0);
-          await serviceClient
-            .from('clients')
-            .update({ points_balance: currentPts + ptsToRestore })
-            .eq('id', sale.client_id);
-
-          await serviceClient
-            .from('client_points_history')
-            .insert({
-              client_id: sale.client_id,
-              points: ptsToRestore,
-              reason: `Devolución de ${ptsToRestore} pts por devolución ticket #${sale_id.split('-')[0].toUpperCase()}`,
-              sale_id,
-            });
-        }
-      }
-
-      // Restar VibePoints ganados en la compra
+      const ptsToRestore = Number(vibepointsUsed?.points || 0);
       const earnedPoints = Math.floor(Number(sale.total_ars || 0) / 1000);
-      if (earnedPoints > 0) {
-        const { data: client } = await serviceClient
-          .from('clients')
-          .select('points_balance')
-          .eq('id', sale.client_id)
-          .single();
 
-        if (client) {
-          const currentPts = Number(client.points_balance || 0);
-          const newPts = Math.max(0, currentPts - earnedPoints);
-          await serviceClient
-            .from('clients')
-            .update({ points_balance: newPts })
-            .eq('id', sale.client_id);
+      const { data: client } = await serviceClient
+        .from('clients')
+        .select('points_balance, total_spent_ars')
+        .eq('id', sale.client_id)
+        .single();
 
-          await serviceClient
-            .from('client_points_history')
-            .insert({
-              client_id: sale.client_id,
-              points: -earnedPoints,
-              reason: `Ajuste por devolución ticket #${sale_id.split('-')[0].toUpperCase()}`,
-              sale_id,
-            });
+      if (client) {
+        let currentPts = Number(client.points_balance || 0);
+        if (ptsToRestore > 0) {
+          currentPts += ptsToRestore;
+          await serviceClient.from('client_points_history').insert({
+            client_id: sale.client_id,
+            points: ptsToRestore,
+            reason: `Devolución de ${ptsToRestore} pts por devolución ticket #${sale_id.split('-')[0].toUpperCase()}`,
+            sale_id,
+          });
         }
+
+        if (earnedPoints > 0) {
+          currentPts = Math.max(0, currentPts - earnedPoints);
+          await serviceClient.from('client_points_history').insert({
+            client_id: sale.client_id,
+            points: -earnedPoints,
+            reason: `Ajuste por devolución ticket #${sale_id.split('-')[0].toUpperCase()}`,
+            sale_id,
+          });
+        }
+
+        const currentSpent = Number(client.total_spent_ars || 0);
+        const newSpent = Math.max(0, currentSpent - refund_amount_ars);
+
+        await serviceClient
+          .from('clients')
+          .update({ points_balance: currentPts, total_spent_ars: newSpent })
+          .eq('id', sale.client_id);
       }
     }
 
-    // 6. Registro de egreso en Tesorería & Cuentas
+    // 6. Registro de egreso en Tesorería & Cuentas con descripción y referencia
     if (refund_amount_ars > 0) {
-      const resAcc = await getTreasuryAccounts();
-      if (resAcc.success && resAcc.data && resAcc.data.length > 0) {
-        await withdrawFromAccount(resAcc.data[0].id, refund_amount_ars);
+      let targetAccId = input.treasury_account_id;
+      if (!targetAccId) {
+        const resAcc = await getTreasuryAccounts();
+        if (resAcc.success && resAcc.data && resAcc.data.length > 0) {
+          const cashAcc = resAcc.data.find(a => a.account_type === 'cash' || a.account_name.toLowerCase().includes('efectivo'));
+          targetAccId = cashAcc ? cashAcc.id : resAcc.data[0].id;
+        }
+      }
+
+      if (targetAccId) {
+        await withdrawFromAccount(
+          targetAccId,
+          refund_amount_ars,
+          `Reintegro por devolución ticket #${sale_id.slice(0, 8).toUpperCase()}`,
+          sale_id
+        );
       }
     }
 
@@ -221,6 +224,7 @@ export async function processReturn(
     revalidatePath('/admin/reportes');
     revalidatePath('/caja');
     revalidatePath('/clientes');
+    revalidatePath('/admin/inventario/kardex');
 
     return { success: true, returnId: returnRecord?.id };
   } catch (error: unknown) {

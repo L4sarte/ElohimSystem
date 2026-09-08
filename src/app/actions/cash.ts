@@ -185,6 +185,7 @@ export async function getActiveCashShift(role?: UserRole): Promise<{
       .from('sales')
       .select('id, payment_methods, created_at, seller_id, status')
       .neq('status', 'voided')
+      .neq('status', 'pending_payment')
       .gte('created_at', shift.opened_at);
 
     if (shift.seller_id) {
@@ -427,11 +428,19 @@ export async function closeCashShift(
       throw new Error('Este turno de caja ya ha sido cerrado anteriormente.');
     }
 
-    // 2. Consultar ventas en efectivo desde la fecha de apertura
-    const { data: sales, error: salesError } = await serviceClient
+    // 2. Consultar ventas en efectivo desde la fecha de apertura (excluyendo anuladas y del turno del vendedor)
+    let salesQuery = serviceClient
       .from('sales')
-      .select('id, payment_methods, created_at')
+      .select('id, payment_methods, created_at, seller_id, status')
+      .neq('status', 'voided')
+      .neq('status', 'pending_payment')
       .gte('created_at', shift.opened_at);
+
+    if (shift.seller_id) {
+      salesQuery = salesQuery.eq('seller_id', shift.seller_id);
+    }
+
+    const { data: sales, error: salesError } = await salesQuery;
 
     if (salesError) throw salesError;
 

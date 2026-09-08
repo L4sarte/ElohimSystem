@@ -30,6 +30,7 @@ import { ExchangeRatesWidget } from '@/components/rates/ExchangeRatesWidget';
 import { toast } from 'sonner';
 import { generateFinancialReportPDF, exportFinancialReportToCsv } from '@/lib/pdf-financial-report';
 import { getSystemSettings } from '@/app/actions/systemSettings';
+import { getTreasuryAccounts } from '@/app/actions/treasury';
 import { SystemSettingsData, DEFAULT_SYSTEM_SETTINGS } from '@/lib/settings-validation';
 
 const COLORS = ['#e11d48', '#8b5cf6', '#3b82f6', '#10b981', '#f59e0b', '#64748b'];
@@ -132,15 +133,17 @@ export default function ReportesPage() {
       toast.info('Generando reporte contable oficial en PDF...');
 
       // 1. Obtener métricas adicionales en paralelo
-      const [invRes, retailRes, goalsRes] = await Promise.all([
+      const [invRes, retailRes, goalsRes, treasuryRes] = await Promise.all([
         getInventoryValuation(role),
         getRetailKPIs(role, startDate, endDate),
         getMonthlyProjection(role, startDate, endDate),
+        getTreasuryAccounts(),
       ]);
 
       const inventoryData = invRes.success ? invRes.data : null;
       const retailData = retailRes.success ? retailRes.data : null;
       const goalsData = goalsRes.success ? goalsRes.data : null;
+      const treasuryAccounts = treasuryRes.success ? treasuryRes.data : null;
 
       const periodLabel = getPeriodLabel(goalsData);
 
@@ -149,6 +152,7 @@ export default function ReportesPage() {
         retailData,
         goalsData,
         inventoryData,
+        treasuryAccounts,
         periodLabel,
         storeName: settings.trade_name || settings.company_name || 'Elohim Import ERP',
       });

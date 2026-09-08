@@ -167,6 +167,7 @@ interface SaleItemWithRelations {
   sales?: {
     created_at: string;
     client_id: string;
+    status?: string;
     clients?: {
       id: string;
       name: string;
@@ -240,6 +241,7 @@ export async function matchNewArrivalsToClients(
         sales!inner (
           created_at,
           client_id,
+          status,
           clients (
             id,
             name,
@@ -277,8 +279,8 @@ export async function matchNewArrivalsToClients(
       const product = item.products;
       const client = sale?.clients;
 
-      // Fallback de protección: omitir si no hay datos de cliente o si el cliente fue eliminado
-      if (!sale || !client || !client.name || !product || product.id === newProductId) return;
+      // Fallback de protección: omitir si no hay datos de cliente, venta anulada o si el cliente fue eliminado
+      if (!sale || sale.status === 'voided' || !client || !client.name || !product || product.id === newProductId) return;
 
       const clientName = client.name.trim();
       const clientPhone = client.phone || '';

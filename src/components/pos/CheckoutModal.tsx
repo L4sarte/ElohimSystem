@@ -186,9 +186,14 @@ export function CheckoutModal({
   // Subtotal base sin recargos (mantiene subtotalArs para retrocompatibilidad interna)
   const subtotalArs = subtotalOriginalArs;
 
-  // Comisión calculada de la pasarela sobre el subtotal con descuento
-  const calculatedGatewayFeeArs = (feePercent > 0 || fixedFeeArs > 0)
-    ? Math.round(subtotalAfterDiscountArs * (feePercent / 100) + fixedFeeArs)
+  // Base imponible para el cálculo de comisiones/recargos de pasarela
+  // Si se ingresó efectivo o dólares (pago mixto), el recargo solo aplica sobre la porción digital
+  const isMixedPayment = valCashArs > 0 || valCashUsd > 0;
+  const feeTaxableBaseArs = isMixedPayment ? valDigitalArs : (valDigitalArs > 0 ? valDigitalArs : subtotalAfterDiscountArs);
+
+  // Comisión calculada de la pasarela sobre la porción correspondiente
+  const calculatedGatewayFeeArs = (feePercent > 0 || fixedFeeArs > 0) && feeTaxableBaseArs > 0
+    ? Math.round(feeTaxableBaseArs * (feePercent / 100) + fixedFeeArs)
     : 0;
 
   let totalSurchargeArs = 0;
@@ -439,7 +444,7 @@ export function CheckoutModal({
         discount_value: discountResult.discountValue,
         discount_amount_ars: discountResult.discountAmountArs,
         discount_percentage: discountResult.discountPercentage,
-        total_ars: finalTotalArsToCharge,
+        total_ars: effectiveTotalArsToPay,
         total_usd_equivalent: totalUsd,
         exchange_rate_used: exchangeRate,
         amount_paid_today: amountPaidToday,

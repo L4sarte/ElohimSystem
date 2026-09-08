@@ -211,6 +211,9 @@ export async function processBundleStockDeduction(
         .update({ stock_quantity: newStock })
         .eq('id', item.product_id);
     }
+
+    revalidatePath('/productos');
+    revalidatePath('/admin/inventario/kardex');
   } catch (e) {
     console.error('Error al procesar descuento de stock de combo:', e);
   }

@@ -4,12 +4,14 @@ import { FinancialReportData } from '@/app/actions/analytics';
 import { RetailKPIsData } from '@/app/actions/reports';
 import { MonthlyProjectionData } from '@/app/actions/goals';
 import { InventoryValuationMetrics } from '@/app/actions/inventoryAnalytics';
+import { TreasuryAccount } from '@/app/actions/treasury';
 
 export interface GeneratePdfParams {
   report: FinancialReportData;
   retailData?: RetailKPIsData | null;
   goalsData?: MonthlyProjectionData | null;
   inventoryData?: InventoryValuationMetrics | null;
+  treasuryAccounts?: TreasuryAccount[] | null;
   periodLabel: string;
   storeName?: string;
 }
@@ -31,6 +33,7 @@ export function generateFinancialReportPDF({
   retailData,
   goalsData,
   inventoryData,
+  treasuryAccounts,
   periodLabel,
   storeName = 'ELOHIM IMPORT ERP'
 }: GeneratePdfParams): jsPDF {
@@ -323,6 +326,126 @@ export function generateFinancialReportPDF({
     });
 
     nextY = (doc as any).lastAutoTable?.finalY ? (doc as any).lastAutoTable.finalY + 18 : nextY + 100;
+  }
+
+  // --- SECCIÓN 5: VALORACIÓN FINANCIERA DE INVENTARIO EN ESTANTERÍA ---
+  if (inventoryData) {
+    if (nextY > 640) {
+      doc.addPage();
+      nextY = 40;
+    }
+
+    const secNumInv = goalsData ? (retailData?.topBestSellers?.length ? '5' : '4') : '3';
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(11);
+    doc.setTextColor(...brandDark);
+    doc.text(`${secNumInv}. Valoración Financiera de Inventario en Estantería`, 40, nextY);
+
+    const invBody = [
+      [
+        'Capital Invertido (Costo Stock)',
+        formatARS(inventoryData.capitalInvertido),
+        'Valor Venta Estimado Góndola',
+        formatARS(inventoryData.valorBrutoVenta),
+      ],
+      [
+        'Margen s/ Venta Estimado',
+        `${inventoryData.potentialProfitMarginPercent.toFixed(1)}%`,
+        'Markup / ROI s/ Costo',
+        `${inventoryData.potentialMarkupPercent.toFixed(1)}%`,
+      ],
+      [
+        'Ganancia Potencial de Inventario',
+        formatARS(inventoryData.gananciaNetaPotencial),
+        'Unidades Totales / Variedad SKUs',
+        `${inventoryData.totalUnitsInStock} unidades (${inventoryData.totalProductsCount} SKUs)`,
+      ],
+    ];
+
+    autoTable(doc, {
+      ...baseTableOptions,
+      startY: nextY + 6,
+      head: [['Métrica de Inventario', 'Valor / Rendimiento', 'Métrica de Inventario', 'Valor / Rendimiento']],
+      body: invBody,
+      columnStyles: {
+        0: { fontStyle: 'bold', cellWidth: 140 },
+        1: { halign: 'right', fontStyle: 'bold' },
+        2: { fontStyle: 'bold', cellWidth: 140 },
+        3: { halign: 'right', fontStyle: 'bold', textColor: [16, 185, 129] },
+      },
+    });
+
+    nextY = (doc as any).lastAutoTable?.finalY ? (doc as any).lastAutoTable.finalY + 18 : nextY + 90;
+  }
+
+  // --- SECCIÓN 6: DISPONIBILIDAD Y SALDOS EN CUENTAS DE TESORERÍA ---
+  if (treasuryAccounts && treasuryAccounts.length > 0) {
+    if (nextY > 640) {
+      doc.addPage();
+      nextY = 40;
+    }
+
+    const totalTreasuryArs = treasuryAccounts.reduce((sum, a) => sum + Number(a.balance_ars || 0), 0);
+
+    const secNumTreasury = goalsData 
+      ? (retailData?.topBestSellers?.length ? (inventoryData ? '6' : '5') : '4') 
+      : (inventoryData ? '5' : '4');
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(11);
+    doc.setTextColor(...brandDark);
+    doc.text(`${secNumTreasury}. Posición de Caja y Tesorería por Cuenta`, 40, nextY);
+
+    const treasuryBody = treasuryAccounts.map((acc) => {
+      const bal = Number(acc.balance_ars || 0);
+      const partPct = totalTreasuryArs > 0 ? ((bal / totalTreasuryArs) * 100).toFixed(1) : '0.0';
+      let typeLabel = 'Billetera Virtual';
+      if (acc.account_type === 'cash') typeLabel = 'Efectivo Físico';
+      else if (acc.account_type === 'bank') typeLabel = 'Cuenta Bancaria';
+
+      return [
+        acc.account_name,
+        typeLabel,
+        formatARS(bal),
+        `${partPct}%`,
+        acc.is_active ? 'Activa' : 'Inactiva',
+      ];
+    });
+
+    // Fila Total Consolidado
+    treasuryBody.push([
+      'TOTAL PATRIMONIO DISPONIBLE',
+      'Consolidado',
+      formatARS(totalTreasuryArs),
+      '100.0%',
+      'Auditado',
+    ]);
+
+    autoTable(doc, {
+      ...baseTableOptions,
+      startY: nextY + 6,
+      head: [['Cuenta de Tesorería', 'Tipo de Cuenta', 'Saldo Disponible (ARS)', '% Participación', 'Estado']],
+      body: treasuryBody,
+      columnStyles: {
+        0: { fontStyle: 'bold' },
+        1: { textColor: brandMuted },
+        2: { halign: 'right', fontStyle: 'bold' },
+        3: { halign: 'right', fontStyle: 'bold' },
+        4: { halign: 'center' },
+      },
+      didParseCell: (data) => {
+        if (data.section === 'body') {
+          const rawRow = Array.isArray(data.row.raw) ? data.row.raw : Object.values(data.row.raw || {});
+          if (String(rawRow[0] || '').includes('TOTAL PATRIMONIO')) {
+            data.cell.styles.fillColor = [254, 243, 199];
+            data.cell.styles.fontStyle = 'bold';
+            data.cell.styles.textColor = [15, 23, 42];
+          }
+        }
+      },
+    });
+
+    nextY = (doc as any).lastAutoTable?.finalY ? (doc as any).lastAutoTable.finalY + 18 : nextY + 90;
   }
 
   // --- PIE DE PÁGINA CORPORATIVO EN TODAS LAS PÁGINAS ---

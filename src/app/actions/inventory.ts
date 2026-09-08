@@ -400,6 +400,7 @@ export type KardexMovementType =
   | 'COMPRA_IN'
   | 'VENTA_POS'
   | 'VENTA_WEB'
+  | 'DEVOLUCION_IN'
   | 'FRACCIONAMIENTO_OUT'
   | 'FRACCIONAMIENTO_IN'
   | 'MERMA_ROTURA'
@@ -511,7 +512,7 @@ export async function getKardexMovements(params: GetKardexParams = {}): Promise<
         price_ars_at_moment,
         unit_cost_at_moment,
         products ( id, name, brand, sku, type, base_cost_ars ),
-        sales ( id, channel, created_at, payment_methods, seller_id )
+        sales ( id, channel, created_at, payment_methods, seller_id, status )
       `)
       .order('id', { ascending: false })
       .limit(200);
@@ -521,6 +522,7 @@ export async function getKardexMovements(params: GetKardexParams = {}): Promise<
         const prod = Array.isArray(item.products) ? item.products[0] : item.products;
         const sale = Array.isArray(item.sales) ? item.sales[0] : item.sales;
         if (!prod || !sale) return;
+        if (sale.status === 'voided' || sale.status === 'pending_payment') return;
 
         const isWeb =
           sale.channel === 'whatsapp_store' ||
@@ -528,7 +530,7 @@ export async function getKardexMovements(params: GetKardexParams = {}): Promise<
           sale.channel === 'online';
 
         const qty = Number(item.quantity || 1);
-        const unitVal = Number(item.price_ars_at_moment || prod.base_cost_ars || 0);
+        const unitVal = Number(item.unit_cost_at_moment || prod.base_cost_ars || item.price_ars_at_moment || 0);
 
         movements.push({
           id: `sale-${item.id}`,
@@ -675,6 +677,62 @@ export async function getKardexMovements(params: GetKardexParams = {}): Promise<
             notes: log.notes || undefined,
           });
         }
+      });
+    }
+
+    // 4b. Consultar Devoluciones con Reingreso de Stock (DEVOLUCION_IN)
+    const { data: returnData } = await supabase
+      .from('returns')
+      .select(`
+        id,
+        sale_id,
+        return_reason,
+        restock_item,
+        refund_amount_ars,
+        created_at,
+        sales (
+          id,
+          sale_items (
+            id,
+            product_id,
+            quantity,
+            price_ars_at_moment,
+            products ( id, name, brand, sku, type, base_cost_ars )
+          )
+        )
+      `)
+      .eq('restock_item', true)
+      .order('created_at', { ascending: false })
+      .limit(50);
+
+    if (returnData) {
+      returnData.forEach((ret: any) => {
+        const sale = Array.isArray(ret.sales) ? ret.sales[0] : ret.sales;
+        const items = sale?.sale_items || [];
+        items.forEach((item: any) => {
+          const prod = Array.isArray(item.products) ? item.products[0] : item.products;
+          if (!prod) return;
+
+          const qty = Number(item.quantity || 1);
+          const unitVal = Number(item.price_ars_at_moment || prod.base_cost_ars || 0);
+
+          movements.push({
+            id: `ret-${ret.id}-${item.id}`,
+            created_at: ret.created_at,
+            product_id: item.product_id,
+            product_name: prod.name,
+            product_brand: prod.brand || '',
+            product_sku: prod.sku || '',
+            product_type: prod.type || 'bottle',
+            movement_type: 'DEVOLUCION_IN',
+            quantity: Math.abs(qty),
+            unit_value_ars: unitVal,
+            total_value_ars: Math.round(qty * unitVal),
+            reference_id: ret.id,
+            reference_label: `Reingreso por Devolución: ${ret.return_reason || 'Devolución de cliente'}`,
+            responsible_user: 'Atención al Cliente / POS',
+          });
+        });
       });
     }
 

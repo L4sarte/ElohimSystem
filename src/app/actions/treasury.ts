@@ -212,6 +212,120 @@ export async function updateAccountBalance(
 }
 
 /**
+ * Editar el nombre y tipo de una cuenta de tesorería (Solo Admin).
+ */
+export async function updateTreasuryAccount(
+  role: UserRole,
+  accountId: string,
+  input: { account_name: string; account_type: string }
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    await requireAdmin();
+
+    if (!accountId || !accountId.trim()) {
+      throw new Error('ID de cuenta requerido.');
+    }
+
+    const cleanName = input.account_name.trim();
+    if (!cleanName) {
+      throw new Error('El nombre de la cuenta es obligatorio.');
+    }
+
+    if (!['cash', 'wallet', 'bank'].includes(input.account_type)) {
+      throw new Error('Tipo de cuenta inválido. Opciones: Efectivo, Billetera Virtual o Banco.');
+    }
+
+    if (!isSupabaseConfigured()) {
+      return { success: true };
+    }
+
+    const supabase = getServiceSupabase();
+    const { error } = await supabase
+      .from('treasury_accounts')
+      .update({
+        account_name: cleanName,
+        account_type: input.account_type,
+      })
+      .eq('id', accountId.trim());
+
+    if (error) throw error;
+
+    revalidatePath('/admin/finanzas/tesoreria');
+    return { success: true };
+  } catch (error: unknown) {
+    console.error('Error al actualizar cuenta de tesorería:', error);
+    const msg = error instanceof Error ? error.message : 'Error al actualizar cuenta';
+    return { success: false, error: msg };
+  }
+}
+
+/**
+ * Eliminar o desactivar una cuenta de tesorería de forma segura (Solo Admin).
+ * Si la cuenta posee movimientos históricos en treasury_movements, se desactiva (is_active = false)
+ * para preservar la integridad contable referencial. Si no posee movimientos, se elimina físicamente.
+ */
+export async function deleteTreasuryAccount(
+  role: UserRole,
+  accountId: string
+): Promise<{ success: boolean; deactivated?: boolean; error?: string }> {
+  try {
+    await requireAdmin();
+
+    if (!accountId || !accountId.trim()) {
+      throw new Error('ID de cuenta requerido.');
+    }
+
+    if (!isSupabaseConfigured()) {
+      return { success: true };
+    }
+
+    const supabase = getServiceSupabase();
+
+    // 1. Verificar si existen movimientos asociados a esta cuenta
+    const { data: movements, error: movErr } = await supabase
+      .from('treasury_movements')
+      .select('id')
+      .eq('account_id', accountId.trim())
+      .limit(1);
+
+    if (movErr) throw movErr;
+
+    if (movements && movements.length > 0) {
+      // Desactivación lógica segura (soft delete)
+      const { error: updErr } = await supabase
+        .from('treasury_accounts')
+        .update({ is_active: false })
+        .eq('id', accountId.trim());
+
+      if (updErr) throw updErr;
+      revalidatePath('/admin/finanzas/tesoreria');
+      return { success: true, deactivated: true };
+    } else {
+      // Eliminación física directa al no tener movimientos referenciales
+      const { error: delErr } = await supabase
+        .from('treasury_accounts')
+        .delete()
+        .eq('id', accountId.trim());
+
+      if (delErr) {
+        // Fallback preventivo a desactivación si una FK bloquea el delete
+        await supabase
+          .from('treasury_accounts')
+          .update({ is_active: false })
+          .eq('id', accountId.trim());
+      }
+
+      revalidatePath('/admin/finanzas/tesoreria');
+      return { success: true, deactivated: false };
+    }
+  } catch (error: unknown) {
+    console.error('Error al eliminar cuenta de tesorería:', error);
+    const msg = error instanceof Error ? error.message : 'Error al eliminar la cuenta';
+    return { success: false, error: msg };
+  }
+}
+
+/**
  * Transferir fondos de forma atómica entre dos cuentas de tesorería (Solo Admin).
  */
 export async function transferBetweenAccounts(

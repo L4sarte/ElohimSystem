@@ -210,14 +210,53 @@ export async function registerInstallment(
       }
     }
 
-    // 5. Impactar ingreso en Tesorería & Cuentas
+    // 5. Impactar ingreso en Tesorería & Cuentas (emparejando por método de pago)
     const resAcc = await getTreasuryAccounts();
     if (resAcc.success && resAcc.data && resAcc.data.length > 0) {
-      await depositToAccount(resAcc.data[0].id, valAmount);
+      const pmLower = (paymentMethod || '').toLowerCase();
+      const isCash = pmLower.includes('efectivo');
+      const isMp = pmLower.includes('mp') || pmLower.includes('mercado');
+      const isBank = pmLower.includes('banco') || pmLower.includes('transfer') || pmLower.includes('brubank');
+
+      const targetAcc = resAcc.data.find((a) => {
+        if (isCash) return a.account_type === 'cash' || a.account_name.toLowerCase().includes('efectivo');
+        if (isMp) return a.account_type === 'wallet' || a.account_name.toLowerCase().includes('mercado');
+        if (isBank) return a.account_type === 'bank' || a.account_name.toLowerCase().includes('banco') || a.account_name.toLowerCase().includes('brubank');
+        return false;
+      }) || resAcc.data[0];
+
+      await depositToAccount(
+        targetAcc.id,
+        valAmount,
+        `Cobro Cuota - Cliente: ${(sale.clients as any)?.name || 'Cliente'} (Venta #${saleId.slice(0, 8).toUpperCase()})`,
+        saleId.trim()
+      );
+    }
+
+    // 5b. Si el pago es en efectivo, impactar en la caja diaria activa si existe turno abierto
+    if (paymentMethod.toLowerCase().includes('efectivo')) {
+      const { data: openShift } = await supabase
+        .from('cash_shifts')
+        .select('id')
+        .eq('status', 'open')
+        .order('opened_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (openShift) {
+        await supabase.from('cash_movements').insert({
+          shift_id: openShift.id,
+          type: 'in',
+          amount_ars: valAmount,
+          amount_usd: 0,
+          description: `Cobro Cuota - Cliente: ${(sale.clients as any)?.name || 'Cliente'} (Venta #${saleId.slice(0, 8).toUpperCase()})`,
+        });
+      }
     }
 
     revalidatePath('/admin/finanzas/cxcobrar');
     revalidatePath('/cobranzas');
+    revalidatePath('/admin/finanzas/cuotas');
     revalidatePath('/admin/finanzas/tesoreria');
     revalidatePath('/admin/reportes');
     revalidatePath('/auditoria/ventas');

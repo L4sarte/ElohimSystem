@@ -5,6 +5,7 @@ import { UserRole } from '@/types';
 import { revalidatePath } from 'next/cache';
 import { requireAuth } from '@/lib/auth-checks';
 import { receivablePaymentSchema } from '@/lib/client-validation';
+import { depositToAccount, getTreasuryAccounts } from '@/app/actions/treasury';
 
 export interface AccountReceivable {
   id: string;
@@ -162,11 +163,11 @@ export async function registerDebtPayment(
 
     if (updateError) throw updateError;
 
-    // 2b. SINCRONIZACIÓN BIDIRECCIONAL CON TABLA SALES
+    // 2b. SINCRONIZACIÓN BIDIRECCIONAL CON TABLA SALES Y SALE_INSTALLMENTS
     if (receivable.sale_id) {
       const { data: saleRecord } = await supabase
         .from('sales')
-        .select('amount_due_ars')
+        .select('amount_due_ars, client_id')
         .eq('id', receivable.sale_id)
         .single();
 
@@ -182,7 +183,29 @@ export async function registerDebtPayment(
             payment_status: newPaymentStatus,
           })
           .eq('id', receivable.sale_id);
+
+        // Registrar abono en sale_installments para consistencia de cuotas
+        await supabase.from('sale_installments').insert([
+          {
+            sale_id: receivable.sale_id,
+            client_id: saleRecord.client_id || receivable.client_id || null,
+            amount_paid_ars: Number(clean.amount_paid),
+            payment_method: 'Efectivo',
+          },
+        ]);
       }
+    }
+
+    // 2c. IMPACTAR INGRESO EN TESORERÍA (Emparejando cuenta Efectivo)
+    const resAcc = await getTreasuryAccounts();
+    if (resAcc.success && resAcc.data && resAcc.data.length > 0) {
+      const targetAcc = resAcc.data.find(a => a.account_type === 'cash' || a.account_name.toLowerCase().includes('efectivo')) || resAcc.data[0];
+      await depositToAccount(
+        targetAcc.id,
+        Number(clean.amount_paid),
+        `Cobro Cta Cte - Cliente: ${clientName} (Deuda #${clean.receivable_id.split('-')[0].toUpperCase()})`,
+        receivable.sale_id || clean.receivable_id
+      );
     }
 
     // 3. REGISTRO EN CAJA FÍSICA ACTIVA (cash_movements)
@@ -210,6 +233,9 @@ export async function registerDebtPayment(
     }
 
     revalidatePath('/cobranzas');
+    revalidatePath('/admin/finanzas/cxcobrar');
+    revalidatePath('/admin/finanzas/cuotas');
+    revalidatePath('/admin/finanzas/tesoreria');
     revalidatePath('/caja');
     revalidatePath('/clientes');
     return { success: true, newPaid, status: newStatus };

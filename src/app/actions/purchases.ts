@@ -608,21 +608,9 @@ export async function confirmCheckInAction(
       }
 
       if (targetAccId && grandTotal > 0) {
-        // Debitar saldo de la cuenta de tesorería seleccionada (sin tocar OPEX)
-        await withdrawFromAccount(targetAccId, grandTotal);
-
-        // Registrar movimiento en treasury_movements (si la tabla existe)
-        try {
-          await supabase.from('treasury_movements').insert({
-            account_id: targetAccId,
-            type: 'EGRESO_COMPRA_PROVEEDOR',
-            amount_ars: grandTotal,
-            description: `Pago a Proveedor ${(po.suppliers as any)?.name || 'B2B'} - Orden #${poId.slice(0, 8).toUpperCase()}`,
-            reference_id: poId,
-          });
-        } catch (tmErr) {
-          console.warn('Nota: Inserción en treasury_movements omitida:', tmErr);
-        }
+        // Debitar saldo de la cuenta de tesorería seleccionada y asentar movimiento único de auditoría
+        const poDescription = `Pago a Proveedor ${(po.suppliers as any)?.name || 'B2B'} - Orden #${poId.slice(0, 8).toUpperCase()}`;
+        await withdrawFromAccount(targetAccId, grandTotal, poDescription, poId);
       }
 
       paymentNote = `[PAGADO CONTADO: ${usedAccountName || 'Tesorería'} - $${grandTotal.toLocaleString('es-AR')}]`;
@@ -797,23 +785,11 @@ export async function registerPurchasePaymentAction(
       return { success: false, error: 'Cuenta de tesorería de origen no encontrada.' };
     }
 
-    // 3. Descontar fondos contables de tesorería
-    const withdrawOk = await withdrawFromAccount(input.treasuryAccountId, totalArs);
+    // 3. Descontar fondos contables de tesorería y registrar movimiento único
+    const paymentDesc = `Pago a Proveedor ${supplierName} - Orden #${input.purchaseId.slice(0, 8).toUpperCase()}`;
+    const withdrawOk = await withdrawFromAccount(input.treasuryAccountId, totalArs, paymentDesc, input.purchaseId);
     if (!withdrawOk) {
       return { success: false, error: 'No se pudo debitar el saldo de la cuenta de tesorería.' };
-    }
-
-    // 4. Registrar en treasury_movements (si la tabla existe)
-    try {
-      await supabase.from('treasury_movements').insert({
-        account_id: input.treasuryAccountId,
-        type: 'PAGO_PROVEEDOR',
-        amount_ars: totalArs,
-        description: `Pago a Proveedor ${supplierName} - Orden #${input.purchaseId.slice(0, 8).toUpperCase()}`,
-        reference_id: input.purchaseId,
-      });
-    } catch (tmErr) {
-      console.warn('Nota: Inserción en treasury_movements omitida:', tmErr);
     }
 
     // 5. Actualizar purchases a payment_status = 'paid'

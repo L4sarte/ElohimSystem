@@ -218,7 +218,7 @@ export async function createSaleTransaction(
     const productIds = cleanSaleData.items.map((i) => i.product_id);
     const { data: dbProducts, error: prodErr } = await serviceClient
       .from('products')
-      .select('id, name, base_price_ars, stock_quantity, type')
+      .select('id, name, base_price_ars, base_cost_ars, stock_quantity, type')
       .in('id', productIds);
 
     if (prodErr || !dbProducts) {
@@ -254,6 +254,25 @@ export async function createSaleTransaction(
     }
 
     const saleId: string = data;
+
+    // 6b. Congelar costo unitario de catálogo vigente en sale_items (para histórico de P&L)
+    if (saleId && cleanSaleData.items && cleanSaleData.items.length > 0) {
+      try {
+        for (const item of cleanSaleData.items) {
+          const dbProd = productMap.get(item.product_id);
+          const unitCost = Number(dbProd?.base_cost_ars || 0);
+          if (unitCost > 0) {
+            await serviceClient
+              .from('sale_items')
+              .update({ unit_cost_at_moment: unitCost })
+              .eq('sale_id', saleId)
+              .eq('product_id', item.product_id);
+          }
+        }
+      } catch (costErr) {
+        console.warn('Nota: Persistencia de unit_cost_at_moment omitida:', costErr);
+      }
+    }
 
     // 7. Extraer montos y estados financieros calculados con Decimal.js
     const pm = cleanSaleData.payment_methods as Record<string, unknown>;
@@ -368,62 +387,57 @@ export async function createSaleTransaction(
       }
     }
 
-    // 12. Fidelización (VibePoints)
+    // 12. Fidelización (VibePoints) y Acumulación de Gasto del Cliente (CRM)
     if (cleanSaleData.client_id) {
       const vibepointsUsed = pm?.vibepoints_used as { points?: number; discount_ars?: number } | undefined;
-      if (vibepointsUsed && typeof vibepointsUsed.points === 'number' && vibepointsUsed.points > 0) {
-        const pointsRedeemed = Number(vibepointsUsed.points);
-        const discountArs = Number(vibepointsUsed.discount_ars || 0);
+      const { data: currentClient } = await serviceClient
+        .from('clients')
+        .select('points_balance, total_spent_ars')
+        .eq('id', cleanSaleData.client_id)
+        .single();
 
-        const { data: currentClient } = await serviceClient
-          .from('clients')
-          .select('points_balance')
-          .eq('id', cleanSaleData.client_id)
-          .single();
+      if (currentClient) {
+        let newPts = Number(currentClient.points_balance || 0);
 
-        const currentPts = Number(currentClient?.points_balance || 0);
-        const newBalance = Math.max(0, currentPts - pointsRedeemed);
+        if (vibepointsUsed && typeof vibepointsUsed.points === 'number' && vibepointsUsed.points > 0) {
+          const pointsRedeemed = Number(vibepointsUsed.points);
+          const discountArs = Number(vibepointsUsed.discount_ars || 0);
+          newPts = Math.max(0, newPts - pointsRedeemed);
+
+          await serviceClient
+            .from('client_points_history')
+            .insert({
+              client_id: cleanSaleData.client_id,
+              points: -pointsRedeemed,
+              reason: `Canje de ${pointsRedeemed} pts ($${discountArs} desc) en venta #${saleId.split('-')[0].toUpperCase()}`,
+              sale_id: saleId,
+            });
+        }
+
+        // Acumulación de Puntos por Compra (1000 ARS = 1 VibePoint)
+        const earnedPoints = Math.floor(cleanSaleData.total_ars / 1000);
+        if (earnedPoints > 0) {
+          newPts += earnedPoints;
+          await serviceClient
+            .from('client_points_history')
+            .insert({
+              client_id: cleanSaleData.client_id,
+              points: earnedPoints,
+              reason: `Puntos ganados por compra #${saleId.split('-')[0].toUpperCase()}`,
+              sale_id: saleId,
+            });
+        }
+
+        const currentSpent = Number(currentClient.total_spent_ars || 0);
+        const updatedSpent = currentSpent + Math.round(Number(cleanSaleData.total_ars || 0));
 
         await serviceClient
           .from('clients')
-          .update({ points_balance: newBalance })
+          .update({
+            points_balance: newPts,
+            total_spent_ars: updatedSpent,
+          })
           .eq('id', cleanSaleData.client_id);
-
-        await serviceClient
-          .from('client_points_history')
-          .insert({
-            client_id: cleanSaleData.client_id,
-            points: -pointsRedeemed,
-            reason: `Canje de ${pointsRedeemed} pts ($${discountArs} desc) en venta #${saleId.split('-')[0].toUpperCase()}`,
-            sale_id: saleId,
-          });
-      }
-
-      // Acumulación de Puntos por Compra (1000 ARS = 1 VibePoint)
-      const earnedPoints = Math.floor(cleanSaleData.total_ars / 1000);
-      if (earnedPoints > 0) {
-        const { data: currentClient } = await serviceClient
-          .from('clients')
-          .select('points_balance')
-          .eq('id', cleanSaleData.client_id)
-          .single();
-
-        const currentPts = Number(currentClient?.points_balance || 0);
-        const updatedBalance = currentPts + earnedPoints;
-
-        await serviceClient
-          .from('clients')
-          .update({ points_balance: updatedBalance })
-          .eq('id', cleanSaleData.client_id);
-
-        await serviceClient
-          .from('client_points_history')
-          .insert({
-            client_id: cleanSaleData.client_id,
-            points: earnedPoints,
-            reason: `Puntos ganados por compra #${saleId.split('-')[0].toUpperCase()}`,
-            sale_id: saleId,
-          });
       }
     }
 
@@ -678,6 +692,14 @@ export async function voidSale(
 
     const serviceClient = getServiceSupabase();
 
+    // 1. Obtener detalles de la venta antes o durante la anulación para revertir puntos y CRM
+    const { data: saleRecord } = await serviceClient
+      .from('sales')
+      .select('client_id, total_ars, payment_methods')
+      .eq('id', saleId.trim())
+      .single();
+
+    // 2. Ejecutar transacción de anulación en base de datos
     const { error } = await serviceClient.rpc('void_sale_transaction', {
       p_sale_id: saleId.trim(),
       p_admin_id: adminUser.id,
@@ -687,7 +709,59 @@ export async function voidSale(
       throw error;
     }
 
-    // RESTAURAR STOCK DE INSUMOS DE PACKAGING
+    // 3. Revertir puntos de fidelidad y total gastado en clientes
+    if (saleRecord?.client_id) {
+      const pm = saleRecord.payment_methods as Record<string, any> | undefined;
+      const vibepointsUsed = pm?.vibepoints_used as { points?: number } | undefined;
+      const pointsRedeemed = Number(vibepointsUsed?.points || 0);
+      const earnedPoints = Math.floor(Number(saleRecord.total_ars || 0) / 1000);
+
+      const { data: client } = await serviceClient
+        .from('clients')
+        .select('points_balance, total_spent_ars')
+        .eq('id', saleRecord.client_id)
+        .single();
+
+      if (client) {
+        let newBalance = Number(client.points_balance || 0);
+
+        // Devolver puntos canjeados
+        if (pointsRedeemed > 0) {
+          newBalance += pointsRedeemed;
+          await serviceClient.from('client_points_history').insert({
+            client_id: saleRecord.client_id,
+            points: pointsRedeemed,
+            reason: `Reintegro de ${pointsRedeemed} pts por anulación de venta #${saleId.slice(0, 8).toUpperCase()}`,
+            sale_id: saleId.trim(),
+          });
+        }
+
+        // Restar puntos ganados
+        if (earnedPoints > 0) {
+          newBalance = Math.max(0, newBalance - earnedPoints);
+          await serviceClient.from('client_points_history').insert({
+            client_id: saleRecord.client_id,
+            points: -earnedPoints,
+            reason: `Cancelación de ${earnedPoints} pts ganados por anulación de venta #${saleId.slice(0, 8).toUpperCase()}`,
+            sale_id: saleId.trim(),
+          });
+        }
+
+        // Restar monto gastado acumulado
+        const currentSpent = Number(client.total_spent_ars || 0);
+        const newSpent = Math.max(0, currentSpent - Number(saleRecord.total_ars || 0));
+
+        await serviceClient
+          .from('clients')
+          .update({
+            points_balance: newBalance,
+            total_spent_ars: newSpent,
+          })
+          .eq('id', saleRecord.client_id);
+      }
+    }
+
+    // 4. RESTAURAR STOCK DE INSUMOS DE PACKAGING
     const { data: packagingItems, error: packErr } = await serviceClient
       .from('sale_packaging')
       .select('packaging_id, quantity_used')
@@ -715,6 +789,40 @@ export async function voidSale(
       }
     }
 
+    // 5. RESTAURAR STOCK DE COMPONENTES DE COMBOS / BUNDLES
+    const { data: saleItems } = await serviceClient
+      .from('sale_items')
+      .select('product_id, quantity')
+      .eq('sale_id', saleId.trim());
+
+    if (saleItems && saleItems.length > 0) {
+      for (const sItem of saleItems) {
+        const { data: bundleItems } = await serviceClient
+          .from('bundle_items')
+          .select('product_id, quantity_to_deduct')
+          .eq('bundle_id', sItem.product_id);
+
+        if (bundleItems && bundleItems.length > 0) {
+          for (const bItem of bundleItems) {
+            const qtyToReturn = Number(bItem.quantity_to_deduct || 1) * Number(sItem.quantity || 1);
+            const { data: compProd } = await serviceClient
+              .from('products')
+              .select('stock_quantity')
+              .eq('id', bItem.product_id)
+              .single();
+
+            if (compProd) {
+              const currentStock = Number(compProd.stock_quantity || 0);
+              await serviceClient
+                .from('products')
+                .update({ stock_quantity: currentStock + qtyToReturn })
+                .eq('id', bItem.product_id);
+            }
+          }
+        }
+      }
+    }
+
     revalidatePath('/');
     revalidatePath('/auditoria/ventas');
     revalidatePath('/admin/ventas');
@@ -722,6 +830,8 @@ export async function voidSale(
     revalidatePath('/admin/reportes');
     revalidatePath('/caja');
     revalidatePath('/cobranzas');
+    revalidatePath('/clientes');
+    revalidatePath('/admin/inventario/kardex');
 
     return { success: true };
   } catch (error: unknown) {

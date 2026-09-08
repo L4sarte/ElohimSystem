@@ -97,7 +97,8 @@ export async function getMonthlyProjection(
       .select('total_ars')
       .gte('created_at', isoStart)
       .lte('created_at', isoEnd)
-      .neq('status', 'voided');
+      .neq('status', 'voided')
+      .neq('status', 'pending_payment');
 
     if (salesError) throw salesError;
 

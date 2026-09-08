@@ -110,6 +110,7 @@ export async function getVisualDashboardData(role?: UserRole): Promise<{
         .gte('created_at', isoStart)
         .lte('created_at', isoEnd)
         .neq('status', 'voided')
+        .neq('status', 'pending_payment')
         .order('created_at', { ascending: true }),
       supabase
         .from('operating_expenses')

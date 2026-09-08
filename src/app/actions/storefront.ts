@@ -4,6 +4,7 @@ import { getServiceSupabase, isSupabaseConfigured } from '@/lib/supabase';
 import { revalidatePath } from 'next/cache';
 import Decimal from 'decimal.js';
 import { getSystemSettings } from '@/app/actions/systemSettings';
+import { getCurrentRate } from '@/app/actions/rates';
 import { 
   onlineOrderSchema, 
   PublicProduct, 
@@ -348,7 +349,7 @@ export async function createOnlineOrder(payload: CreateOnlineOrderInput): Promis
     const productIds = clean.items.map((i) => i.product_id);
     const { data: dbProducts, error: prodErr } = await supabase
       .from('products')
-      .select('id, name, brand, base_price_ars, stock_quantity, type')
+      .select('id, name, brand, base_price_ars, base_cost_ars, stock_quantity, type')
       .in('id', productIds);
 
     if (prodErr || !dbProducts || dbProducts.length === 0) {
@@ -400,8 +401,14 @@ export async function createOnlineOrder(payload: CreateOnlineOrderInput): Promis
     const settingsRes = await getSystemSettings();
     const storeSettings = settingsRes.data;
 
-    // Tasa referencial USD (default 1200)
-    const exchangeRate = 1200;
+    // Tasa referencial USD obtenida dinámicamente de exchange_rates
+    let exchangeRate = 1550;
+    try {
+      const rateRes = await getCurrentRate();
+      if (rateRes.success && rateRes.data?.value_ars && rateRes.data.value_ars > 0) {
+        exchangeRate = rateRes.data.value_ars;
+      }
+    } catch (_) {}
     const totalUsd = new Decimal(finalTotalArs).dividedBy(exchangeRate).round().toNumber();
 
     // 4. Buscar o crear cliente en CRM (por teléfono o email)
@@ -479,18 +486,31 @@ export async function createOnlineOrder(payload: CreateOnlineOrderInput): Promis
     const saleId = saleData.id;
     const orderNumber = saleId.slice(0, 8).toUpperCase();
 
-    // 6. Insertar ítems en sale_items (con nombres de columna válidos en Supabase)
-    const saleItemsPayload = validatedItems.map((item) => ({
-      sale_id: saleId,
-      product_id: item.product_id,
-      quantity: item.quantity,
-      price_ars_at_moment: item.unit_price_ars,
-      price_usd_at_moment: new Decimal(item.unit_price_ars).dividedBy(exchangeRate).round().toNumber(),
-    }));
+    // 6. Insertar ítems en sale_items con unit_cost_at_moment congelado
+    const saleItemsPayload = validatedItems.map((item) => {
+      const dbProd = productMap.get(item.product_id);
+      const row: Record<string, any> = {
+        sale_id: saleId,
+        product_id: item.product_id,
+        quantity: item.quantity,
+        price_ars_at_moment: item.unit_price_ars,
+        price_usd_at_moment: new Decimal(item.unit_price_ars).dividedBy(exchangeRate).round().toNumber(),
+      };
+      if (dbProd?.base_cost_ars !== undefined && dbProd.base_cost_ars !== null) {
+        row.unit_cost_at_moment = Number(dbProd.base_cost_ars);
+      }
+      return row;
+    });
 
-    const { error: itemsErr } = await supabase
+    let { error: itemsErr } = await supabase
       .from('sale_items')
       .insert(saleItemsPayload);
+
+    if (itemsErr && itemsErr.code === 'PGRST204') {
+      const fallbackPayload = saleItemsPayload.map(({ unit_cost_at_moment, ...rest }) => rest);
+      const resRetry = await supabase.from('sale_items').insert(fallbackPayload);
+      itemsErr = resRetry.error;
+    }
 
     if (itemsErr) {
       console.error('[CREATE_ONLINE_ORDER_ITEMS_ERROR]:', itemsErr);
@@ -777,7 +797,13 @@ export async function createWhatsAppOrderAction(
     }
 
     const grandTotalArs = totalArsDecimal.toNumber();
-    const exchangeRate = 1200;
+    let exchangeRate = 1550;
+    try {
+      const rateRes = await getCurrentRate();
+      if (rateRes.success && rateRes.data?.value_ars && rateRes.data.value_ars > 0) {
+        exchangeRate = rateRes.data.value_ars;
+      }
+    } catch (_) {}
     const grandTotalUsd = totalArsDecimal.dividedBy(exchangeRate).round().toNumber();
 
     // 2. Cliente CRM

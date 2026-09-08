@@ -10,7 +10,7 @@ import {
   Activity, ArrowLeft, ArrowDownLeft, ArrowUpRight, Search, 
   RefreshCw, Download, Filter, ShieldAlert, ShoppingCart, 
   Globe, ShoppingBag, Droplet, Sparkles, Flame, FileText, 
-  Layers, Package, Calendar, DollarSign, CheckCircle2, TrendingUp, TrendingDown
+  Layers, Package, Calendar, DollarSign, CheckCircle2, TrendingUp, TrendingDown, RotateCcw
 } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -30,6 +30,13 @@ const MOVEMENT_CONFIG: Record<KardexMovementType, {
     badgeText: 'text-emerald-400',
     borderColor: 'border-emerald-800/40',
     icon: ArrowDownLeft,
+  },
+  DEVOLUCION_IN: {
+    label: 'Devolución de Cliente (+Stock)',
+    badgeBg: 'bg-emerald-950/40',
+    badgeText: 'text-emerald-300',
+    borderColor: 'border-emerald-800/40',
+    icon: RotateCcw,
   },
   VENTA_POS: {
     label: 'Venta Mostrador (POS)',
@@ -408,6 +415,7 @@ export default function KardexPage() {
               >
                 <option value="ALL">🔍 Todos los Movimientos</option>
                 <option value="COMPRA_IN">📥 Ingreso por Compra (B2B)</option>
+                <option value="DEVOLUCION_IN">🔄 Reingreso por Devolución</option>
                 <option value="VENTA_POS">🛒 Venta Mostrador (POS)</option>
                 <option value="VENTA_WEB">🌐 Venta Online (WhatsApp)</option>
                 <option value="FRACCIONAMIENTO_OUT">🧴 Salida Botella a Decant</option>

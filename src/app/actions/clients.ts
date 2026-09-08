@@ -69,16 +69,36 @@ export async function getClientsDetailed(role?: UserRole): Promise<{
     }
 
     const supabase = getServiceSupabase();
-    const { data, error } = await supabase
-      .from('clients')
-      .select('*')
-      .order('name', { ascending: true });
+    const [{ data, error }, { data: salesSumData }] = await Promise.all([
+      supabase.from('clients').select('*').order('name', { ascending: true }),
+      supabase
+        .from('sales')
+        .select('client_id, total_ars')
+        .neq('status', 'voided')
+        .neq('status', 'pending_payment')
+        .not('client_id', 'is', null),
+    ]);
 
     if (error) {
       throw error;
     }
 
-    return { success: true, data: (data || []) as unknown as ClientRecord[] };
+    const spentByClient = new Map<string, number>();
+    (salesSumData || []).forEach((s: any) => {
+      if (s.client_id) {
+        const cur = spentByClient.get(s.client_id) || 0;
+        spentByClient.set(s.client_id, cur + Number(s.total_ars || 0));
+      }
+    });
+
+    const enrichedClients = (data || []).map((client: any) => ({
+      ...client,
+      total_spent_ars: spentByClient.has(client.id)
+        ? spentByClient.get(client.id)!
+        : Number(client.total_spent_ars || 0),
+    }));
+
+    return { success: true, data: enrichedClients as unknown as ClientRecord[] };
   } catch (error: unknown) {
     console.error('Error al obtener clientes detallado:', error);
     const msg = error instanceof Error ? error.message : 'Error al obtener clientes';
@@ -228,6 +248,8 @@ export async function getClientPurchaseHistory(
         )
       `)
       .eq('client_id', clientId.trim())
+      .neq('status', 'voided')
+      .neq('status', 'pending_payment')
       .order('created_at', { ascending: false });
 
     if (error) {

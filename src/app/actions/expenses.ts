@@ -5,7 +5,7 @@ import { UserRole } from '@/types';
 import { revalidatePath } from 'next/cache';
 import { requireAdmin } from '@/lib/auth-checks';
 import { operatingExpenseInputSchema } from '@/lib/expense-validation';
-import { withdrawFromAccount, getTreasuryAccounts } from '@/app/actions/treasury';
+import { withdrawFromAccount, depositToAccount, getTreasuryAccounts } from '@/app/actions/treasury';
 
 export interface OperatingExpense {
   id: string;
@@ -174,6 +174,19 @@ export async function updateExpense(
     }
 
     const serviceClient = getServiceSupabase();
+
+    // 1. Obtener monto anterior del gasto para calcular el diferencial
+    const { data: oldExpense } = await serviceClient
+      .from('operating_expenses')
+      .select('amount_ars, description')
+      .eq('id', id.trim())
+      .single();
+
+    const oldAmount = Number(oldExpense?.amount_ars || 0);
+    const newAmount = Number(clean.amount_ars || 0);
+    const diff = newAmount - oldAmount;
+
+    // 2. Actualizar registro en operating_expenses
     const { data, error } = await serviceClient
       .from('operating_expenses')
       .update({
@@ -189,7 +202,39 @@ export async function updateExpense(
 
     if (error) throw error;
 
+    // 3. Ajustar saldo en Tesorería si varió el monto
+    if (diff !== 0) {
+      let targetAccId = clean.treasury_account_id;
+      if (!targetAccId) {
+        const resAcc = await getTreasuryAccounts();
+        if (resAcc.success && resAcc.data && resAcc.data.length > 0) {
+          targetAccId = resAcc.data[0].id;
+        }
+      }
+
+      if (targetAccId) {
+        if (diff > 0) {
+          // Aumentó el monto del gasto: debitar la diferencia
+          await withdrawFromAccount(
+            targetAccId,
+            diff,
+            `Ajuste incremento de gasto: ${clean.description}`,
+            id.trim()
+          );
+        } else {
+          // Disminuyó el monto del gasto: reintegrar la diferencia
+          await depositToAccount(
+            targetAccId,
+            Math.abs(diff),
+            `Ajuste reducción de gasto: ${clean.description}`,
+            id.trim()
+          );
+        }
+      }
+    }
+
     revalidatePath('/admin/gastos');
+    revalidatePath('/admin/finanzas/tesoreria');
     revalidatePath('/admin/reportes');
     return { success: true, data: data as unknown as OperatingExpense };
   } catch (error: unknown) {
@@ -218,6 +263,15 @@ export async function deleteExpense(
     }
 
     const serviceClient = getServiceSupabase();
+
+    // 1. Obtener datos del gasto antes de eliminar para reintegrar el dinero a Tesorería
+    const { data: oldExpense } = await serviceClient
+      .from('operating_expenses')
+      .select('amount_ars, description')
+      .eq('id', id.trim())
+      .single();
+
+    // 2. Eliminar el gasto
     const { error } = await serviceClient
       .from('operating_expenses')
       .delete()
@@ -225,7 +279,21 @@ export async function deleteExpense(
 
     if (error) throw error;
 
+    // 3. Reintegrar fondos a Tesorería
+    if (oldExpense && Number(oldExpense.amount_ars) > 0) {
+      const resAcc = await getTreasuryAccounts();
+      if (resAcc.success && resAcc.data && resAcc.data.length > 0) {
+        await depositToAccount(
+          resAcc.data[0].id,
+          Number(oldExpense.amount_ars),
+          `Reversión por eliminación de gasto: ${oldExpense.description || 'Gasto'}`,
+          id.trim()
+        );
+      }
+    }
+
     revalidatePath('/admin/gastos');
+    revalidatePath('/admin/finanzas/tesoreria');
     revalidatePath('/admin/reportes');
     return { success: true };
   } catch (error: unknown) {

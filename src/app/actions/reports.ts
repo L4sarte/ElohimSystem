@@ -175,6 +175,7 @@ export async function getDashboardData(
       .from('sales')
       .select('id, total_ars, subtotal_ars, discount_amount_ars, total_usd_equivalent, exchange_rate_used, created_at, status, gateway_fee_ars')
       .neq('status', 'voided')
+      .neq('status', 'pending_payment')
       .order('created_at', { ascending: true });
 
     if (period === 'current_month') {
@@ -188,6 +189,7 @@ export async function getDashboardData(
         .from('sales')
         .select('total_ars, created_at')
         .neq('status', 'voided')
+        .neq('status', 'pending_payment')
         .gte('created_at', startOfPrevMonth)
         .lte('created_at', endOfPrevMonth),
       period === 'current_month'
@@ -212,13 +214,14 @@ export async function getDashboardData(
     // 2. Obtener los ítems de ventas activas con costo para rentabilidad
     let saleItems: DbSaleItemRow[] = [];
     if (validSaleIds.length > 0) {
-      const { data: itemsData, error: itemsError } = await supabase
+      let { data: itemsData, error: itemsError } = await supabase
         .from('sale_items')
         .select(`
           sale_id,
           quantity,
           price_ars_at_moment,
           price_usd_at_moment,
+          unit_cost_at_moment,
           products (
             id,
             name,
@@ -227,6 +230,26 @@ export async function getDashboardData(
           )
         `)
         .in('sale_id', validSaleIds);
+
+      if (itemsError && itemsError.message?.includes('unit_cost_at_moment')) {
+        const fallbackRes = await supabase
+          .from('sale_items')
+          .select(`
+            sale_id,
+            quantity,
+            price_ars_at_moment,
+            price_usd_at_moment,
+            products (
+              id,
+              name,
+              type,
+              base_cost_ars
+            )
+          `)
+          .in('sale_id', validSaleIds);
+        itemsData = fallbackRes.data as any;
+        itemsError = fallbackRes.error;
+      }
 
       if (itemsError) throw itemsError;
       saleItems = (itemsData || []) as unknown as DbSaleItemRow[];
@@ -257,6 +280,7 @@ export async function getDashboardData(
         )
       `)
       .neq('status', 'voided')
+      .neq('status', 'pending_payment')
       .order('created_at', { ascending: false })
       .limit(5);
 
@@ -271,10 +295,16 @@ export async function getDashboardData(
       const isDecant = item.products?.type === 'decant_liquid';
       const mlCost = Number(item.products?.base_cost_ars || 0);
 
-      // Costo unitario: Si es decant, 5ml de perfume + costo del frasco ($559). Si es botella, costo de catálogo.
-      const unitCost = isDecant
-        ? (mlCost * 5) + 559
-        : mlCost;
+      // Costo unitario: Prioridad 1: unit_cost_at_moment congelado en la venta.
+      // Fallback: Si es decant, 5ml de perfume + envase ($559). Si es botella, costo base del catálogo.
+      let unitCost = 0;
+      if (item.unit_cost_at_moment !== undefined && item.unit_cost_at_moment !== null && Number(item.unit_cost_at_moment) > 0) {
+        unitCost = Number(item.unit_cost_at_moment);
+      } else if (isDecant) {
+        unitCost = (mlCost * 5) + 559;
+      } else {
+        unitCost = mlCost;
+      }
 
       const itemCost = unitCost * qty;
 
@@ -428,6 +458,7 @@ interface DbRetailItemRow {
   product_id: string;
   quantity: number;
   price_ars_at_moment: number;
+  unit_cost_at_moment?: number | null;
   products?: {
     id: string;
     name: string;
@@ -484,6 +515,7 @@ export async function getRetailKPIs(
       .from('sales')
       .select('id, total_ars')
       .neq('status', 'voided')
+      .neq('status', 'pending_payment')
       .gte('created_at', isoStart)
       .lte('created_at', isoEnd);
 
@@ -499,12 +531,13 @@ export async function getRetailKPIs(
 
     if (monthSaleIds.length > 0) {
       // 2. Consultar ítems vendidos en el mes con su tipo y costo base
-      const { data: itemsData, error: itemsError } = await supabase
+      let { data: itemsData, error: itemsError } = await supabase
         .from('sale_items')
         .select(`
           product_id,
           quantity,
           price_ars_at_moment,
+          unit_cost_at_moment,
           products (
             id,
             name,
@@ -515,6 +548,27 @@ export async function getRetailKPIs(
           )
         `)
         .in('sale_id', monthSaleIds);
+
+      if (itemsError && itemsError.message?.includes('unit_cost_at_moment')) {
+        const fallbackRes = await supabase
+          .from('sale_items')
+          .select(`
+            product_id,
+            quantity,
+            price_ars_at_moment,
+            products (
+              id,
+              name,
+              brand,
+              sku,
+              type,
+              base_cost_ars
+            )
+          `)
+          .in('sale_id', monthSaleIds);
+        itemsData = fallbackRes.data as any;
+        itemsError = fallbackRes.error;
+      }
 
       if (itemsError) throw itemsError;
 
@@ -529,8 +583,10 @@ export async function getRetailKPIs(
         const isDecant = pInfo?.type === 'decant_liquid';
         const rawCost = Number(pInfo?.base_cost_ars || 0);
 
-        // Costo canónico para decants (5ml de perfume + frasco) vs botella sellada
-        const unitCost = isDecant ? (rawCost * 5) + 559 : rawCost;
+        // Costo canónico: Prioridad 1 unit_cost_at_moment congelado, fallback decant (5ml + frasco) o base_cost_ars
+        const unitCost = (item.unit_cost_at_moment !== undefined && item.unit_cost_at_moment !== null && Number(item.unit_cost_at_moment) > 0)
+          ? Number(item.unit_cost_at_moment)
+          : (isDecant ? (rawCost * 5) + 559 : rawCost);
 
         const revenue = qty * unitPrice;
         const cost = qty * unitCost;

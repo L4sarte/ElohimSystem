@@ -116,6 +116,7 @@ export async function getFinancialReport(
       .gte('created_at', isoStart)
       .lte('created_at', isoEnd)
       .neq('status', 'voided')
+      .neq('status', 'pending_payment')
       .order('created_at', { ascending: true });
 
     if (salesError) throw salesError;

@@ -6,6 +6,8 @@ import { useExchangeRate } from '@/hooks/use-exchange-rate';
 import { 
   getTreasuryAccounts, 
   createTreasuryAccount, 
+  updateTreasuryAccount,
+  deleteTreasuryAccount,
   updateAccountBalance, 
   transferBetweenAccounts, 
   TreasuryAccount 
@@ -19,9 +21,10 @@ import { ExchangeRatesWidget } from '@/components/rates/ExchangeRatesWidget';
 import { 
   ArrowLeft, RefreshCw, AlertCircle, DollarSign, Wallet, Landmark, 
   ArrowLeftRight, Plus, SlidersHorizontal, CheckCircle2, ShieldCheck, 
-  Coins, Sparkles, Building2, CreditCard, Layers, X
+  Coins, Sparkles, Building2, CreditCard, Layers, X, Edit, Trash2
 } from 'lucide-react';
 import Link from 'next/link';
+import { toast } from 'sonner';
 
 export default function TesoreriaPage() {
   const { role } = useUserStore();
@@ -54,6 +57,18 @@ export default function TesoreriaPage() {
   const [newInitialBalance, setNewInitialBalance] = useState('0');
   const [newAccountSubmitting, setNewAccountSubmitting] = useState(false);
   const [newAccountError, setNewAccountError] = useState<string | null>(null);
+
+  // Modal Editar Cuenta
+  const [editingAccount, setEditingAccount] = useState<TreasuryAccount | null>(null);
+  const [editAccountName, setEditAccountName] = useState('');
+  const [editAccountType, setEditAccountType] = useState('wallet');
+  const [editSubmitting, setEditSubmitting] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
+
+  // Modal Eliminar Cuenta
+  const [accountToDelete, setAccountToDelete] = useState<TreasuryAccount | null>(null);
+  const [deleteSubmitting, setDeleteSubmitting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const fetchAccounts = async () => {
     setLoading(true);
@@ -167,6 +182,63 @@ export default function TesoreriaPage() {
       fetchAccounts();
     } else {
       setNewAccountError(res.error || 'Error al crear la cuenta');
+    }
+  };
+
+  const handleOpenEditModal = (acc: TreasuryAccount) => {
+    setEditingAccount(acc);
+    setEditAccountName(acc.account_name);
+    setEditAccountType(acc.account_type);
+    setEditError(null);
+  };
+
+  const handleConfirmEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingAccount) return;
+    if (!editAccountName.trim()) {
+      setEditError('Ingresa un nombre para la cuenta.');
+      return;
+    }
+
+    setEditSubmitting(true);
+    setEditError(null);
+
+    const res = await updateTreasuryAccount(role, editingAccount.id, {
+      account_name: editAccountName.trim(),
+      account_type: editAccountType,
+    });
+
+    setEditSubmitting(false);
+
+    if (res.success) {
+      toast.success('Cuenta actualizada correctamente.');
+      setEditingAccount(null);
+      fetchAccounts();
+    } else {
+      setEditError(res.error || 'Error al actualizar la cuenta.');
+    }
+  };
+
+  const handleOpenDeleteModal = (acc: TreasuryAccount) => {
+    setAccountToDelete(acc);
+    setDeleteError(null);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!accountToDelete) return;
+
+    setDeleteSubmitting(true);
+    setDeleteError(null);
+
+    const res = await deleteTreasuryAccount(role, accountToDelete.id);
+    setDeleteSubmitting(false);
+
+    if (res.success) {
+      toast.success(res.deactivated ? 'Cuenta desactivada de la tesorería activa.' : 'Cuenta eliminada exitosamente.');
+      setAccountToDelete(null);
+      fetchAccounts();
+    } else {
+      setDeleteError(res.error || 'Error al eliminar la cuenta.');
     }
   };
 
@@ -398,7 +470,28 @@ export default function TesoreriaPage() {
                     </CardHeader>
 
                     {role === 'admin' && (
-                      <CardFooter className="pt-3 border-t border-[#1B362A] bg-[#08130E]/40 px-6 py-3 flex justify-end">
+                      <CardFooter className="pt-3 border-t border-[#1B362A] bg-[#08130E]/40 px-4 py-3 flex items-center justify-between gap-1">
+                        <div className="flex items-center gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            title="Editar cuenta"
+                            onClick={() => handleOpenEditModal(acc)}
+                            className="h-7 w-7 text-zinc-400 hover:text-[#D0A96B] hover:bg-[#1B362A]/60 cursor-pointer"
+                          >
+                            <Edit className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            title="Eliminar cuenta"
+                            onClick={() => handleOpenDeleteModal(acc)}
+                            className="h-7 w-7 text-zinc-400 hover:text-rose-400 hover:bg-rose-500/10 cursor-pointer"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+
                         <Button
                           variant="outline"
                           size="sm"
@@ -748,6 +841,176 @@ export default function TesoreriaPage() {
                 </Button>
               </CardFooter>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL EDITAR CUENTA */}
+      {editingAccount && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-md bg-[#13261E] border border-[#1B362A] rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+            <form onSubmit={handleConfirmEdit}>
+              <CardHeader className="border-b border-[#1B362A] pb-4">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-lg font-bold text-white font-serif flex items-center gap-2">
+                    <Edit className="h-5 w-5 text-[#D0A96B]" />
+                    Editar Cuenta de Tesorería
+                  </CardTitle>
+                  <button
+                    type="button"
+                    onClick={() => setEditingAccount(null)}
+                    className="text-zinc-400 hover:text-white transition-colors cursor-pointer"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
+                <CardDescription className="text-xs text-zinc-400 mt-1">
+                  Modifica el nombre o categoría contable de la cuenta.
+                </CardDescription>
+              </CardHeader>
+
+              <CardContent className="space-y-4 p-6 max-h-[70vh] overflow-y-auto">
+                {editError && (
+                  <div className="flex gap-2.5 rounded-lg bg-rose-500/10 border border-rose-500/30 p-3 text-xs text-rose-400">
+                    <AlertCircle className="h-4 w-4 shrink-0" />
+                    <span className="font-medium">{editError}</span>
+                  </div>
+                )}
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold uppercase tracking-wider text-[#D0A96B]">
+                    Nombre de la Cuenta
+                  </label>
+                  <Input
+                    type="text"
+                    placeholder="Ej: Naranja X, Efectivo Local, etc."
+                    value={editAccountName}
+                    onChange={(e) => setEditAccountName(e.target.value)}
+                    disabled={editSubmitting}
+                    className="bg-[#08130E] border-[#1B362A] text-white font-bold text-sm disabled:opacity-50"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold uppercase tracking-wider text-[#D0A96B]">
+                    Tipo de Cuenta
+                  </label>
+                  <select
+                    value={editAccountType}
+                    onChange={(e) => setEditAccountType(e.target.value)}
+                    disabled={editSubmitting}
+                    className="flex h-9 w-full rounded-lg border border-[#1B362A] bg-[#08130E] px-3 py-1 text-xs font-bold text-white focus:outline-none focus:ring-1 focus:ring-[#D0A96B] disabled:opacity-50"
+                  >
+                    <option value="wallet">💳 Billetera Virtual (Mercado Pago, Naranja X, etc.)</option>
+                    <option value="bank">🏦 Banco (Brubank, BBVA, Galicia, etc.)</option>
+                    <option value="cash">💵 Efectivo Físico</option>
+                  </select>
+                </div>
+              </CardContent>
+
+              <CardFooter className="border-t border-[#1B362A] pt-4 flex justify-end gap-3 bg-[#08130E]/60 px-6 py-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setEditingAccount(null)}
+                  disabled={editSubmitting}
+                  className="border-[#1B362A] bg-[#13261E] text-zinc-300 hover:bg-zinc-800"
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={editSubmitting}
+                  className="bg-[#D0A96B] hover:bg-[#E5C158] text-[#08130E] font-extrabold text-xs shadow-md shadow-[#D0A96B]/20 cursor-pointer"
+                >
+                  {editSubmitting ? (
+                    <>
+                      <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> Guardando...
+                    </>
+                  ) : (
+                    'Guardar Cambios'
+                  )}
+                </Button>
+              </CardFooter>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL CONFIRMAR ELIMINACIÓN DE CUENTA */}
+      {accountToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-md bg-[#13261E] border border-rose-500/30 rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+            <CardHeader className="border-b border-[#1B362A] pb-4">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg font-bold text-rose-400 font-serif flex items-center gap-2">
+                  <Trash2 className="h-5 w-5 text-rose-400" />
+                  Eliminar Cuenta de Tesorería
+                </CardTitle>
+                <button
+                  type="button"
+                  onClick={() => setAccountToDelete(null)}
+                  className="text-zinc-400 hover:text-white transition-colors cursor-pointer"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+              <CardDescription className="text-xs text-zinc-400 mt-1">
+                ¿Estás seguro de que deseas eliminar la cuenta &ldquo;{accountToDelete.account_name}&rdquo;?
+              </CardDescription>
+            </CardHeader>
+
+            <CardContent className="space-y-4 p-6">
+              {deleteError && (
+                <div className="flex gap-2.5 rounded-lg bg-rose-500/10 border border-rose-500/30 p-3 text-xs text-rose-400">
+                  <AlertCircle className="h-4 w-4 shrink-0" />
+                  <span className="font-medium">{deleteError}</span>
+                </div>
+              )}
+
+              <div className="p-4 rounded-xl bg-[#08130E] border border-[#1B362A] space-y-2 text-xs">
+                <div className="flex justify-between text-zinc-400">
+                  <span>Cuenta:</span>
+                  <span className="font-bold text-white">{accountToDelete.account_name}</span>
+                </div>
+                <div className="flex justify-between text-zinc-400">
+                  <span>Saldo Actual:</span>
+                  <span className="font-bold text-[#D0A96B] font-mono">
+                    ${accountToDelete.balance_ars.toLocaleString('es-AR')} ARS
+                  </span>
+                </div>
+              </div>
+
+              <p className="text-xs text-zinc-400">
+                Si la cuenta contiene movimientos contables previos, será desactivada de manera segura para preservar la integridad de los reportes y libros de caja sin perder historial.
+              </p>
+            </CardContent>
+
+            <CardFooter className="border-t border-[#1B362A] pt-4 flex justify-end gap-3 bg-[#08130E]/60 px-6 py-4">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setAccountToDelete(null)}
+                disabled={deleteSubmitting}
+                className="border-[#1B362A] bg-[#13261E] text-zinc-300 hover:bg-zinc-800"
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="button"
+                onClick={handleConfirmDelete}
+                disabled={deleteSubmitting}
+                className="bg-rose-600 hover:bg-rose-500 text-white font-extrabold text-xs shadow-md shadow-rose-600/20 cursor-pointer"
+              >
+                {deleteSubmitting ? (
+                  <>
+                    <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> Eliminando...
+                  </>
+                ) : (
+                  'Confirmar Eliminación'
+                )}
+              </Button>
+            </CardFooter>
           </div>
         </div>
       )}
