@@ -18,7 +18,8 @@ const DEFAULT_METRICS: InventoryValuationMetrics = {
   gananciaNetaPotencialUsd: 0,
   totalUnitsInStock: 0,
   totalProductsCount: 0,
-  potentialProfitMarginPercent: 0
+  potentialProfitMarginPercent: 0,
+  potentialMarkupPercent: 0
 };
 
 export function InventoryValuationWidget() {
@@ -171,9 +172,18 @@ export function InventoryValuationWidget() {
                 <CardDescription className="text-[10px] font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-1">
                   Ganancia Neta Potencial
                 </CardDescription>
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 font-mono">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span 
+                    title="Margen s/ Venta: ((Venta - Costo) / Venta) * 100" 
+                    className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 font-mono cursor-help"
+                  >
                     +{metrics.potentialProfitMarginPercent}% Margen
+                  </span>
+                  <span 
+                    title="Markup s/ Costo (ROI): ((Venta - Costo) / Costo) * 100" 
+                    className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-[#D0A96B]/10 text-[#D0A96B] border border-[#D0A96B]/30 font-mono cursor-help"
+                  >
+                    +{metrics.potentialMarkupPercent}% Markup
                   </span>
                   <div className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
                     <PiggyBank className="h-4 w-4" />
@@ -190,9 +200,12 @@ export function InventoryValuationWidget() {
                 </p>
               </CardContent>
 
-              <p className="text-[11px] text-zinc-400 leading-snug pt-1 border-t border-[#1B362A]/60">
-                Utilidad neta proyectada tras recuperar la inversión.
-              </p>
+              <div className="text-[11px] text-zinc-400 leading-snug pt-1 border-t border-[#1B362A]/60 flex flex-col gap-0.5">
+                <span>Utilidad neta proyectada tras recuperar la inversión.</span>
+                <span className="text-[10px] text-zinc-500 font-mono">
+                  Margen s/ Venta: {metrics.potentialProfitMarginPercent}% • Markup s/ Costo: {metrics.potentialMarkupPercent}%
+                </span>
+              </div>
             </CardHeader>
           </Card>
 

@@ -210,60 +210,91 @@ export function MonthlyGoalsWidget({ startDate, endDate }: MonthlyGoalsWidgetPro
                     Facturación final obtenida: <strong className="text-emerald-400 font-mono">${projection.currentRevenueArs.toLocaleString('es-AR')} ARS</strong> ({projection.revenueProgressPercent}% de la meta de ${projection.revenueGoalArs.toLocaleString('es-AR')} ARS).
                   </p>
                 </div>
-              ) : (
-                /* MES ACTUAL: Run Rate Proyectado */
-                <div className="p-4 rounded-xl bg-[#08130E] border border-[#1B362A] space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold text-white uppercase tracking-wider font-serif">
-                        Proyección Run Rate (Día {projection.currentDay} de {projection.totalDaysInMonth})
-                      </span>
-                    </div>
+              ) : (() => {
+                /* MES ACTUAL: Run Rate Proyectado con 3 Casos Financieros */
+                const isGoalMetAlready = projection.currentRevenueArs >= projection.revenueGoalArs;
+                const isProjectedToExceed = projection.runRateRevenueArs >= projection.revenueGoalArs;
+                const projectedSurplusArs = Math.max(0, projection.runRateRevenueArs - projection.revenueGoalArs);
+                const projectedSurplusPercent = projection.revenueGoalArs > 0
+                  ? Number(((projectedSurplusArs / projection.revenueGoalArs) * 100).toFixed(1))
+                  : 0;
 
-                    {projection.status === 'on_track' && (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
-                        <CheckCircle className="h-3 w-3" /> Ritmo Óptimo ({projection.runRatePercent}%)
-                      </span>
-                    )}
-                    {projection.status === 'warning' && (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-500/10 text-amber-400 border border-amber-500/30">
-                        <AlertTriangle className="h-3 w-3" /> En Riesgo ({projection.runRatePercent}%)
-                      </span>
-                    )}
-                    {projection.status === 'behind' && (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-rose-500/10 text-rose-400 border border-rose-500/30">
-                        <Flame className="h-3 w-3" /> Retrasado ({projection.runRatePercent}%)
-                      </span>
-                    )}
-                  </div>
-
-                  <p className="text-xs text-zinc-300 leading-relaxed font-sans">
-                    A este ritmo comercial, cerrarás el mes con una facturación estimada de <strong className="text-emerald-400 font-mono">${projection.runRateRevenueArs.toLocaleString('es-AR')} ARS</strong> ({projection.runRatePercent}% de tu meta).
-                    {projection.remainingDays > 0 && projection.dailyRevenueNeeded > 0 ? (
-                      <> Para alcanzar el 100%, necesitás facturar en promedio <strong className="text-amber-400 font-mono">${projection.dailyRevenueNeeded.toLocaleString('es-AR')} ARS diarios</strong> durante los últimos {projection.remainingDays} días del mes.</>
-                    ) : (
-                      <> ¡Felicidades! Has alcanzado la meta fijada para este período.</>
-                    )}
-                  </p>
-
-                  {/* PROYECIÓN MATEMÁTICA EN UNIDADES DIARIAS */}
-                  {projection.remainingDays > 0 && projection.dailyRevenueNeeded > 0 && (
-                    <div className="p-3 rounded-lg bg-[#13261E] border border-[#D0A96B]/30 flex items-center gap-2.5 text-xs text-[#D0A96B]">
-                      <Sparkles className="h-4 w-4 shrink-0 text-[#D0A96B]" />
-                      <div className="font-sans">
-                        <strong className="font-semibold">Objetivo Diario en Unidades:</strong> Necesitás una venta promedio de{' '}
-                        <span className="font-bold underline decoration-[#D0A96B]">
-                          ~{Math.max(1, Math.round(projection.dailyRevenueNeeded / 55000))} perfumes (100ml)
-                        </span>{' '}
-                        ó{' '}
-                        <span className="font-bold underline decoration-[#D0A96B]">
-                          ~{Math.max(1, Math.round(projection.dailyRevenueNeeded / 15000))} decants diarios
-                        </span>.
+                return (
+                  <div className="p-4 rounded-xl bg-[#08130E] border border-[#1B362A] space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold text-white uppercase tracking-wider font-serif">
+                          Proyección Run Rate (Día {projection.currentDay} de {projection.totalDaysInMonth})
+                        </span>
                       </div>
+
+                      {isGoalMetAlready ? (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+                          <CheckCircle className="h-3 w-3" /> Meta Alcanzada (+{projectedSurplusPercent}%)
+                        </span>
+                      ) : projection.status === 'on_track' ? (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+                          <CheckCircle className="h-3 w-3" /> Ritmo Óptimo ({projection.runRatePercent}%)
+                        </span>
+                      ) : projection.status === 'warning' ? (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-500/10 text-amber-400 border border-amber-500/30">
+                          <AlertTriangle className="h-3 w-3" /> En Riesgo ({projection.runRatePercent}%)
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-rose-500/10 text-rose-400 border border-rose-500/30">
+                          <Flame className="h-3 w-3" /> Retrasado ({projection.runRatePercent}%)
+                        </span>
+                      )}
                     </div>
-                  )}
-                </div>
-              )}
+
+                    {/* TEXTO DESCRIPTIVO FINANCIERO SEGÚN ESTADO */}
+                    <p className="text-xs text-zinc-300 leading-relaxed font-sans">
+                      {isGoalMetAlready ? (
+                        <>
+                          ¡Felicidades! Ya alcanzaste el 100% de la meta comercial fijada (${projection.revenueGoalArs.toLocaleString('es-AR')} ARS). A este ritmo de ventas, proyectás cerrar el mes con una facturación estimada de <strong className="text-emerald-400 font-mono">${projection.runRateRevenueArs.toLocaleString('es-AR')} ARS</strong> ({projection.runRatePercent}%), alcanzando un excedente proyectado de <strong className="text-[#D0A96B] font-mono">+${projectedSurplusArs.toLocaleString('es-AR')} ARS</strong>.
+                        </>
+                      ) : isProjectedToExceed ? (
+                        <>
+                          A este ritmo comercial, cerrarás el mes con una facturación estimada de <strong className="text-emerald-400 font-mono">${projection.runRateRevenueArs.toLocaleString('es-AR')} ARS</strong> ({projection.runRatePercent}% de tu meta), proyectando un excedente de <strong className="text-[#D0A96B] font-mono">+${projectedSurplusArs.toLocaleString('es-AR')} ARS</strong>. Para asegurar el cumplimiento de la meta base (100%), solo necesitás un piso de <strong className="text-amber-400 font-mono">${projection.dailyRevenueNeeded.toLocaleString('es-AR')} ARS diarios</strong> durante los últimos {projection.remainingDays} días del mes.
+                        </>
+                      ) : (
+                        <>
+                          A este ritmo comercial, cerrarás el mes con una facturación estimada de <strong className="text-amber-400 font-mono">${projection.runRateRevenueArs.toLocaleString('es-AR')} ARS</strong> ({projection.runRatePercent}% de tu meta). Para acelerar el ritmo y alcanzar el 100%, necesitás facturar en promedio <strong className="text-rose-400 font-mono">${projection.dailyRevenueNeeded.toLocaleString('es-AR')} ARS diarios</strong> durante los últimos {projection.remainingDays} días del mes.
+                        </>
+                      )}
+                    </p>
+
+                    {/* PROYECCIÓN MATEMÁTICA EN UNIDADES DIARIAS */}
+                    {isGoalMetAlready ? (
+                      <div className="p-3 rounded-lg bg-[#13261E] border border-emerald-500/30 flex items-center gap-2.5 text-xs text-emerald-400">
+                        <Sparkles className="h-4 w-4 shrink-0 text-emerald-400" />
+                        <div className="font-sans">
+                          <strong className="font-semibold text-emerald-300">Objetivo Superado:</strong> Toda venta en los {projection.remainingDays} días restantes sumará directamente al récord de facturación mensual.
+                        </div>
+                      </div>
+                    ) : projection.remainingDays > 0 && projection.dailyRevenueNeeded > 0 ? (
+                      <div className={`p-3 rounded-lg bg-[#13261E] border flex items-center gap-2.5 text-xs ${
+                        isProjectedToExceed ? 'border-[#D0A96B]/30 text-[#D0A96B]' : 'border-amber-500/30 text-amber-400'
+                      }`}>
+                        <Sparkles className={`h-4 w-4 shrink-0 ${isProjectedToExceed ? 'text-[#D0A96B]' : 'text-amber-400'}`} />
+                        <div className="font-sans">
+                          <strong className="font-semibold">
+                            {isProjectedToExceed ? 'Piso Diario para Asegurar Meta Base:' : 'Objetivo Diario para Alcanzar el 100%:'}
+                          </strong>{' '}
+                          Requiere una venta promedio de{' '}
+                          <span className={`font-bold underline ${isProjectedToExceed ? 'decoration-[#D0A96B]' : 'decoration-amber-400'}`}>
+                            ~{Math.max(1, Math.round(projection.dailyRevenueNeeded / 55000))} perfumes (100ml)
+                          </span>{' '}
+                          ó{' '}
+                          <span className={`font-bold underline ${isProjectedToExceed ? 'decoration-[#D0A96B]' : 'decoration-amber-400'}`}>
+                            ~{Math.max(1, Math.round(projection.dailyRevenueNeeded / 15000))} decants diarios
+                          </span>.
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+                );
+              })()}
 
             </>
           )}

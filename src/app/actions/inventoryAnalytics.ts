@@ -14,6 +14,7 @@ export interface InventoryValuationMetrics {
   totalUnitsInStock: number;
   totalProductsCount: number;
   potentialProfitMarginPercent: number;
+  potentialMarkupPercent: number;
 }
 
 export interface InventoryValuationResponse {
@@ -31,7 +32,8 @@ const DEFAULT_METRICS: InventoryValuationMetrics = {
   gananciaNetaPotencialUsd: 0,
   totalUnitsInStock: 0,
   totalProductsCount: 0,
-  potentialProfitMarginPercent: 0
+  potentialProfitMarginPercent: 0,
+  potentialMarkupPercent: 0
 };
 
 /**
@@ -144,6 +146,9 @@ export async function getInventoryValuation(role: UserRole): Promise<InventoryVa
     const potentialProfitMarginPercent = potentialRevenueArs > 0
       ? Number(((potentialNetProfitArs / potentialRevenueArs) * 100).toFixed(1))
       : 0;
+    const potentialMarkupPercent = capitalCostArs > 0
+      ? Number(((potentialNetProfitArs / capitalCostArs) * 100).toFixed(1))
+      : 0;
 
     return {
       success: true,
@@ -156,7 +161,8 @@ export async function getInventoryValuation(role: UserRole): Promise<InventoryVa
         gananciaNetaPotencialUsd: Math.round(potentialNetProfitUsd),
         totalUnitsInStock: totalUnidades,
         totalProductsCount: totalSKUs,
-        potentialProfitMarginPercent
+        potentialProfitMarginPercent,
+        potentialMarkupPercent
       }
     };
   } catch (err: any) {

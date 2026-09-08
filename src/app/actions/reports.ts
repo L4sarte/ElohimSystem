@@ -328,31 +328,54 @@ export async function getDashboardData(
     const salesGrouped: Record<string, { total: number; profit: number; dayNum: number }> = {};
     sales.forEach((sale) => {
       const sDate = new Date(sale.created_at);
-      const dateStr = sDate.toLocaleDateString('es-AR', {
-        day: '2-digit',
-        month: '2-digit',
-      });
+      const dayNum = sDate.getDate();
+      const monthNum = sDate.getMonth() + 1;
+      const dateStr = `${String(dayNum).padStart(2, '0')}/${String(monthNum).padStart(2, '0')}`;
       const saleGross = saleProfitMap[sale.id] || 0;
 
       if (!salesGrouped[dateStr]) {
-        salesGrouped[dateStr] = { total: 0, profit: 0, dayNum: sDate.getDate() };
+        salesGrouped[dateStr] = { total: 0, profit: 0, dayNum };
       }
       salesGrouped[dateStr].total += Number(sale.total_ars || 0);
       salesGrouped[dateStr].profit += saleGross;
     });
 
-    const salesByDate = Object.keys(salesGrouped).map((date) => {
-      const group = salesGrouped[date];
-      const currentTotal = Math.round(group.total);
-      const realPrevMonthTotal = Math.round(prevMonthSalesByDay[group.dayNum] || 0);
+    // Generar serie temporal continua para no distorsionar el eje X con fechas salteadas
+    let salesByDate: Array<{ date: string; Ventas: number; Ganancias: number; VentasMesAnterior: number }> = [];
 
-      return {
-        date,
-        Ventas: currentTotal,
-        Ganancias: Math.round(group.profit),
-        VentasMesAnterior: realPrevMonthTotal,
-      };
-    });
+    if (period === 'current_month') {
+      const currentDayLimit = Math.max(1, now.getDate());
+      const currentMonthStr = String(now.getMonth() + 1).padStart(2, '0');
+
+      for (let day = 1; day <= currentDayLimit; day++) {
+        const dayStr = String(day).padStart(2, '0');
+        const dateKey = `${dayStr}/${currentMonthStr}`;
+        const group = salesGrouped[dateKey];
+        const currentTotal = group ? Math.round(group.total) : 0;
+        const currentProfit = group ? Math.round(group.profit) : 0;
+        const realPrevMonthTotal = Math.round(prevMonthSalesByDay[day] || 0);
+
+        salesByDate.push({
+          date: dateKey,
+          Ventas: currentTotal,
+          Ganancias: currentProfit,
+          VentasMesAnterior: realPrevMonthTotal,
+        });
+      }
+    } else {
+      salesByDate = Object.keys(salesGrouped).map((date) => {
+        const group = salesGrouped[date];
+        const currentTotal = Math.round(group.total);
+        const realPrevMonthTotal = Math.round(prevMonthSalesByDay[group.dayNum] || 0);
+
+        return {
+          date,
+          Ventas: currentTotal,
+          Ganancias: Math.round(group.profit),
+          VentasMesAnterior: realPrevMonthTotal,
+        };
+      });
+    }
 
     return {
       success: true,
@@ -365,7 +388,7 @@ export async function getDashboardData(
         opexArs: Math.round(totalOpexArs),
         estimatedProfitArs,
         estimatedProfitUsd: Number(estimatedProfitUsd.toFixed(2)),
-        salesByDate: salesByDate.slice(-10),
+        salesByDate: period === 'current_month' ? salesByDate : salesByDate.slice(-15),
         criticalStock,
         recentSales: recentSalesDb.map((sale) => ({
           id: sale.id,

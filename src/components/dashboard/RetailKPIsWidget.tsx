@@ -14,6 +14,7 @@ export interface RetailKPIsWidgetProps {
 export function RetailKPIsWidget({ startDate, endDate }: RetailKPIsWidgetProps = {}) {
   const { role } = useUserStore();
   const [data, setData] = useState<RetailKPIsData | null>(null);
+  const [displayLimit, setDisplayLimit] = useState<3 | 5>(3);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -73,19 +74,45 @@ export function RetailKPIsWidget({ startDate, endDate }: RetailKPIsWidgetProps =
         </CardContent>
       </Card>
 
-      {/* CARD 2: TOP 3 BEST SELLERS DEL MES */}
+      {/* CARD 2: TOP BEST SELLERS DEL MES CON TOGGLE TOP 3 / TOP 5 */}
       <Card className="border border-[#1B362A] bg-[#13261E]/90 rounded-2xl shadow-xl transition-all duration-300 hover:border-[#D0A96B]/50">
         <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
           <div>
             <CardDescription className="text-[10px] font-extrabold uppercase tracking-widest text-zinc-400 flex items-center gap-1.5">
-              <Flame className="h-3.5 w-3.5 text-amber-500 animate-pulse" /> Top 3 Best Sellers del Mes
+              <Flame className="h-3.5 w-3.5 text-amber-500 animate-pulse" /> Top {displayLimit} Best Sellers del Mes
             </CardDescription>
             <CardTitle className="text-base font-bold text-zinc-200 mt-1 font-serif">
               Perfumes & Fragancias Más Vendidas
             </CardTitle>
           </div>
-          <div className="h-11 w-11 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 shrink-0">
-            <Trophy className="h-6 w-6" />
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 bg-[#08130E] border border-[#1B362A] p-0.5 rounded-lg">
+              <button
+                type="button"
+                onClick={() => setDisplayLimit(3)}
+                className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold transition-all cursor-pointer ${
+                  displayLimit === 3
+                    ? 'bg-[#13261E] text-[#D0A96B] border border-[#D0A96B]/30'
+                    : 'text-zinc-500 hover:text-zinc-300'
+                }`}
+              >
+                Top 3
+              </button>
+              <button
+                type="button"
+                onClick={() => setDisplayLimit(5)}
+                className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold transition-all cursor-pointer ${
+                  displayLimit === 5
+                    ? 'bg-[#13261E] text-[#D0A96B] border border-[#D0A96B]/30'
+                    : 'text-zinc-500 hover:text-zinc-300'
+                }`}
+              >
+                Top 5
+              </button>
+            </div>
+            <div className="h-11 w-11 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 shrink-0">
+              <Trophy className="h-6 w-6" />
+            </div>
           </div>
         </CardHeader>
 
@@ -102,7 +129,7 @@ export function RetailKPIsWidget({ startDate, endDate }: RetailKPIsWidgetProps =
             </div>
           ) : (
             <div className="space-y-2.5">
-              {data.topBestSellers.map((item, idx) => (
+              {data.topBestSellers.slice(0, displayLimit).map((item, idx) => (
                 <div 
                   key={item.product_id}
                   className="flex items-center justify-between text-xs bg-[#08130E]/50 border border-[#1B362A] rounded-xl p-2.5 transition-all hover:border-[#D0A96B]/40"
@@ -111,7 +138,8 @@ export function RetailKPIsWidget({ startDate, endDate }: RetailKPIsWidgetProps =
                     <span className={`h-6 w-6 rounded-lg font-mono text-xs font-black flex items-center justify-center shrink-0 ${
                       idx === 0 ? 'bg-[#D0A96B] text-[#08130E]' :
                       idx === 1 ? 'bg-zinc-300 text-zinc-900' :
-                      'bg-amber-700 text-amber-100'
+                      idx === 2 ? 'bg-amber-700 text-amber-100' :
+                      'bg-zinc-800 text-zinc-300 border border-zinc-700'
                     }`}>
                       #{idx + 1}
                     </span>

@@ -24,30 +24,53 @@ import { InventoryValuationWidget } from '@/components/inventory/InventoryValuat
 import { ExchangeRatesWidget } from '@/components/rates/ExchangeRatesWidget';
 import { QuickActions } from '@/components/dashboard/QuickActions';
 import { QuickAccessPills } from '@/components/dashboard/QuickAccessPills';
-import { ComposedChart, Bar, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { ComposedChart, Bar, Line, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
-// Componente Tooltip personalizado para el gráfico de Recharts con Comparativa Histórica
-const CustomTooltip = ({ active, payload, label }: any) => {
+type ChartCurrency = 'ARS' | 'USD_BLUE' | 'USDT';
+
+const formatCurrencyValue = (val: number, currency: ChartCurrency) => {
+  if (currency === 'ARS') {
+    return `$${Math.round(val).toLocaleString('es-AR')}`;
+  }
+  if (currency === 'USD_BLUE') {
+    return `u$s ${val.toLocaleString('es-AR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}`;
+  }
+  return `₮ ${val.toLocaleString('es-AR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}`;
+};
+
+// Componente Tooltip personalizado para el gráfico de Recharts con ROI Diario y Soporte Trimonetario
+const CustomTooltip = ({ active, payload, label, currency = 'ARS' }: { active?: boolean; payload?: any[]; label?: string; currency?: ChartCurrency }) => {
   if (active && payload && payload.length) {
+    const ventas = Number(payload.find((p: any) => p.dataKey === 'Ventas')?.value || 0);
+    const ganancias = Number(payload.find((p: any) => p.dataKey === 'Ganancias')?.value || 0);
+    const mesAnteriorItem = payload.find((p: any) => p.dataKey === 'VentasMesAnterior');
+    const mesAnterior = mesAnteriorItem ? Number(mesAnteriorItem.value) : undefined;
+
+    const roiPercent = ventas > 0 ? ((ganancias / ventas) * 100).toFixed(1) : null;
+
     return (
-      <div className="bg-[#08130E]/95 border border-[#1B362A] p-3.5 rounded-xl shadow-2xl text-xs space-y-1.5 backdrop-blur-md">
-        <p className="font-mono font-bold text-zinc-400 border-b border-[#1B362A] pb-1">{label}</p>
-        <p className="font-bold text-[#D0A96B] flex items-center justify-between gap-3">
-          <span>Ventas Brutas:</span>
-          <span className="font-mono">${Number(payload[0]?.value || 0).toLocaleString('es-AR')}</span>
-        </p>
-        {payload[1] && (
+      <div className="bg-[#08130E]/95 border border-[#1B362A] p-3.5 rounded-xl shadow-2xl text-xs space-y-1.5 backdrop-blur-md min-w-[210px]">
+        <p className="font-mono font-bold text-zinc-400 border-b border-[#1B362A] pb-1">Día: {label}</p>
+        <div className="space-y-1.5 pt-0.5">
+          <p className="font-bold text-[#D0A96B] flex items-center justify-between gap-3">
+            <span>Ventas Brutas:</span>
+            <span className="font-mono">{formatCurrencyValue(ventas, currency)}</span>
+          </p>
           <p className="font-bold text-emerald-400 flex items-center justify-between gap-3">
             <span>Ganancia Neta:</span>
-            <span className="font-mono">${Number(payload[1]?.value || 0).toLocaleString('es-AR')}</span>
+            <span className="font-mono">{formatCurrencyValue(ganancias, currency)}</span>
           </p>
-        )}
-        {payload[2] && (
-          <p className="font-semibold text-zinc-400 flex items-center justify-between gap-3 border-t border-[#1B362A]/60 pt-1 text-[11px]">
-            <span>Ref. Mes Anterior:</span>
-            <span className="font-mono text-zinc-300">${Number(payload[2]?.value || 0).toLocaleString('es-AR')}</span>
+          <p className="text-[11px] font-semibold text-teal-400 flex items-center justify-between gap-3 border-t border-[#1B362A]/40 pt-1">
+            <span>Rentabilidad del Día:</span>
+            <span className="font-mono font-bold">{roiPercent ? `${roiPercent}%` : '-'}</span>
           </p>
-        )}
+          {mesAnterior !== undefined && (
+            <p className="font-semibold text-zinc-400 flex items-center justify-between gap-3 border-t border-[#1B362A]/60 pt-1 text-[11px]">
+              <span>Ref. Mes Anterior:</span>
+              <span className="font-mono text-zinc-300">{formatCurrencyValue(mesAnterior, currency)}</span>
+            </p>
+          )}
+        </div>
       </div>
     );
   }
@@ -58,10 +81,15 @@ import { SaleDetailModal } from '@/components/pos/SaleDetailModal';
 
 export default function DashboardPage() {
   const { role } = useUserStore();
-  const { refresh: refreshRate } = useExchangeRate();
+  const { refresh: refreshRate, rate: activeStoreRate } = useExchangeRate();
 
   const [stats, setStats] = useState<any>(null);
   const [period, setPeriod] = useState<'current_month' | 'all_time'>('current_month');
+  const [chartCurrency, setChartCurrency] = useState<ChartCurrency>('ARS');
+  const [exchangeRates, setExchangeRates] = useState<{ blue: number; usdt: number }>({
+    blue: 1540,
+    usdt: 1590,
+  });
   const [loadingStats, setLoadingStats] = useState<boolean>(true);
   const [selectedSaleId, setSelectedSaleId] = useState<string | null>(null);
 
@@ -81,6 +109,60 @@ export default function DashboardPage() {
   useEffect(() => {
     loadDashboardData(period);
   }, [role, period]);
+
+  useEffect(() => {
+    // Sincronizar cotizaciones en vivo para Blue y USDT
+    Promise.allSettled([
+      fetch('https://dolarapi.com/v1/dolares/blue').then(res => res.ok ? res.json() : null),
+      fetch('https://criptoya.com/api/binance/usdt/ars').then(res => res.ok ? res.json() : null),
+    ]).then(([resBlue, resBinance]) => {
+      let blueVal = activeStoreRate || 1540;
+      let usdtVal = 1590;
+      if (resBlue.status === 'fulfilled' && resBlue.value?.venta) {
+        const v = Number(resBlue.value.venta);
+        if (v > 0) blueVal = v;
+      }
+      if (resBinance.status === 'fulfilled' && resBinance.value?.ask) {
+        const v = Number(resBinance.value.ask);
+        if (v > 0) usdtVal = v;
+      }
+      setExchangeRates({ blue: blueVal, usdt: usdtVal });
+    }).catch(() => {
+      if (activeStoreRate) {
+        setExchangeRates({ blue: activeStoreRate, usdt: activeStoreRate });
+      }
+    });
+  }, [activeStoreRate]);
+
+  const convertedChartData = React.useMemo(() => {
+    if (!stats?.salesByDate) return [];
+    if (chartCurrency === 'ARS') return stats.salesByDate;
+
+    const rate = chartCurrency === 'USD_BLUE'
+      ? (exchangeRates.blue || activeStoreRate || 1540)
+      : (exchangeRates.usdt || 1590);
+
+    return stats.salesByDate.map((item: any) => ({
+      ...item,
+      Ventas: Number((item.Ventas / rate).toFixed(2)),
+      Ganancias: Number((item.Ganancias / rate).toFixed(2)),
+      VentasMesAnterior: Number((item.VentasMesAnterior / rate).toFixed(2)),
+    }));
+  }, [stats?.salesByDate, chartCurrency, exchangeRates, activeStoreRate]);
+
+  const yAxisTickFormatter = (value: number) => {
+    if (chartCurrency === 'ARS') {
+      if (value >= 1000000) return `$${(value / 1000000).toFixed(1)}M`;
+      if (value >= 1000) return `$${Math.round(value / 1000)}k`;
+      return `$${value}`;
+    }
+    if (chartCurrency === 'USD_BLUE') {
+      if (value >= 1000) return `u$s ${(value / 1000).toFixed(1)}k`;
+      return `u$s ${Math.round(value)}`;
+    }
+    if (value >= 1000) return `₮ ${(value / 1000).toFixed(1)}k`;
+    return `₮ ${Math.round(value)}`;
+  };
 
   return (
     <div className="flex flex-col min-h-screen bg-[#08130E] text-zinc-50 transition-colors duration-300">
@@ -279,25 +361,74 @@ export default function DashboardPage() {
                   {/* GRÁFICO RECHARTS (Col-span 2) */}
                   <div className="lg:col-span-2">
                     <Card className="border border-[#1B362A] bg-[#13261E]/90 rounded-2xl p-6 shadow-xl space-y-4">
-                      <CardHeader className="px-0 pt-0 pb-6 border-b border-[#1B362A]">
-                        <CardTitle className="text-sm font-bold text-zinc-200 font-serif flex items-center gap-2">
-                          <Activity className="h-4.5 w-4.5 text-[#D0A96B]" />
-                          Historial Diario de Facturación y Utilidad (ARS)
-                        </CardTitle>
-                        <CardDescription className="text-xs text-zinc-400">Visualización histórica de ventas versus margen neto agrupado.</CardDescription>
+                      <CardHeader className="px-0 pt-0 pb-4 border-b border-[#1B362A] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div>
+                          <CardTitle className="text-sm font-bold text-zinc-200 font-serif flex items-center gap-2">
+                            <Activity className="h-4.5 w-4.5 text-[#D0A96B]" />
+                            Historial Diario de Facturación y Utilidad ({chartCurrency === 'ARS' ? 'ARS' : chartCurrency === 'USD_BLUE' ? 'USD Blue' : 'USDT'})
+                          </CardTitle>
+                          <CardDescription className="text-xs text-zinc-400">
+                            Visualización de ventas brutas versus utilidad neta agrupada.
+                          </CardDescription>
+                        </div>
+
+                        {/* SELECTOR SEGMENTED CONTROL TRIMONETARIO */}
+                        <div className="flex items-center gap-1 bg-[#08130E] border border-[#1B362A] p-0.5 rounded-xl self-start sm:self-auto">
+                          <button
+                            type="button"
+                            onClick={() => setChartCurrency('ARS')}
+                            className={`px-2.5 py-1 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer ${
+                              chartCurrency === 'ARS'
+                                ? 'bg-[#13261E] text-[#D0A96B] border border-[#D0A96B]/30 shadow-sm'
+                                : 'text-zinc-500 hover:text-zinc-300'
+                            }`}
+                          >
+                            ARS ($)
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setChartCurrency('USD_BLUE')}
+                            className={`px-2.5 py-1 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer ${
+                              chartCurrency === 'USD_BLUE'
+                                ? 'bg-[#13261E] text-[#D0A96B] border border-[#D0A96B]/30 shadow-sm'
+                                : 'text-zinc-500 hover:text-zinc-300'
+                            }`}
+                            title={`Conversión basada en Dólar Blue ($${exchangeRates.blue} ARS)`}
+                          >
+                            USD Blue (u$s)
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setChartCurrency('USDT')}
+                            className={`px-2.5 py-1 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer ${
+                              chartCurrency === 'USDT'
+                                ? 'bg-[#13261E] text-[#D0A96B] border border-[#D0A96B]/30 shadow-sm'
+                                : 'text-zinc-500 hover:text-zinc-300'
+                            }`}
+                            title={`Conversión basada en USDT Binance ($${exchangeRates.usdt} ARS)`}
+                          >
+                            USDT (₮)
+                          </button>
+                        </div>
                       </CardHeader>
                       
-                      {stats.salesByDate.length > 0 ? (
+                      {convertedChartData.length > 0 ? (
                         <div className="h-72 w-full mt-4">
                           <ResponsiveContainer width="100%" height="100%">
-                            <ComposedChart data={stats.salesByDate} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                            <ComposedChart data={convertedChartData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+                              <defs>
+                                <linearGradient id="profitGradient" x1="0" y1="0" x2="0" y2="1">
+                                  <stop offset="5%" stopColor="#10b981" stopOpacity={0.35} />
+                                  <stop offset="95%" stopColor="#10b981" stopOpacity={0.0} />
+                                </linearGradient>
+                              </defs>
                               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#27272a80" />
                               <XAxis dataKey="date" tickLine={false} axisLine={false} style={{ fontSize: '10px', fill: '#71717a' }} />
-                              <YAxis tickLine={false} axisLine={false} style={{ fontSize: '10px', fill: '#71717a' }} />
-                              <Tooltip content={<CustomTooltip />} />
-                              <Bar name="Ventas" dataKey="Ventas" fill="#D0A96B" radius={[6, 6, 0, 0]} barSize={20} />
-                              <Bar name="Ganancias" dataKey="Ganancias" fill="#10b981" radius={[6, 6, 0, 0]} barSize={20} />
-                              <Line type="monotone" name="Mes Anterior" dataKey="VentasMesAnterior" stroke="#71717a" strokeDasharray="4 4" strokeWidth={2} dot={false} />
+                              <YAxis tickLine={false} axisLine={false} tickFormatter={yAxisTickFormatter} style={{ fontSize: '10px', fill: '#71717a' }} />
+                              <Tooltip content={<CustomTooltip currency={chartCurrency} />} />
+                              <Bar name="Ventas" dataKey="Ventas" fill="#D0A96B" radius={[4, 4, 0, 0]} barSize={18} />
+                              <Area type="monotone" name="Ganancias" dataKey="Ganancias" fill="url(#profitGradient)" stroke="#10b981" strokeWidth={2.5} dot={{ r: 3, fill: '#10b981', strokeWidth: 1 }} activeDot={{ r: 5 }} />
+                              <Line type="monotone" name="Mes Anterior" dataKey="VentasMesAnterior" stroke="#71717a" strokeDasharray="3 3" strokeWidth={1.5} dot={false} />
                             </ComposedChart>
                           </ResponsiveContainer>
                         </div>
