@@ -99,8 +99,8 @@ export function generateFinancialReportPDF({
       formatARS(-report.cogs),
     ],
     [
-      'Margen Bruto (%)',
-      `${report.grossMarginPercent.toFixed(1)}%`,
+      'Ganancia Comercial Real',
+      `${formatARS(report.grossMargin)} (${report.grossMarginPercent.toFixed(1)}%)`,
       'Comisiones Pasarelas',
       formatARS(-report.gatewayFeeArs),
     ],
@@ -112,7 +112,7 @@ export function generateFinancialReportPDF({
     ],
     [
       'GANANCIA NETA FINAL',
-      `${formatARS(report.netProfit)} (${report.profitMarginPercent.toFixed(1)}% Margen)`,
+      `${formatARS(report.netProfit)} (${report.profitMarginPercent.toFixed(1)}%)`,
       'Dinero en Calle (CxC)',
       formatARS(report.totalAmountDueArs),
     ],
@@ -142,11 +142,11 @@ export function generateFinancialReportPDF({
   const estadoResultadosBody = [
     ['(+) Facturación Bruta por Ventas', formatARS(report.grossRevenue), '100.0%'],
     ['(-) Costo de Mercadería Vendida (COGS Real)', formatARS(-report.cogs), `${report.grossRevenue > 0 ? ((report.cogs / report.grossRevenue) * 100).toFixed(1) : '0.0'}%`],
-    ['(=) UTILIDAD BRUTA', formatARS(report.grossMargin), `${report.grossMarginPercent.toFixed(1)}%`],
+    ['(=) GANANCIA COMERCIAL REAL / UTILIDAD BRUTA', formatARS(report.grossMargin), `${report.grossMarginPercent.toFixed(1)}%`],
     ['(-) Gastos Operativos del Período (OPEX)', formatARS(-report.opex), `${report.grossRevenue > 0 ? ((report.opex / report.grossRevenue) * 100).toFixed(1) : '0.0'}%`],
     ['(-) Costos Bancarios y Comisiones de Pasarela', formatARS(-report.gatewayFeeArs), `${report.grossRevenue > 0 ? ((report.gatewayFeeArs / report.grossRevenue) * 100).toFixed(1) : '0.0'}%`],
     ['(-) Devoluciones e Incompletitudes', formatARS(-report.totalRefundsArs), `${report.grossRevenue > 0 ? ((report.totalRefundsArs / report.grossRevenue) * 100).toFixed(1) : '0.0'}%`],
-    ['(=) RESULTADO NETO DEL EJERCICIO', formatARS(report.netProfit), `${report.profitMarginPercent.toFixed(1)}%`],
+    ['(=) RESULTADO NETO FINAL DEL EJERCICIO', formatARS(report.netProfit), `${report.profitMarginPercent.toFixed(1)}%`],
   ];
 
   autoTable(doc, {
@@ -488,7 +488,7 @@ export function exportFinancialReportToCsv({
     ['Concepto', 'Monto (ARS)', '% sobre Ventas'],
     ['Ingresos Brutos por Ventas', String(report.grossRevenue), '100%'],
     ['Costo de Mercaderia Vendida (COGS)', String(-report.cogs), `${report.grossRevenue > 0 ? ((report.cogs / report.grossRevenue) * 100).toFixed(2) : 0}%`],
-    ['Utilidad Bruta', String(report.grossMargin), `${report.grossMarginPercent}%`],
+    ['Ganancia Comercial Real (Utilidad Bruta)', String(report.grossMargin), `${report.grossMarginPercent}%`],
     ['Gastos Operativos (OPEX)', String(-report.opex), `${report.grossRevenue > 0 ? ((report.opex / report.grossRevenue) * 100).toFixed(2) : 0}%`],
     ['Comisiones Pasarelas de Pago', String(-report.gatewayFeeArs), `${report.grossRevenue > 0 ? ((report.gatewayFeeArs / report.grossRevenue) * 100).toFixed(2) : 0}%`],
     ['Devoluciones y Reintegros', String(-report.totalRefundsArs), `${report.grossRevenue > 0 ? ((report.totalRefundsArs / report.grossRevenue) * 100).toFixed(2) : 0}%`],
@@ -510,11 +510,13 @@ export function exportFinancialReportToCsv({
 
   rows.push(['']);
   rows.push(['--- EVOLUCION DIARIA ---']);
-  rows.push(['Fecha', 'Ingresos Brutos (ARS)', 'Ganancia Neta Estimada (ARS)']);
+  rows.push(['Fecha', 'Ingresos Brutos (ARS)', 'Ganancia Comercial Real (ARS)', 'Ganancia Neta Final (ARS)']);
 
   if (report.trendData && report.trendData.length > 0) {
     report.trendData.forEach((t) => {
-      rows.push([t.date, String(t.ingresos), String(t.ganancia)]);
+      const gReal = t.gananciaReal !== undefined ? t.gananciaReal : t.ganancia;
+      const gNet = t.gananciaNeta !== undefined ? t.gananciaNeta : t.ganancia;
+      rows.push([t.date, String(t.ingresos), String(gReal), String(gNet)]);
     });
   }
 

@@ -486,8 +486,8 @@ export default function ReportesPage() {
           </div>
         ) : (
           <>
-            {/* GRILLA DE 6 KPI CARDS GRANDES */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+            {/* GRILLA DE 8 KPI CARDS SIMÉTRICAS */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               
               {/* 1. INGRESOS BRUTOS */}
               <Card className="border-slate-200 dark:border-[#1B362A] bg-white dark:bg-[#13261E]">
@@ -523,19 +523,19 @@ export default function ReportesPage() {
                 </CardHeader>
               </Card>
 
-              {/* 3. COMISIONES PASARELAS (COSTO BANCARIO) */}
-              <Card className="border-slate-200 dark:border-[#1B362A] bg-white dark:bg-[#13261E]">
+              {/* 3. GANANCIA COMERCIAL REAL (LIMPIA) */}
+              <Card className="border-slate-200 dark:border-[#1B362A] bg-white dark:bg-[#13261E] border-l-4 border-l-[#D0A96B]">
                 <CardHeader className="pb-2">
                   <div className="flex items-center justify-between">
                     <CardDescription className="text-[10px] font-bold uppercase tracking-wider text-[#D0A96B]">
-                      Comisiones Pasarelas (Costo Bancario)
+                      Ganancia Comercial Real
                     </CardDescription>
-                    <div className="p-1.5 rounded-lg bg-[#D0A96B]/10 text-[#D0A96B] border border-[#D0A96B]/30">
-                      <CreditCard className="h-4 w-4" />
-                    </div>
+                    <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded bg-[#D0A96B]/10 text-[#D0A96B] border border-[#D0A96B]/30 font-mono">
+                      {report.grossMarginPercent.toFixed(1)}% Margen
+                    </span>
                   </div>
                   <CardTitle className="text-xl font-black text-[#D0A96B] font-mono mt-2">
-                    -${(report.gatewayFeeArs !== undefined ? report.gatewayFeeArs : report.financialCost).toLocaleString('es-AR')} ARS
+                    ${report.grossMargin.toLocaleString('es-AR')} ARS
                   </CardTitle>
                 </CardHeader>
               </Card>
@@ -557,14 +557,31 @@ export default function ReportesPage() {
                 </CardHeader>
               </Card>
 
-              {/* 5. GANANCIA NETA */}
+              {/* 5. COMISIONES PASARELAS (COSTO BANCARIO) */}
+              <Card className="border-slate-200 dark:border-[#1B362A] bg-white dark:bg-[#13261E]">
+                <CardHeader className="pb-2">
+                  <div className="flex items-center justify-between">
+                    <CardDescription className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                      Comisiones Pasarelas (Bancos)
+                    </CardDescription>
+                    <div className="p-1.5 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/30">
+                      <CreditCard className="h-4 w-4" />
+                    </div>
+                  </div>
+                  <CardTitle className="text-xl font-black text-amber-400 font-mono mt-2">
+                    -${(report.gatewayFeeArs !== undefined ? report.gatewayFeeArs : report.financialCost).toLocaleString('es-AR')} ARS
+                  </CardTitle>
+                </CardHeader>
+              </Card>
+
+              {/* 6. GANANCIA NETA FINAL */}
               <Card className={`border-slate-200 dark:border-[#1B362A] bg-white dark:bg-[#13261E] shadow-md border-l-4 ${
                 report.netProfit >= 0 ? 'border-l-emerald-500' : 'border-l-rose-500'
               }`}>
                 <CardHeader className="pb-2">
                   <div className="flex items-center justify-between">
-                    <CardDescription className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                      Ganancia Neta
+                    <CardDescription className="text-[10px] font-bold uppercase tracking-wider text-emerald-400">
+                      Ganancia Neta Final (Bolsillo)
                     </CardDescription>
                     <span className={`text-[10px] font-extrabold px-1.5 py-0.5 rounded ${
                       report.netProfit >= 0 ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
@@ -580,12 +597,12 @@ export default function ReportesPage() {
                 </CardHeader>
               </Card>
 
-              {/* 6. CUENTAS POR COBRAR (DINERO EN LA CALLE) */}
+              {/* 7. CUENTAS POR COBRAR (DINERO EN LA CALLE) */}
               <Card className="border-slate-200 dark:border-[#1B362A] bg-white dark:bg-[#13261E]">
                 <CardHeader className="pb-2">
                   <div className="flex items-center justify-between">
                     <CardDescription className="text-[10px] font-bold uppercase tracking-wider text-[#D0A96B]">
-                      Cuentas por Cobrar (Dinero en la calle)
+                      Cuentas por Cobrar (En calle)
                     </CardDescription>
                     <div className="p-1.5 rounded-lg bg-[#D0A96B]/10 text-[#D0A96B] border border-[#D0A96B]/30">
                       <Coins className="h-4 w-4" />
@@ -597,7 +614,7 @@ export default function ReportesPage() {
                 </CardHeader>
               </Card>
 
-              {/* 7. DEVOLUCIONES Y REINTEGROS */}
+              {/* 8. DEVOLUCIONES Y REINTEGROS */}
               <Card className="border-slate-200 dark:border-[#1B362A] bg-white dark:bg-[#13261E]">
                 <CardHeader className="pb-2">
                   <div className="flex items-center justify-between">
@@ -623,8 +640,8 @@ export default function ReportesPage() {
               <Card className="border-slate-200 dark:border-[#1B362A] lg:col-span-2">
                 <CardHeader className="pb-2 border-b border-slate-100 dark:border-zinc-900">
                   <CardTitle className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                    <BarChart3 className="h-4.5 w-4.5 text-emerald-600" />
-                    Evolución de Ingresos Brutos vs. Ganancia Estimada
+                    <BarChart3 className="h-4.5 w-4.5 text-[#D0A96B]" />
+                    Evolución de Facturación, Ganancia Real y Margen Neto
                   </CardTitle>
                 </CardHeader>
 
@@ -641,11 +658,12 @@ export default function ReportesPage() {
                           <XAxis dataKey="date" tickLine={false} axisLine={false} tick={{ fontSize: 11 }} />
                           <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 11 }} />
                           <Tooltip 
-                            formatter={(value: any) => [`$${Number(value).toLocaleString('es-AR')} ARS`, '']}
+                            formatter={(value: any, name?: any) => [`$${Number(value).toLocaleString('es-AR')} ARS`, String(name || '')]}
                             contentStyle={{ borderRadius: '8px', fontSize: '12px', background: '#09090b', color: '#fff', border: '1px solid #27272a' }}
                           />
-                          <Bar dataKey="ingresos" name="Ingresos" fill="#10b981" radius={[4, 4, 0, 0]} />
-                          <Bar dataKey="ganancia" name="Ganancia Neta Est." fill="#6366f1" radius={[4, 4, 0, 0]} />
+                          <Bar dataKey="ingresos" name="Facturación Bruta" fill="#D0A96B" radius={[4, 4, 0, 0]} />
+                          <Bar dataKey="gananciaReal" name="Ganancia Comercial Real" fill="#10b981" radius={[4, 4, 0, 0]} />
+                          <Bar dataKey="gananciaNeta" name="Ganancia Neta Final" fill="#6366f1" radius={[4, 4, 0, 0]} />
                         </BarChart>
                       </ResponsiveContainer>
                     </div>

@@ -17,30 +17,41 @@ import Link from 'next/link';
 
 interface BarTooltipProps {
   active?: boolean;
-  payload?: Array<{ value: number }>;
+  payload?: Array<{ value: number; payload?: any }>;
   label?: string;
 }
 
 // TOOLTIP PERSONALIZADO DARK MODE & GOLD PARA BAR CHART
 const CustomBarTooltip = ({ active, payload, label }: BarTooltipProps) => {
   if (active && payload && payload.length >= 2) {
+    const data = payload[0]?.payload;
+    const ingresos = data?.ingresosBrutos ?? payload[0]?.value;
+    const gananciaReal = data?.gananciaReal ?? payload[1]?.value;
+    const gananciaNeta = data?.gananciaNeta ?? payload[2]?.value ?? payload[1]?.value;
+
     return (
       <div className="bg-[#08130E]/95 border border-[#1B362A] p-3.5 rounded-xl shadow-2xl text-xs space-y-2 backdrop-blur-md">
         <p className="font-serif font-bold text-[#D0A96B] border-b border-[#1B362A] pb-1 uppercase tracking-wider">
           Mes de {label}
         </p>
-        <div className="space-y-1 font-mono">
+        <div className="space-y-1.5 font-mono">
           <div className="flex items-center justify-between gap-4 text-zinc-300">
             <span className="flex items-center gap-1.5 font-sans">
               <span className="h-2 w-2 rounded-full bg-[#D0A96B]"></span> Facturación Bruta:
             </span>
-            <span className="font-bold text-[#D0A96B]">${Number(payload[0].value).toLocaleString('es-AR')} ARS</span>
+            <span className="font-bold text-[#D0A96B]">${Number(ingresos).toLocaleString('es-AR')} ARS</span>
           </div>
           <div className="flex items-center justify-between gap-4 text-zinc-300">
             <span className="flex items-center gap-1.5 font-sans">
-              <span className="h-2 w-2 rounded-full bg-[#2E5C47]"></span> Ganancia Neta:
+              <span className="h-2 w-2 rounded-full bg-[#10B981]"></span> Ganancia Comercial Real:
             </span>
-            <span className="font-bold text-emerald-400">${Number(payload[1].value).toLocaleString('es-AR')} ARS</span>
+            <span className="font-bold text-emerald-400">${Number(gananciaReal).toLocaleString('es-AR')} ARS</span>
+          </div>
+          <div className="flex items-center justify-between gap-4 text-zinc-300">
+            <span className="flex items-center gap-1.5 font-sans">
+              <span className="h-2 w-2 rounded-full bg-[#2E5C47]"></span> Ganancia Neta Final:
+            </span>
+            <span className="font-bold text-teal-300">${Number(gananciaNeta).toLocaleString('es-AR')} ARS</span>
           </div>
         </div>
       </div>
@@ -171,13 +182,16 @@ export function MonthlyDashboard() {
                   Evolución de Ingresos y Ganancias (Últimos 6 Meses)
                 </CardTitle>
                 <CardDescription className="text-xs text-zinc-400 mt-0.5">
-                  Comparativa semestral real entre Facturación Bruta y Margen Neto.
+                  Comparativa semestral real entre Facturación Bruta, Ganancia Comercial Real y Margen Neto.
                 </CardDescription>
               </div>
 
               <div className="flex items-center gap-4 text-xs font-mono hidden sm:flex">
                 <div className="flex items-center gap-1.5 text-zinc-300">
                   <span className="h-3 w-3 rounded bg-[#D0A96B]"></span> Facturación Bruta
+                </div>
+                <div className="flex items-center gap-1.5 text-zinc-300">
+                  <span className="h-3 w-3 rounded bg-[#10B981]"></span> Ganancia Real
                 </div>
                 <div className="flex items-center gap-1.5 text-zinc-300">
                   <span className="h-3 w-3 rounded bg-[#2E5C47]"></span> Ganancia Neta
@@ -209,6 +223,12 @@ export function MonthlyDashboard() {
                     dataKey="ingresosBrutos" 
                     name="Facturación Bruta" 
                     fill="#D0A96B" 
+                    radius={[6, 6, 0, 0]} 
+                  />
+                  <Bar 
+                    dataKey="gananciaReal" 
+                    name="Ganancia Comercial Real" 
+                    fill="#10B981" 
                     radius={[6, 6, 0, 0]} 
                   />
                   <Bar 

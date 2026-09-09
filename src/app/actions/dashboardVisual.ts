@@ -9,6 +9,7 @@ export interface VisualDashboardData {
   monthlyRevenueData: Array<{
     month: string;
     ingresosBrutos: number;
+    gananciaReal: number;
     gananciaNeta: number;
   }>;
   paymentMethodDistribution: Array<{
@@ -212,10 +213,12 @@ export async function getVisualDashboardData(role?: UserRole): Promise<{
 
     // Construir monthlyRevenueData
     const monthlyRevenueData = monthBuckets.map((b) => {
-      const net = b.gross.minus(b.cogs).minus(b.fees).minus(b.opex);
+      const grossProfit = b.gross.minus(b.cogs);
+      const net = grossProfit.minus(b.fees).minus(b.opex);
       return {
         month: b.label,
         ingresosBrutos: Math.round(b.gross.toNumber()),
+        gananciaReal: Math.round(grossProfit.toNumber()),
         gananciaNeta: Math.round(net.toNumber()),
       };
     });

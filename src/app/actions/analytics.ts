@@ -24,6 +24,8 @@ export interface FinancialReportData {
   trendData: Array<{
     date: string;
     ingresos: number;
+    gananciaReal: number;
+    gananciaNeta: number;
     ganancia: number;
   }>;
   categoryBreakdown: Array<{
@@ -357,14 +359,17 @@ export async function getFinancialReport(
       refunds: totalRefundsArs,
     });
 
-    // 8. Formatear datos para gráficos Recharts (ganancia diaria calculada exactamente)
+    // 8. Formatear datos para gráficos Recharts (ganancia comercial real y ganancia neta calculadas exactamente)
     const trendData = Object.keys(dailyMap).map((date) => {
       const day = dailyMap[date];
       const dailyGross = day.ingresos;
-      const dailyNet = dailyGross.minus(day.cogs).minus(day.fees).minus(day.opex);
+      const dailyGrossProfit = dailyGross.minus(day.cogs);
+      const dailyNet = dailyGrossProfit.minus(day.fees).minus(day.opex);
       return {
         date,
         ingresos: Math.round(dailyGross.toNumber()),
+        gananciaReal: Math.round(dailyGrossProfit.toNumber()),
+        gananciaNeta: Math.round(dailyNet.toNumber()),
         ganancia: Math.round(dailyNet.toNumber()),
       };
     });

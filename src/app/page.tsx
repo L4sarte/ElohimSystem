@@ -41,29 +41,48 @@ const formatCurrencyValue = (val: number, currency: ChartCurrency) => {
 // Componente Tooltip personalizado para el gráfico de Recharts con ROI Diario y Soporte Trimonetario
 const CustomTooltip = ({ active, payload, label, currency = 'ARS' }: { active?: boolean; payload?: any[]; label?: string; currency?: ChartCurrency }) => {
   if (active && payload && payload.length) {
+    const payloadData = payload[0]?.payload;
     const ventas = Number(payload.find((p: any) => p.dataKey === 'Ventas')?.value || 0);
-    const ganancias = Number(payload.find((p: any) => p.dataKey === 'Ganancias')?.value || 0);
+    const gananciaReal = Number(payload.find((p: any) => p.dataKey === 'Ganancias')?.value || 0);
+    const gananciaNeta = Number(payload.find((p: any) => p.dataKey === 'GananciaNeta')?.value ?? payloadData?.GananciaNeta ?? gananciaReal);
     const mesAnteriorItem = payload.find((p: any) => p.dataKey === 'VentasMesAnterior');
     const mesAnterior = mesAnteriorItem ? Number(mesAnteriorItem.value) : undefined;
 
-    const roiPercent = ventas > 0 ? ((ganancias / ventas) * 100).toFixed(1) : null;
+    const marginRealPercent = ventas > 0 ? ((gananciaReal / ventas) * 100).toFixed(1) : null;
+    const marginNetPercent = ventas > 0 ? ((gananciaNeta / ventas) * 100).toFixed(1) : null;
 
     return (
-      <div className="bg-[#08130E]/95 border border-[#1B362A] p-3.5 rounded-xl shadow-2xl text-xs space-y-1.5 backdrop-blur-md min-w-[210px]">
+      <div className="bg-[#08130E]/95 border border-[#1B362A] p-3.5 rounded-xl shadow-2xl text-xs space-y-1.5 backdrop-blur-md min-w-[240px]">
         <p className="font-mono font-bold text-zinc-400 border-b border-[#1B362A] pb-1">Día: {label}</p>
         <div className="space-y-1.5 pt-0.5">
           <p className="font-bold text-[#D0A96B] flex items-center justify-between gap-3">
-            <span>Ventas Brutas:</span>
+            <span className="flex items-center gap-1.5 font-sans">
+              <span className="h-2 w-2 rounded-full bg-[#D0A96B]"></span> Facturación Bruta:
+            </span>
             <span className="font-mono">{formatCurrencyValue(ventas, currency)}</span>
           </p>
           <p className="font-bold text-emerald-400 flex items-center justify-between gap-3">
-            <span>Ganancia Neta:</span>
-            <span className="font-mono">{formatCurrencyValue(ganancias, currency)}</span>
+            <span className="flex items-center gap-1.5 font-sans">
+              <span className="h-2 w-2 rounded-full bg-emerald-500"></span> Ganancia Comercial Real:
+            </span>
+            <span className="font-mono">{formatCurrencyValue(gananciaReal, currency)}</span>
           </p>
-          <p className="text-[11px] font-semibold text-teal-400 flex items-center justify-between gap-3 border-t border-[#1B362A]/40 pt-1">
-            <span>Rentabilidad del Día:</span>
-            <span className="font-mono font-bold">{roiPercent ? `${roiPercent}%` : '-'}</span>
+          <p className="font-bold text-teal-300 flex items-center justify-between gap-3">
+            <span className="flex items-center gap-1.5 font-sans">
+              <span className="h-2 w-2 rounded-full bg-teal-400"></span> Ganancia Neta Final:
+            </span>
+            <span className="font-mono">{formatCurrencyValue(gananciaNeta, currency)}</span>
           </p>
+          <div className="border-t border-[#1B362A]/60 pt-1 text-[11px] space-y-0.5 font-mono">
+            <div className="flex items-center justify-between text-zinc-400">
+              <span>Margen Comercial Real:</span>
+              <span className="text-emerald-400 font-bold">{marginRealPercent ? `${marginRealPercent}%` : '-'}</span>
+            </div>
+            <div className="flex items-center justify-between text-zinc-400">
+              <span>Margen Neto Final:</span>
+              <span className="text-teal-300 font-bold">{marginNetPercent ? `${marginNetPercent}%` : '-'}</span>
+            </div>
+          </div>
           {mesAnterior !== undefined && (
             <p className="font-semibold text-zinc-400 flex items-center justify-between gap-3 border-t border-[#1B362A]/60 pt-1 text-[11px]">
               <span>Ref. Mes Anterior:</span>
@@ -146,6 +165,8 @@ export default function DashboardPage() {
       ...item,
       Ventas: Number((item.Ventas / rate).toFixed(2)),
       Ganancias: Number((item.Ganancias / rate).toFixed(2)),
+      GananciaReal: Number(((item.GananciaReal !== undefined ? item.GananciaReal : item.Ganancias) / rate).toFixed(2)),
+      GananciaNeta: Number(((item.GananciaNeta !== undefined ? item.GananciaNeta : item.Ganancias) / rate).toFixed(2)),
       VentasMesAnterior: Number((item.VentasMesAnterior / rate).toFixed(2)),
     }));
   }, [stats?.salesByDate, chartCurrency, exchangeRates, activeStoreRate]);
@@ -271,18 +292,18 @@ export default function DashboardPage() {
                     </CardHeader>
                   </Card>
 
-                  {/* Card 2: Margen Bruto Comercial */}
+                  {/* Card 2: Ganancia Comercial Real (Limpia) */}
                   <Card className="border border-[#1B362A] bg-[#13261E]/90 rounded-2xl shadow-xl transition-all duration-300 hover:border-[#D0A96B]/50">
                     <CardHeader className="pb-3 flex flex-row items-center justify-between space-y-0">
                       <div>
                         <CardDescription className="text-[10px] font-extrabold uppercase tracking-widest text-zinc-400">
-                          Margen Comercial Bruto
+                          Ganancia Comercial Real (Limpia)
                         </CardDescription>
                         <CardTitle className="text-3xl font-bold tracking-tight text-[#D0A96B] mt-1.5 font-serif">
                           ${Math.round(stats.grossMarginArs || 0).toLocaleString('es-AR')}
                         </CardTitle>
                         <p className="text-[11px] text-zinc-400 font-mono mt-1">
-                          {stats.grossMarginPercent}% sobre ventas
+                          {stats.grossMarginPercent}% sobre ventas (s/ productos)
                         </p>
                       </div>
                       <div className="h-11 w-11 rounded-xl bg-[#D0A96B]/10 border border-[#D0A96B]/30 flex items-center justify-center text-[#D0A96B] shrink-0">
@@ -311,12 +332,12 @@ export default function DashboardPage() {
                     </CardHeader>
                   </Card>
 
-                  {/* Card 4: Ganancia Neta Real */}
+                  {/* Card 4: Ganancia Neta Final (de Bolsillo) */}
                   <Card className="border border-[#1B362A] bg-[#13261E]/90 rounded-2xl shadow-xl transition-all duration-300 hover:border-emerald-500/40">
                     <CardHeader className="pb-3 flex flex-row items-center justify-between space-y-0">
                       <div>
                         <CardDescription className="text-[10px] font-extrabold uppercase tracking-widest text-zinc-400">
-                          Ganancia Neta Real (ARS)
+                          Ganancia Neta Final (de Bolsillo)
                         </CardDescription>
                         <CardTitle className="text-3xl font-bold tracking-tight text-emerald-400 mt-1.5 font-serif">
                           ${Math.round(stats.estimatedProfitArs).toLocaleString('es-AR')}
@@ -324,7 +345,7 @@ export default function DashboardPage() {
                         <p className="text-[11px] text-emerald-400/90 font-mono mt-1">
                           {stats.totalRevenueArs > 0 
                             ? `${((stats.estimatedProfitArs / stats.totalRevenueArs) * 100).toFixed(1)}% margen neto` 
-                            : '0.0% margen neto'}
+                            : '0.0% margen neto'} (deduciendo OPEX y pasarelas)
                         </p>
                       </div>
                       <div className="h-11 w-11 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0">
@@ -365,10 +386,10 @@ export default function DashboardPage() {
                         <div>
                           <CardTitle className="text-sm font-bold text-zinc-200 font-serif flex items-center gap-2">
                             <Activity className="h-4.5 w-4.5 text-[#D0A96B]" />
-                            Historial Diario de Facturación y Utilidad ({chartCurrency === 'ARS' ? 'ARS' : chartCurrency === 'USD_BLUE' ? 'USD Blue' : 'USDT'})
+                            Historial Diario de Facturación y Utilidades ({chartCurrency === 'ARS' ? 'ARS' : chartCurrency === 'USD_BLUE' ? 'USD Blue' : 'USDT'})
                           </CardTitle>
                           <CardDescription className="text-xs text-zinc-400">
-                            Visualización de ventas brutas versus utilidad neta agrupada.
+                            Comparativa diaria entre Facturación Bruta, Ganancia Comercial Real y Ganancia Neta Final.
                           </CardDescription>
                         </div>
 
@@ -426,9 +447,10 @@ export default function DashboardPage() {
                               <XAxis dataKey="date" tickLine={false} axisLine={false} style={{ fontSize: '10px', fill: '#71717a' }} />
                               <YAxis tickLine={false} axisLine={false} tickFormatter={yAxisTickFormatter} style={{ fontSize: '10px', fill: '#71717a' }} />
                               <Tooltip content={<CustomTooltip currency={chartCurrency} />} />
-                              <Bar name="Ventas" dataKey="Ventas" fill="#D0A96B" radius={[4, 4, 0, 0]} barSize={18} />
-                              <Area type="monotone" name="Ganancias" dataKey="Ganancias" fill="url(#profitGradient)" stroke="#10b981" strokeWidth={2.5} dot={{ r: 3, fill: '#10b981', strokeWidth: 1 }} activeDot={{ r: 5 }} />
-                              <Line type="monotone" name="Mes Anterior" dataKey="VentasMesAnterior" stroke="#71717a" strokeDasharray="3 3" strokeWidth={1.5} dot={false} />
+                              <Bar name="Facturación Bruta" dataKey="Ventas" fill="#D0A96B" radius={[4, 4, 0, 0]} barSize={18} />
+                              <Area type="monotone" name="Ganancia Comercial Real" dataKey="Ganancias" fill="url(#profitGradient)" stroke="#10b981" strokeWidth={2.5} dot={{ r: 3, fill: '#10b981', strokeWidth: 1 }} activeDot={{ r: 5 }} />
+                              <Line type="monotone" name="Ganancia Neta Final" dataKey="GananciaNeta" stroke="#2dd4bf" strokeWidth={2} strokeDasharray="4 2" dot={{ r: 2.5, fill: '#2dd4bf' }} activeDot={{ r: 4 }} />
+                              <Line type="monotone" name="Ref. Mes Anterior" dataKey="VentasMesAnterior" stroke="#71717a" strokeDasharray="3 3" strokeWidth={1.5} dot={false} />
                             </ComposedChart>
                           </ResponsiveContainer>
                         </div>

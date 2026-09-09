@@ -24,15 +24,32 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (active && payload && payload.length) {
+    const data = payload[0]?.payload;
+    const ventas = data?.Ventas ?? payload[0]?.value;
+    const gananciaReal = data?.Ganancias ?? payload[1]?.value;
+    const gananciaNeta = data?.GananciaNeta !== undefined ? data?.GananciaNeta : payload[2]?.value;
+
     return (
-      <div className="bg-[#08130E]/95 border border-[#1B362A] p-3 rounded-xl shadow-2xl text-xs space-y-1 backdrop-blur-md">
-        <p className="font-serif font-bold text-[#D0A96B]">{label}</p>
-        <p className="text-zinc-200">
-          Ventas: <span className="font-mono text-[#D0A96B] font-bold">${Number(payload[0].value).toLocaleString('es-AR')}</span>
+      <div className="bg-[#08130E]/95 border border-[#1B362A] p-3 rounded-xl shadow-2xl text-xs space-y-1.5 backdrop-blur-md min-w-[220px]">
+        <p className="font-serif font-bold text-[#D0A96B] border-b border-[#1B362A] pb-1">Día: {label}</p>
+        <p className="text-zinc-200 flex items-center justify-between">
+          <span className="flex items-center gap-1.5">
+            <span className="h-2 w-2 rounded-full bg-[#D0A96B]"></span> Facturación:
+          </span>
+          <span className="font-mono text-[#D0A96B] font-bold">${Number(ventas).toLocaleString('es-AR')}</span>
         </p>
-        {payload[1] && (
-          <p className="text-zinc-200">
-            Ganancia: <span className="font-mono text-emerald-400 font-bold">${Number(payload[1].value).toLocaleString('es-AR')}</span>
+        <p className="text-zinc-200 flex items-center justify-between">
+          <span className="flex items-center gap-1.5">
+            <span className="h-2 w-2 rounded-full bg-emerald-500"></span> Ganancia Comercial:
+          </span>
+          <span className="font-mono text-emerald-400 font-bold">${Number(gananciaReal).toLocaleString('es-AR')}</span>
+        </p>
+        {gananciaNeta !== undefined && (
+          <p className="text-zinc-200 flex items-center justify-between">
+            <span className="flex items-center gap-1.5">
+              <span className="h-2 w-2 rounded-full bg-teal-400"></span> Ganancia Neta:
+            </span>
+            <span className="font-mono text-teal-300 font-bold">${Number(gananciaNeta).toLocaleString('es-AR')}</span>
           </p>
         )}
       </div>
@@ -48,11 +65,21 @@ export default function AdminDashboardPage() {
   const [stats, setStats] = useState<{
     totalRevenueArs: number;
     totalRevenueUsd: number;
+    grossMarginArs: number;
+    grossMarginPercent: number;
     estimatedProfitArs: number;
-    salesByDate: Array<{ date: string; Ventas: number; Ganancias: number }>;
+    salesByDate: Array<{
+      date: string;
+      Ventas: number;
+      Ganancias: number;
+      GananciaReal?: number;
+      GananciaNeta?: number;
+    }>;
   }>({
     totalRevenueArs: 0,
     totalRevenueUsd: 0,
+    grossMarginArs: 0,
+    grossMarginPercent: 0,
     estimatedProfitArs: 0,
     salesByDate: []
   });
@@ -68,6 +95,8 @@ export default function AdminDashboardPage() {
       setStats({
         totalRevenueArs: res.data.totalRevenueArs,
         totalRevenueUsd: res.data.totalRevenueUsd,
+        grossMarginArs: res.data.grossMarginArs || 0,
+        grossMarginPercent: res.data.grossMarginPercent || 0,
         estimatedProfitArs: res.data.estimatedProfitArs,
         salesByDate: res.data.salesByDate || []
       });
@@ -168,7 +197,7 @@ export default function AdminDashboardPage() {
         {/* LAS 4 TARJETAS DE MÉTRICAS PRINCIPALES */}
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           
-          {/* Ingresos ARS */}
+          {/* 1. Ingresos ARS */}
           <Card className="border border-[#1B362A] bg-[#13261E]/90 rounded-2xl shadow-xl transition-all duration-300 hover:border-[#D0A96B]/50">
             <CardHeader className="pb-3 flex flex-row items-center justify-between space-y-0">
               <div>
@@ -183,14 +212,17 @@ export default function AdminDashboardPage() {
             </CardHeader>
           </Card>
 
-          {/* Volumen USD */}
+          {/* 2. Ganancia Comercial Real */}
           <Card className="border border-[#1B362A] bg-[#13261E]/90 rounded-2xl shadow-xl transition-all duration-300 hover:border-[#D0A96B]/50">
             <CardHeader className="pb-3 flex flex-row items-center justify-between space-y-0">
               <div>
-                <CardDescription className="text-[10px] font-extrabold uppercase tracking-widest text-zinc-400">Volumen Comercial (USD)</CardDescription>
-                <CardTitle className="text-3xl sm:text-4xl font-bold tracking-tight text-white mt-1.5 font-serif">
-                  u$s {stats.totalRevenueUsd.toFixed(2)}
+                <CardDescription className="text-[10px] font-extrabold uppercase tracking-widest text-zinc-400">Ganancia Comercial Real</CardDescription>
+                <CardTitle className="text-3xl sm:text-4xl font-bold tracking-tight text-[#D0A96B] mt-1.5 font-serif">
+                  ${Math.round(stats.grossMarginArs || 0).toLocaleString('es-AR')}
                 </CardTitle>
+                <p className="text-[11px] text-zinc-400 font-mono mt-1">
+                  {stats.grossMarginPercent}% sobre ventas (s/ productos)
+                </p>
               </div>
               <div className="h-11 w-11 rounded-xl bg-[#D0A96B]/10 border border-[#D0A96B]/30 flex items-center justify-center text-[#D0A96B] shrink-0">
                 <TrendingUp className="h-6 w-6" />
@@ -198,14 +230,19 @@ export default function AdminDashboardPage() {
             </CardHeader>
           </Card>
 
-          {/* Ganancias ARS */}
+          {/* 3. Ganancia Neta Final */}
           <Card className="border border-[#1B362A] bg-[#13261E]/90 rounded-2xl shadow-xl transition-all duration-300 hover:border-emerald-500/40">
             <CardHeader className="pb-3 flex flex-row items-center justify-between space-y-0">
               <div>
-                <CardDescription className="text-[10px] font-extrabold uppercase tracking-widest text-zinc-400">Ganancia Neta (ARS)</CardDescription>
+                <CardDescription className="text-[10px] font-extrabold uppercase tracking-widest text-zinc-400">Ganancia Neta Final</CardDescription>
                 <CardTitle className="text-3xl sm:text-4xl font-bold tracking-tight text-emerald-400 mt-1.5 font-serif">
                   ${Math.round(stats.estimatedProfitArs).toLocaleString('es-AR')}
                 </CardTitle>
+                <p className="text-[11px] text-emerald-400/90 font-mono mt-1">
+                  {stats.totalRevenueArs > 0 
+                    ? `${((stats.estimatedProfitArs / stats.totalRevenueArs) * 100).toFixed(1)}%` 
+                    : '0.0%'} margen neto (de bolsillo)
+                </p>
               </div>
               <div className="h-11 w-11 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0">
                 <DollarSign className="h-6 w-6 text-[#D0A96B]" />
@@ -213,16 +250,17 @@ export default function AdminDashboardPage() {
             </CardHeader>
           </Card>
 
-          {/* Rentabilidad promedio */}
+          {/* 4. Volumen Comercial USD */}
           <Card className="border border-[#1B362A] bg-[#13261E]/90 rounded-2xl shadow-xl transition-all duration-300 hover:border-[#D0A96B]/50">
             <CardHeader className="pb-3 flex flex-row items-center justify-between space-y-0">
               <div>
-                <CardDescription className="text-[10px] font-extrabold uppercase tracking-widest text-zinc-400">Rentabilidad Promedio</CardDescription>
+                <CardDescription className="text-[10px] font-extrabold uppercase tracking-widest text-zinc-400">Volumen Comercial (USD)</CardDescription>
                 <CardTitle className="text-3xl sm:text-4xl font-bold tracking-tight text-[#E5C158] mt-1.5 font-serif">
-                  {stats.totalRevenueArs > 0 
-                    ? `${((stats.estimatedProfitArs / stats.totalRevenueArs) * 100).toFixed(1)}%` 
-                    : '0.0%'}
+                  u$s {stats.totalRevenueUsd.toFixed(2)}
                 </CardTitle>
+                <p className="text-[11px] text-zinc-400 font-mono mt-1">
+                  Equivalente oficial al tipo de cambio
+                </p>
               </div>
               <div className="h-11 w-11 rounded-xl bg-[#D0A96B]/10 border border-[#D0A96B]/30 flex items-center justify-center text-[#D0A96B] shrink-0">
                 <Percent className="h-6 w-6" />
@@ -255,9 +293,9 @@ export default function AdminDashboardPage() {
               <CardHeader className="px-0 pt-0 pb-6 border-b border-[#1B362A]">
                 <CardTitle className="text-sm font-bold text-zinc-200 font-serif flex items-center gap-2">
                   <Activity className="h-4.5 w-4.5 text-[#D0A96B]" />
-                  Historial Diario de Facturación y Utilidad (ARS)
+                  Historial Diario de Facturación y Utilidades (ARS)
                 </CardTitle>
-                <CardDescription className="text-xs text-zinc-400">Visualización histórica de ventas versus margen neto agrupado.</CardDescription>
+                <CardDescription className="text-xs text-zinc-400">Visualización comparativa de facturación bruta, ganancia comercial real y ganancia neta.</CardDescription>
               </CardHeader>
               
               {stats.salesByDate.length > 0 ? (
@@ -268,8 +306,9 @@ export default function AdminDashboardPage() {
                       <XAxis dataKey="date" tickLine={false} axisLine={false} style={{ fontSize: '10px', fill: '#71717a' }} />
                       <YAxis tickLine={false} axisLine={false} style={{ fontSize: '10px', fill: '#71717a' }} />
                       <Tooltip content={<CustomTooltip />} />
-                      <Bar name="Ventas" dataKey="Ventas" fill="#D0A96B" radius={[6, 6, 0, 0]} barSize={22} />
-                      <Bar name="Ganancias" dataKey="Ganancias" fill="#10b981" radius={[6, 6, 0, 0]} barSize={22} />
+                      <Bar name="Facturación" dataKey="Ventas" fill="#D0A96B" radius={[4, 4, 0, 0]} barSize={16} />
+                      <Bar name="Ganancia Comercial Real" dataKey="Ganancias" fill="#10b981" radius={[4, 4, 0, 0]} barSize={16} />
+                      <Bar name="Ganancia Neta Final" dataKey="GananciaNeta" fill="#0d9488" radius={[4, 4, 0, 0]} barSize={16} />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
