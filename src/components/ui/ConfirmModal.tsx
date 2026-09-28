@@ -46,7 +46,7 @@ export function ConfirmModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 overflow-y-auto animate-in fade-in duration-150">
       <div 
-        className="relative w-full max-w-md rounded-2xl bg-[#13261E] border border-[#1B362A] p-6 shadow-2xl space-y-4 animate-in zoom-in-95 duration-150 text-zinc-100"
+        className="relative w-full max-w-md rounded-2xl bg-erp-surface border border-erp-border p-6 shadow-2xl space-y-4 animate-in zoom-in-95 duration-150 text-zinc-100"
         role="dialog"
         aria-modal="true"
       >
@@ -59,7 +59,7 @@ export function ConfirmModal({
         </button>
 
         <div className="flex items-start gap-4">
-          <div className="p-3 rounded-xl bg-[#08130E] border border-[#1B362A] shrink-0">
+          <div className="p-3 rounded-xl bg-erp-bg border border-erp-border shrink-0">
             {iconMap[variant]}
           </div>
           <div className="space-y-1 pr-4">
@@ -68,13 +68,13 @@ export function ConfirmModal({
           </div>
         </div>
 
-        <div className="flex items-center justify-end gap-3 pt-3 border-t border-[#1B362A]">
+        <div className="flex items-center justify-end gap-3 pt-3 border-t border-erp-border">
           <Button
             variant="outline"
             size="sm"
             onClick={onCancel}
             disabled={isLoading}
-            className="border-[#1B362A] bg-[#08130E] text-zinc-300 hover:bg-zinc-800 hover:text-white text-xs cursor-pointer"
+            className="border-erp-border bg-erp-bg text-zinc-300 hover:bg-zinc-800 hover:text-white text-xs cursor-pointer"
           >
             {cancelText}
           </Button>

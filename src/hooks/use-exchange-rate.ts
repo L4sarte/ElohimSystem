@@ -6,7 +6,9 @@ import { useUserStore } from './use-user-store';
 import { toast } from 'sonner';
 
 export function useExchangeRate() {
-  const { exchangeRate, isRateManual, setExchangeRate } = useUserStore();
+  const exchangeRate = useUserStore((state) => state.exchangeRate);
+  const isRateManual = useUserStore((state) => state.isRateManual);
+  const setExchangeRate = useUserStore((state) => state.setExchangeRate);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const isFetchingRef = useRef(false);

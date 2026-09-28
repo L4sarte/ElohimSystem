@@ -2,6 +2,7 @@
 
 import { getServiceSupabase, isSupabaseConfigured } from '@/lib/supabase';
 import { revalidatePath } from 'next/cache';
+import { headers } from 'next/headers';
 import Decimal from 'decimal.js';
 import { getSystemSettings } from '@/app/actions/systemSettings';
 import { getCurrentRate } from '@/app/actions/rates';
@@ -11,6 +12,50 @@ import {
   CatalogFilters, 
   CreateOnlineOrderInput 
 } from '@/lib/storefront-validation';
+
+// ==============================================================================
+// RATE LIMITER EN MEMORIA (sliding window) para endpoints públicos B2C.
+// Mitiga spam de pedidos y creación masiva de clientes anónimos en el CRM.
+// Nota: el estado es por-instancia de servidor; en despliegues multi-instancia
+// se recomienda migrar a un almacén compartido (ej. Upstash Redis).
+// ==============================================================================
+const ORDER_RATE_WINDOW_MS = 60_000;
+const ORDER_RATE_MAX_PER_WINDOW = 10;
+const orderRateLimiter = new Map<string, number[]>();
+
+async function checkPublicOrderRateLimit(): Promise<boolean> {
+  const now = Date.now();
+  let identifier = 'unknown';
+  try {
+    const h = await headers();
+    identifier = h.get('x-forwarded-for')?.split(',')[0]?.trim() || h.get('x-real-ip') || 'unknown';
+  } catch {
+    // Sin acceso a headers (contexto no-HTTP de la acción): permitir
+    return true;
+  }
+
+  const timestamps = (orderRateLimiter.get(identifier) || []).filter(
+    (t) => now - t < ORDER_RATE_WINDOW_MS
+  );
+
+  if (timestamps.length >= ORDER_RATE_MAX_PER_WINDOW) {
+    orderRateLimiter.set(identifier, timestamps);
+    return false;
+  }
+
+  timestamps.push(now);
+  orderRateLimiter.set(identifier, timestamps);
+
+  // Limpieza defensiva: evita crecimiento ilimitado del mapa en memoria
+  if (orderRateLimiter.size > 10_000) {
+    for (const [key, ts] of orderRateLimiter) {
+      if (ts.every((t) => now - t >= ORDER_RATE_WINDOW_MS)) {
+        orderRateLimiter.delete(key);
+      }
+    }
+  }
+  return true;
+}
 
 /**
  * Consulta optimizada y sanitizada del catálogo público para el Storefront E-Commerce.
@@ -319,6 +364,14 @@ export async function createOnlineOrder(payload: CreateOnlineOrderInput): Promis
   error?: string;
 }> {
   try {
+    // 0. Rate limiting: mitigación de spam de pedidos (máx. 10/min por IP)
+    if (!(await checkPublicOrderRateLimit())) {
+      return {
+        success: false,
+        error: 'Demasiadas solicitudes. Por favor, espera un momento e inténtalo de nuevo.',
+      };
+    }
+
     // 1. Validación de esquema con Zod
     const validation = onlineOrderSchema.safeParse(payload);
     if (!validation.success) {
@@ -445,7 +498,45 @@ export async function createOnlineOrder(payload: CreateOnlineOrderInput): Promis
       }
     }
 
-    // 5. Insertar venta con canal 'online' y estado 'pending_payment'
+    // 5. Descontar stock ATÓMICAMENTE vía RPC (previene sobreventa TOCTOU).
+    // Si algún ítem agota stock en este punto (compra concurrente), se aborta ANTES de
+    // crear la venta: no sobrevende ni deja pedidos huérfanos.
+    const stockCompensation: Array<{ product_id: string; quantity: number }> = [];
+
+    // Compensación: re-agrega el stock ya descontado si el pedido no puede completarse
+    const compensateStock = async () => {
+      for (const op of stockCompensation) {
+        try {
+          await supabase.rpc('deduct_stock_atomic', {
+            p_product_id: op.product_id,
+            p_quantity: -op.quantity,
+          });
+        } catch (compErr) {
+          console.error('[CREATE_ONLINE_ORDER_COMPENSATION_ERROR]:', compErr);
+        }
+      }
+    };
+
+    for (const item of validatedItems) {
+      const { data: deducted, error: deductErr } = await supabase.rpc('deduct_stock_atomic', {
+        p_product_id: item.product_id,
+        p_quantity: item.quantity,
+      });
+      if (deductErr) {
+        await compensateStock();
+        throw deductErr;
+      }
+      if (!deducted || deducted.length === 0) {
+        await compensateStock();
+        return {
+          success: false,
+          error: `Stock insuficiente para "${productMap.get(item.product_id)?.name || 'un producto del carrito'}" (compra concurrente detectada). El pedido NO fue registrado.`,
+        };
+      }
+      stockCompensation.push({ product_id: item.product_id, quantity: item.quantity });
+    }
+
+    // 6. Insertar venta con canal 'online' y estado 'pending_payment'
     const orderMetadata = {
       channel: 'online',
       order_type: 'storefront_b2c',
@@ -480,13 +571,14 @@ export async function createOnlineOrder(payload: CreateOnlineOrderInput): Promis
 
     if (saleErr || !saleData) {
       console.error('[CREATE_ONLINE_ORDER_SALE_ERROR]:', saleErr);
+      await compensateStock();
       return { success: false, error: 'Error al registrar el pedido en la base de datos.' };
     }
 
     const saleId = saleData.id;
     const orderNumber = saleId.slice(0, 8).toUpperCase();
 
-    // 6. Insertar ítems en sale_items con unit_cost_at_moment congelado
+    // 7. Insertar ítems en sale_items con unit_cost_at_moment congelado
     const saleItemsPayload = validatedItems.map((item) => {
       const dbProd = productMap.get(item.product_id);
       const row: Record<string, any> = {
@@ -514,18 +606,15 @@ export async function createOnlineOrder(payload: CreateOnlineOrderInput): Promis
 
     if (itemsErr) {
       console.error('[CREATE_ONLINE_ORDER_ITEMS_ERROR]:', itemsErr);
-    }
-
-    // 7. Descontar stock atómicamente
-    for (const item of validatedItems) {
-      const dbProd = productMap.get(item.product_id);
-      if (dbProd) {
-        const newStock = Math.max(0, dbProd.stock_quantity - item.quantity);
-        await supabase
-          .from('products')
-          .update({ stock_quantity: newStock })
-          .eq('id', item.product_id);
+      // Compensación transaccional: eliminar la venta huérfana y re-agregar el stock descontado
+      if (saleId) {
+        await supabase.from('sales').delete().eq('id', saleId);
       }
+      await compensateStock();
+      return {
+        success: false,
+        error: 'Error al registrar los ítems del pedido. El pedido fue cancelado y el stock restaurado.',
+      };
     }
 
     // 8. Revalidación de vistas
@@ -560,7 +649,6 @@ export interface CreateWhatsAppOrderInput {
     product_id: string;
     quantity: number;
     format?: string;
-    unit_price_ars?: number;
   }>;
 }
 
@@ -582,6 +670,14 @@ export async function createWhatsAppOrderAction(
   payload: CreateWhatsAppOrderInput
 ): Promise<CreateWhatsAppOrderResult> {
   try {
+    // 0. Rate limiting: mitigación de spam de pedidos (máx. 10/min por IP)
+    if (!(await checkPublicOrderRateLimit())) {
+      return {
+        success: false,
+        error: 'Demasiadas solicitudes. Por favor, espera un momento e inténtalo de nuevo.',
+      };
+    }
+
     if (!payload.client_name || !payload.client_name.trim()) {
       return { success: false, error: 'Por favor ingresa tu nombre y apellido.' };
     }
@@ -733,9 +829,12 @@ export async function createWhatsAppOrderAction(
           };
         }
 
-        const unitPrice = it.unit_price_ars
-          ? new Decimal(it.unit_price_ars)
-          : new Decimal(p.base_price_ars || 0);
+        // Zero-Trust: el precio oficial se deriva SIEMPRE de la base de datos (nunca del payload del cliente).
+        // Réplica de la fórmula de getPublicProductDetail: precio/ml del granel * tamaño + frasco.
+        const liquidPricePerMl = Number(matchedLiquid.base_price_ars || 0);
+        const unitPrice = liquidPricePerMl > 0
+          ? new Decimal(Math.round(liquidPricePerMl * sizeMl + Number(matchedSupply?.base_price_ars || 0)))
+          : new Decimal(Math.round(Number(p.base_price_ars || 0) * (sizeMl === 10 ? 0.22 : 0.12)));
         const subtotal = unitPrice.times(it.quantity);
         totalArsDecimal = totalArsDecimal.plus(subtotal);
 
@@ -760,11 +859,6 @@ export async function createWhatsAppOrderAction(
           subtotal_ars: subtotal.toNumber(),
         });
 
-        // Actualizar stock en memoria para sucesivos ítems
-        matchedLiquid.stock_quantity = liquidStock - totalMlNeeded;
-        if (matchedSupply) {
-          matchedSupply.stock_quantity = Number(matchedSupply.stock_quantity) - it.quantity;
-        }
       } else {
         // Venta de botella sellada estándar
         if (p.stock_quantity < it.quantity) {
@@ -774,9 +868,8 @@ export async function createWhatsAppOrderAction(
           };
         }
 
-        const unitPrice = it.unit_price_ars
-          ? new Decimal(it.unit_price_ars)
-          : new Decimal(p.base_price_ars || 0);
+        // Zero-Trust: precio oficial desde la base de datos, ignorando cualquier precio enviado por el cliente.
+        const unitPrice = new Decimal(p.base_price_ars || 0);
         const subtotal = unitPrice.times(it.quantity);
         totalArsDecimal = totalArsDecimal.plus(subtotal);
 
@@ -833,7 +926,88 @@ export async function createWhatsAppOrderAction(
       if (newClient?.id) clientId = newClient.id;
     }
 
-    // 3. Crear registro en sales (canal 'whatsapp_store')
+    // 3. Descontar stock ATÓMICAMENTE vía RPC (previene sobreventa TOCTOU).
+    // Si algún ítem agota stock en este punto (compra concurrente), se aborta ANTES de
+    // crear la venta: no sobrevende ni deja pedidos huérfanos.
+    const stockCompensation: Array<{ product_id: string; quantity: number }> = [];
+
+    // Compensación: re-agrega el stock ya descontado si el pedido no puede completarse
+    const compensateStock = async () => {
+      for (const op of stockCompensation) {
+        try {
+          await supabase.rpc('deduct_stock_atomic', {
+            p_product_id: op.product_id,
+            p_quantity: -op.quantity,
+          });
+        } catch (compErr) {
+          console.error('[WHATSAPP_ORDER_COMPENSATION_ERROR]:', compErr);
+        }
+      }
+    };
+
+    for (const line of orderLines) {
+      if (line.is_decant) {
+        // Descontar mililitros del granel
+        if (line.decant_liquid_id && line.decant_ml) {
+          const { data: deductedLiq, error: liqErr } = await supabase.rpc('deduct_stock_atomic', {
+            p_product_id: line.decant_liquid_id,
+            p_quantity: line.decant_ml,
+          });
+          if (liqErr) {
+            await compensateStock();
+            throw liqErr;
+          }
+          if (!deductedLiq || deductedLiq.length === 0) {
+            await compensateStock();
+            return {
+              success: false,
+              error: `Stock de perfume a granel insuficiente para "${line.name}" (compra concurrente detectada). El pedido NO fue registrado.`,
+            };
+          }
+          stockCompensation.push({ product_id: line.decant_liquid_id, quantity: line.decant_ml });
+        }
+        // Descontar frasco de insumo
+        if (line.supply_id) {
+          const { data: deductedSup, error: supErr } = await supabase.rpc('deduct_stock_atomic', {
+            p_product_id: line.supply_id,
+            p_quantity: line.quantity,
+          });
+          if (supErr) {
+            await compensateStock();
+            throw supErr;
+          }
+          if (!deductedSup || deductedSup.length === 0) {
+            await compensateStock();
+            return {
+              success: false,
+              error: `Stock de frascos insuficiente para "${line.name}" (compra concurrente detectada). El pedido NO fue registrado.`,
+            };
+          }
+          stockCompensation.push({ product_id: line.supply_id, quantity: line.quantity });
+        }
+        // La botella sellada no se altera
+      } else {
+        // Descontar unidad de botella sellada
+        const { data: deductedBot, error: botErr } = await supabase.rpc('deduct_stock_atomic', {
+          p_product_id: line.product_id,
+          p_quantity: line.quantity,
+        });
+        if (botErr) {
+          await compensateStock();
+          throw botErr;
+        }
+        if (!deductedBot || deductedBot.length === 0) {
+          await compensateStock();
+          return {
+            success: false,
+            error: `Stock insuficiente para "${line.name}" (compra concurrente detectada). El pedido NO fue registrado.`,
+          };
+        }
+        stockCompensation.push({ product_id: line.product_id, quantity: line.quantity });
+      }
+    }
+
+    // 4. Crear registro en sales (canal 'whatsapp_store')
     const orderMetadata = {
       order_number: orderNumber,
       channel: 'whatsapp_store',
@@ -867,12 +1041,13 @@ export async function createWhatsAppOrderAction(
 
     if (saleErr || !saleData) {
       console.error('Error al registrar orden en sales:', saleErr);
+      await compensateStock();
       return { success: false, error: 'Error al registrar el pedido en el sistema.' };
     }
 
     const saleId = saleData.id;
 
-    // 4. Insertar ítems en sale_items con unit_cost_at_moment congelado
+    // 5. Insertar ítems en sale_items con unit_cost_at_moment congelado
     const saleItemsPayload = orderLines.map((line) => {
       const row: Record<string, any> = {
         sale_id: saleId,
@@ -896,51 +1071,15 @@ export async function createWhatsAppOrderAction(
 
     if (itemsErr) {
       console.error('Error al insertar sale_items:', itemsErr);
-    }
-
-    // 5. Descontar stock (respetando líquido vs insumo vs botella sellada)
-    for (const line of orderLines) {
-      if (line.is_decant) {
-        // Descontar mililitros del granel
-        if (line.decant_liquid_id && line.decant_ml) {
-          const { data: curLiq } = await supabase
-            .from('products')
-            .select('stock_quantity')
-            .eq('id', line.decant_liquid_id)
-            .single();
-          const newLiqStock = Math.max(0, (Number(curLiq?.stock_quantity) || 0) - line.decant_ml);
-          await supabase
-            .from('products')
-            .update({ stock_quantity: newLiqStock })
-            .eq('id', line.decant_liquid_id);
-        }
-        // Descontar frasco de insumo
-        if (line.supply_id) {
-          const { data: curSup } = await supabase
-            .from('products')
-            .select('stock_quantity')
-            .eq('id', line.supply_id)
-            .single();
-          const newSupStock = Math.max(0, (Number(curSup?.stock_quantity) || 0) - line.quantity);
-          await supabase
-            .from('products')
-            .update({ stock_quantity: newSupStock })
-            .eq('id', line.supply_id);
-        }
-        // La botella sellada no se altera
-      } else {
-        // Descontar unidad de botella sellada
-        const { data: curBot } = await supabase
-          .from('products')
-          .select('stock_quantity')
-          .eq('id', line.product_id)
-          .single();
-        const newBotStock = Math.max(0, (Number(curBot?.stock_quantity) || 0) - line.quantity);
-        await supabase
-          .from('products')
-          .update({ stock_quantity: newBotStock })
-          .eq('id', line.product_id);
+      // Compensación transaccional: eliminar la venta huérfana y re-agregar el stock descontado
+      if (saleId) {
+        await supabase.from('sales').delete().eq('id', saleId);
       }
+      await compensateStock();
+      return {
+        success: false,
+        error: 'Error al registrar los ítems del pedido. El pedido fue cancelado y el stock restaurado.',
+      };
     }
 
     // 6. Armar mensaje estructurado de WhatsApp

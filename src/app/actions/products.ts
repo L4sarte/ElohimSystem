@@ -1,7 +1,7 @@
 'use server';
 
 import { getServiceSupabase, isSupabaseConfigured } from '@/lib/supabase';
-import { Product, UserRole, DecantAssemblyItem } from '@/types';
+import { Product, DecantAssemblyItem } from '@/types';
 import { revalidatePath } from 'next/cache';
 import { requireAuth, requireAdmin, getCurrentUser } from '@/lib/auth-checks';
 import {
@@ -32,14 +32,15 @@ interface DbProductRow {
  * Obtener todos los productos filtrados por rol real del usuario.
  * Cumple con Security by Design: el rol 'seller' nunca recibe 'base_cost_ars' desde el backend.
  */
-export async function getProducts(role?: UserRole): Promise<{
+export async function getProducts(): Promise<{
   success: boolean;
   data?: Product[];
   error?: string;
 }> {
   try {
+    // Seguridad: el rol SIEMPRE se deriva de la sesión autenticada (nunca de parámetros del cliente)
     const user = await getCurrentUser();
-    const isUserAdmin = user?.role === 'admin' || role === 'admin';
+    const isUserAdmin = user?.role === 'admin';
 
     if (!isSupabaseConfigured()) {
       return {
@@ -114,7 +115,6 @@ export async function getProducts(role?: UserRole): Promise<{
  * Crear un nuevo producto en la base de datos (Solo Admin)
  */
 export async function createProduct(
-  role: UserRole,
   formData: unknown
 ): Promise<{ success: boolean; id?: string; error?: string }> {
   try {
@@ -178,7 +178,6 @@ export async function createProduct(
  * Actualizar un producto existente (Solo Admin)
  */
 export async function updateProduct(
-  role: UserRole,
   id: string,
   formData: unknown
 ): Promise<{ success: boolean; error?: string }> {
@@ -246,7 +245,7 @@ export async function updateProduct(
 /**
  * Eliminar un producto (Solo Admin)
  */
-export async function deleteProduct(role: UserRole, id: string): Promise<{ success: boolean; error?: string }> {
+export async function deleteProduct(id: string): Promise<{ success: boolean; error?: string }> {
   try {
     await requireAdmin();
 
@@ -279,14 +278,15 @@ export async function deleteProduct(role: UserRole, id: string): Promise<{ succe
 /**
  * Obtener todos los productos tipo 'decant_liquid' (Líquidos a granel).
  */
-export async function getDecantLiquids(role?: UserRole): Promise<{
+export async function getDecantLiquids(): Promise<{
   success: boolean;
   data?: Product[];
   error?: string;
 }> {
   try {
+    // Seguridad: el rol SIEMPRE se deriva de la sesión autenticada (nunca de parámetros del cliente)
     const user = await getCurrentUser();
-    const isUserAdmin = user?.role === 'admin' || role === 'admin';
+    const isUserAdmin = user?.role === 'admin';
 
     if (!isSupabaseConfigured()) {
       return { success: true, data: [] };
@@ -335,7 +335,6 @@ export async function getDecantLiquids(role?: UserRole): Promise<{
  * Invoca la función transaccional de base de datos 'fractionate_bottle'.
  */
 export async function fractionateBottle(
-  role: UserRole,
   bottleId: string,
   decantId: string,
   volumeMl: number
@@ -440,7 +439,6 @@ export async function fractionateBottle(
  * Recibe un lote (array) de ítems a ensamblar y llama a la función RPC 'assemble_decants_batch'.
  */
 export async function prepareDecantSaleTransaction(
-  role: UserRole,
   items: DecantAssemblyItem[]
 ): Promise<{ success: boolean; error?: string }> {
   try {
@@ -479,7 +477,6 @@ export async function prepareDecantSaleTransaction(
  * Alternar la visibilidad pública de un producto (is_public = true/false) para la vidriera digital / link-in-bio.
  */
 export async function toggleProductVisibility(
-  role: UserRole,
   productId: string,
   isPublic: boolean
 ): Promise<{ success: boolean; error?: string }> {
@@ -516,14 +513,15 @@ export async function toggleProductVisibility(
 /**
  * Obtener únicamente insumos de packaging (type = 'supply') para el panel dedicado de insumos.
  */
-export async function getSupplies(role?: UserRole): Promise<{
+export async function getSupplies(): Promise<{
   success: boolean;
   data?: Product[];
   error?: string;
 }> {
   try {
+    // Seguridad: el rol SIEMPRE se deriva de la sesión autenticada (nunca de parámetros del cliente)
     const user = await getCurrentUser();
-    const isUserAdmin = user?.role === 'admin' || role === 'admin';
+    const isUserAdmin = user?.role === 'admin';
 
     if (!isSupabaseConfigured()) {
       return { success: true, data: [] };

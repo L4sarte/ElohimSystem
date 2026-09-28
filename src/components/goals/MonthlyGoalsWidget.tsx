@@ -18,7 +18,7 @@ export interface MonthlyGoalsWidgetProps {
 }
 
 export function MonthlyGoalsWidget({ startDate, endDate }: MonthlyGoalsWidgetProps) {
-  const { role } = useUserStore();
+  const role = useUserStore((state) => state.role);
   const [projection, setProjection] = useState<MonthlyProjectionData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -33,7 +33,7 @@ export function MonthlyGoalsWidget({ startDate, endDate }: MonthlyGoalsWidgetPro
   const fetchProjection = async () => {
     setLoading(true);
     setError(null);
-    const res = await getMonthlyProjection(role, startDate, endDate);
+    const res = await getMonthlyProjection(startDate, endDate);
     if (res.success && res.data) {
       setProjection(res.data);
     } else {
@@ -75,7 +75,7 @@ export function MonthlyGoalsWidget({ startDate, endDate }: MonthlyGoalsWidgetPro
     setSavingGoal(true);
     setGoalError(null);
 
-    const res = await setMonthlyGoal(role, projection.periodMonth, valRev, valProfit);
+    const res = await setMonthlyGoal(projection.periodMonth, valRev, valProfit);
     setSavingGoal(false);
 
     if (res.success) {
@@ -92,9 +92,9 @@ export function MonthlyGoalsWidget({ startDate, endDate }: MonthlyGoalsWidgetPro
   return (
     <div className="space-y-4">
       
-      <Card className="border border-[#1B362A] bg-[#13261E]/90 rounded-2xl shadow-xl overflow-hidden">
+      <Card className="border border-erp-border bg-erp-surface/90 rounded-2xl shadow-xl overflow-hidden">
         
-        <CardHeader className="border-b border-[#1B362A] pb-4">
+        <CardHeader className="border-b border-erp-border pb-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5">
               <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-tr from-violet-600 to-indigo-600 text-white shadow-md shadow-violet-500/20">
@@ -115,7 +115,7 @@ export function MonthlyGoalsWidget({ startDate, endDate }: MonthlyGoalsWidgetPro
                 variant="outline"
                 size="sm"
                 onClick={handleOpenModal}
-                className="h-8 text-xs cursor-pointer border-[#1B362A] bg-[#08130E] font-bold text-[#D0A96B] hover:bg-zinc-800"
+                className="h-8 text-xs cursor-pointer border-erp-border bg-erp-bg font-bold text-erp-gold hover:bg-zinc-800"
               >
                 <Settings className="mr-1.5 h-3.5 w-3.5" /> Configurar Meta
               </Button>
@@ -126,7 +126,7 @@ export function MonthlyGoalsWidget({ startDate, endDate }: MonthlyGoalsWidgetPro
                 className="text-zinc-400 hover:text-white cursor-pointer"
                 title="Actualizar Datos"
               >
-                <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin text-[#D0A96B]' : ''}`} />
+                <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin text-erp-gold' : ''}`} />
               </Button>
             </div>
           </div>
@@ -135,7 +135,7 @@ export function MonthlyGoalsWidget({ startDate, endDate }: MonthlyGoalsWidgetPro
         <CardContent className="p-6 space-y-6">
           {loading ? (
             <div className="flex items-center justify-center py-10 text-xs text-zinc-400 gap-2">
-              <RefreshCw className="h-4 w-4 animate-spin text-[#D0A96B]" />
+              <RefreshCw className="h-4 w-4 animate-spin text-erp-gold" />
               Calculando avance de metas del periodo...
             </div>
           ) : error || !projection ? (
@@ -156,14 +156,14 @@ export function MonthlyGoalsWidget({ startDate, endDate }: MonthlyGoalsWidgetPro
                     </span>
                   </div>
 
-                  <div className="h-3 w-full rounded-full bg-[#08130E] border border-[#1B362A] overflow-hidden p-0.5">
+                  <div className="h-3 w-full rounded-full bg-erp-bg border border-erp-border overflow-hidden p-0.5">
                     <div 
                       className="h-full rounded-full bg-gradient-to-r from-emerald-600 to-teal-400 transition-all duration-500"
                       style={{ width: `${Math.min(100, projection.revenueProgressPercent)}%` }}
                     />
                   </div>
                   
-                  <div className="flex justify-between text-[10px] text-zinc-500 font-mono">
+                  <div className="flex justify-between text-[11px] text-zinc-500 font-mono">
                     <span>Avance: <strong>{projection.revenueProgressPercent}%</strong></span>
                     <span>Meta: 100%</span>
                   </div>
@@ -173,19 +173,19 @@ export function MonthlyGoalsWidget({ startDate, endDate }: MonthlyGoalsWidgetPro
                 <div className="space-y-2">
                   <div className="flex items-center justify-between text-xs">
                     <span className="font-bold text-zinc-300">Ganancia Neta Obtenida vs Meta</span>
-                    <span className="font-mono font-bold text-[#D0A96B]">
+                    <span className="font-mono font-bold text-erp-gold">
                       ${projection.currentNetProfitArs.toLocaleString('es-AR')} / ${projection.netProfitGoalArs.toLocaleString('es-AR')} ARS
                     </span>
                   </div>
 
-                  <div className="h-3 w-full rounded-full bg-[#08130E] border border-[#1B362A] overflow-hidden p-0.5">
+                  <div className="h-3 w-full rounded-full bg-erp-bg border border-erp-border overflow-hidden p-0.5">
                     <div 
                       className="h-full rounded-full bg-gradient-to-r from-violet-600 to-indigo-500 transition-all duration-500"
                       style={{ width: `${Math.min(100, projection.profitProgressPercent)}%` }}
                     />
                   </div>
 
-                  <div className="flex justify-between text-[10px] text-zinc-500 font-mono">
+                  <div className="flex justify-between text-[11px] text-zinc-500 font-mono">
                     <span>Avance: <strong>{projection.profitProgressPercent}%</strong></span>
                     <span>Meta: 100%</span>
                   </div>
@@ -196,13 +196,13 @@ export function MonthlyGoalsWidget({ startDate, endDate }: MonthlyGoalsWidgetPro
               {/* CARD CONDICIONAL DE RUN RATE O PERIODO CERRADO */}
               {projection.isClosed ? (
                 /* MES PASADO (CERRADO): Bloque Neutral de Periodo Cerrado */
-                <div className="p-4 rounded-xl bg-[#08130E] border border-[#1B362A] space-y-2">
+                <div className="p-4 rounded-xl bg-erp-bg border border-erp-border space-y-2">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-[#D0A96B] uppercase tracking-wider font-serif flex items-center gap-1.5">
-                      <Lock className="h-4 w-4 text-[#D0A96B]" />
+                    <span className="text-xs font-bold text-erp-gold uppercase tracking-wider font-serif flex items-center gap-1.5">
+                      <Lock className="h-4 w-4 text-erp-gold" />
                       Periodo Cerrado ({projection.monthName})
                     </span>
-                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-zinc-800 text-zinc-300 border border-zinc-700">
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-zinc-800 text-zinc-300 border border-zinc-700">
                       Cierre Definitivo
                     </span>
                   </div>
@@ -220,7 +220,7 @@ export function MonthlyGoalsWidget({ startDate, endDate }: MonthlyGoalsWidgetPro
                   : 0;
 
                 return (
-                  <div className="p-4 rounded-xl bg-[#08130E] border border-[#1B362A] space-y-3">
+                  <div className="p-4 rounded-xl bg-erp-bg border border-erp-border space-y-3">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <span className="text-xs font-bold text-white uppercase tracking-wider font-serif">
@@ -229,19 +229,19 @@ export function MonthlyGoalsWidget({ startDate, endDate }: MonthlyGoalsWidgetPro
                       </div>
 
                       {isGoalMetAlready ? (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
                           <CheckCircle className="h-3 w-3" /> Meta Alcanzada (+{projectedSurplusPercent}%)
                         </span>
                       ) : projection.status === 'on_track' ? (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
                           <CheckCircle className="h-3 w-3" /> Ritmo Óptimo ({projection.runRatePercent}%)
                         </span>
                       ) : projection.status === 'warning' ? (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-500/10 text-amber-400 border border-amber-500/30">
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-amber-500/10 text-amber-400 border border-amber-500/30">
                           <AlertTriangle className="h-3 w-3" /> En Riesgo ({projection.runRatePercent}%)
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-rose-500/10 text-rose-400 border border-rose-500/30">
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-rose-500/10 text-rose-400 border border-rose-500/30">
                           <Flame className="h-3 w-3" /> Retrasado ({projection.runRatePercent}%)
                         </span>
                       )}
@@ -251,11 +251,11 @@ export function MonthlyGoalsWidget({ startDate, endDate }: MonthlyGoalsWidgetPro
                     <p className="text-xs text-zinc-300 leading-relaxed font-sans">
                       {isGoalMetAlready ? (
                         <>
-                          ¡Felicidades! Ya alcanzaste el 100% de la meta comercial fijada (${projection.revenueGoalArs.toLocaleString('es-AR')} ARS). A este ritmo de ventas, proyectás cerrar el mes con una facturación estimada de <strong className="text-emerald-400 font-mono">${projection.runRateRevenueArs.toLocaleString('es-AR')} ARS</strong> ({projection.runRatePercent}%), alcanzando un excedente proyectado de <strong className="text-[#D0A96B] font-mono">+${projectedSurplusArs.toLocaleString('es-AR')} ARS</strong>.
+                          ¡Felicidades! Ya alcanzaste el 100% de la meta comercial fijada (${projection.revenueGoalArs.toLocaleString('es-AR')} ARS). A este ritmo de ventas, proyectás cerrar el mes con una facturación estimada de <strong className="text-emerald-400 font-mono">${projection.runRateRevenueArs.toLocaleString('es-AR')} ARS</strong> ({projection.runRatePercent}%), alcanzando un excedente proyectado de <strong className="text-erp-gold font-mono">+${projectedSurplusArs.toLocaleString('es-AR')} ARS</strong>.
                         </>
                       ) : isProjectedToExceed ? (
                         <>
-                          A este ritmo comercial, cerrarás el mes con una facturación estimada de <strong className="text-emerald-400 font-mono">${projection.runRateRevenueArs.toLocaleString('es-AR')} ARS</strong> ({projection.runRatePercent}% de tu meta), proyectando un excedente de <strong className="text-[#D0A96B] font-mono">+${projectedSurplusArs.toLocaleString('es-AR')} ARS</strong>. Para asegurar el cumplimiento de la meta base (100%), solo necesitás un piso de <strong className="text-amber-400 font-mono">${projection.dailyRevenueNeeded.toLocaleString('es-AR')} ARS diarios</strong> durante los últimos {projection.remainingDays} días del mes.
+                          A este ritmo comercial, cerrarás el mes con una facturación estimada de <strong className="text-emerald-400 font-mono">${projection.runRateRevenueArs.toLocaleString('es-AR')} ARS</strong> ({projection.runRatePercent}% de tu meta), proyectando un excedente de <strong className="text-erp-gold font-mono">+${projectedSurplusArs.toLocaleString('es-AR')} ARS</strong>. Para asegurar el cumplimiento de la meta base (100%), solo necesitás un piso de <strong className="text-amber-400 font-mono">${projection.dailyRevenueNeeded.toLocaleString('es-AR')} ARS diarios</strong> durante los últimos {projection.remainingDays} días del mes.
                         </>
                       ) : (
                         <>
@@ -266,27 +266,27 @@ export function MonthlyGoalsWidget({ startDate, endDate }: MonthlyGoalsWidgetPro
 
                     {/* PROYECCIÓN MATEMÁTICA EN UNIDADES DIARIAS */}
                     {isGoalMetAlready ? (
-                      <div className="p-3 rounded-lg bg-[#13261E] border border-emerald-500/30 flex items-center gap-2.5 text-xs text-emerald-400">
+                      <div className="p-3 rounded-lg bg-erp-surface border border-emerald-500/30 flex items-center gap-2.5 text-xs text-emerald-400">
                         <Sparkles className="h-4 w-4 shrink-0 text-emerald-400" />
                         <div className="font-sans">
                           <strong className="font-semibold text-emerald-300">Objetivo Superado:</strong> Toda venta en los {projection.remainingDays} días restantes sumará directamente al récord de facturación mensual.
                         </div>
                       </div>
                     ) : projection.remainingDays > 0 && projection.dailyRevenueNeeded > 0 ? (
-                      <div className={`p-3 rounded-lg bg-[#13261E] border flex items-center gap-2.5 text-xs ${
-                        isProjectedToExceed ? 'border-[#D0A96B]/30 text-[#D0A96B]' : 'border-amber-500/30 text-amber-400'
+                      <div className={`p-3 rounded-lg bg-erp-surface border flex items-center gap-2.5 text-xs ${
+                        isProjectedToExceed ? 'border-erp-gold/30 text-erp-gold' : 'border-amber-500/30 text-amber-400'
                       }`}>
-                        <Sparkles className={`h-4 w-4 shrink-0 ${isProjectedToExceed ? 'text-[#D0A96B]' : 'text-amber-400'}`} />
+                        <Sparkles className={`h-4 w-4 shrink-0 ${isProjectedToExceed ? 'text-erp-gold' : 'text-amber-400'}`} />
                         <div className="font-sans">
                           <strong className="font-semibold">
                             {isProjectedToExceed ? 'Piso Diario para Asegurar Meta Base:' : 'Objetivo Diario para Alcanzar el 100%:'}
                           </strong>{' '}
                           Requiere una venta promedio de{' '}
-                          <span className={`font-bold underline ${isProjectedToExceed ? 'decoration-[#D0A96B]' : 'decoration-amber-400'}`}>
+                          <span className={`font-bold underline ${isProjectedToExceed ? 'decoration-erp-gold' : 'decoration-amber-400'}`}>
                             ~{Math.max(1, Math.round(projection.dailyRevenueNeeded / 55000))} perfumes (100ml)
                           </span>{' '}
                           ó{' '}
-                          <span className={`font-bold underline ${isProjectedToExceed ? 'decoration-[#D0A96B]' : 'decoration-amber-400'}`}>
+                          <span className={`font-bold underline ${isProjectedToExceed ? 'decoration-erp-gold' : 'decoration-amber-400'}`}>
                             ~{Math.max(1, Math.round(projection.dailyRevenueNeeded / 15000))} decants diarios
                           </span>.
                         </div>
@@ -305,13 +305,13 @@ export function MonthlyGoalsWidget({ startDate, endDate }: MonthlyGoalsWidgetPro
       {/* MODAL CONFIGURACIÓN DE META DEL MES ESPECÍFICO */}
       {isConfigModalOpen && projection && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="w-full max-w-md bg-[#08130E] border border-[#1B362A] rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+          <div className="w-full max-w-md bg-erp-bg border border-erp-border rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
             <form onSubmit={handleSaveGoal}>
               
-              <CardHeader className="border-b border-[#1B362A] pb-4">
+              <CardHeader className="border-b border-erp-border pb-4">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-base font-bold text-white font-serif flex items-center gap-2">
-                    <Target className="h-5 w-5 text-[#D0A96B]" />
+                    <Target className="h-5 w-5 text-erp-gold" />
                     Configurar Meta para {projection.monthName}
                   </CardTitle>
                   <button
@@ -346,12 +346,12 @@ export function MonthlyGoalsWidget({ startDate, endDate }: MonthlyGoalsWidgetPro
                     placeholder="Ej. 5000000"
                     value={inputRevGoal}
                     onChange={(e) => setInputRevGoal(e.target.value)}
-                    className="bg-[#13261E] border-[#1B362A] text-emerald-300 font-mono font-bold"
+                    className="bg-erp-surface border-erp-border text-emerald-300 font-mono font-bold"
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold uppercase tracking-wider text-[#D0A96B]">
+                  <label className="text-xs font-bold uppercase tracking-wider text-erp-gold">
                     Meta de Ganancia Neta (ARS) *
                   </label>
                   <Input
@@ -360,26 +360,26 @@ export function MonthlyGoalsWidget({ startDate, endDate }: MonthlyGoalsWidgetPro
                     placeholder="Ej. 2000000"
                     value={inputProfitGoal}
                     onChange={(e) => setInputProfitGoal(e.target.value)}
-                    className="bg-[#13261E] border-[#1B362A] text-[#E5C158] font-mono font-bold"
+                    className="bg-erp-surface border-erp-border text-erp-gold-hover font-mono font-bold"
                   />
                 </div>
 
               </CardContent>
 
-              <CardFooter className="border-t border-[#1B362A] pt-4 flex justify-end gap-3 bg-[#13261E]/40 px-6 py-4">
+              <CardFooter className="border-t border-erp-border pt-4 flex justify-end gap-3 bg-erp-surface/40 px-6 py-4">
                 <Button
                   type="button"
                   variant="outline"
                   onClick={() => setIsConfigModalOpen(false)}
                   disabled={savingGoal}
-                  className="border-[#1B362A] bg-[#13261E] text-zinc-300 hover:bg-zinc-800"
+                  className="border-erp-border bg-erp-surface text-zinc-300 hover:bg-zinc-800"
                 >
                   Cancelar
                 </Button>
                 <Button
                   type="submit"
                   disabled={savingGoal}
-                  className="bg-[#D0A96B] hover:bg-[#E5C158] text-[#08130E] font-extrabold text-xs shadow-md shadow-[#D0A96B]/20"
+                  className="bg-erp-gold hover:bg-erp-gold-hover text-erp-bg font-extrabold text-xs shadow-md shadow-erp-gold/20"
                 >
                   {savingGoal ? (
                     <>

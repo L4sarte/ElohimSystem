@@ -31,13 +31,20 @@ export async function loginAction(formData: FormData): Promise<AuthActionResult>
 
     const { email, password } = parseResult.data;
 
-    // Si Supabase no está configurado (modo local sin credenciales), permitir demo login seguro
+    // Si Supabase no está configurado, permitir demo login SOLO fuera de producción (consistencia con C4).
+    // En producción fail-closed: sin conexión a la base de datos no se permite iniciar sesión.
     if (!isSupabaseConfigured()) {
-      if (email.includes('@') && password.length >= 6) {
-        revalidatePath('/', 'layout');
-        return { success: true };
+      if (process.env.NODE_ENV !== 'production') {
+        if (email.includes('@') && password.length >= 6) {
+          revalidatePath('/', 'layout');
+          return { success: true };
+        }
+        return { success: false, error: 'Credenciales inválidas para el entorno de desarrollo.' };
       }
-      return { success: false, error: 'Credenciales inválidas para el entorno de desarrollo.' };
+      return {
+        success: false,
+        error: 'El servidor no tiene configurada la conexión con la base de datos. Contacta al administrador.',
+      };
     }
 
     const supabase = await createClient();

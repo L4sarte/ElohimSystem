@@ -21,6 +21,7 @@ interface ProductDetailClientProps {
   related: PublicProduct[];
   decantsAvailable: Array<{ size: string; ml: number; priceArs: number; stock: number }>;
   settings?: SystemSettingsData;
+  exchangeRate?: number;
 }
 
 export function ProductDetailClient({
@@ -28,6 +29,7 @@ export function ProductDetailClient({
   related,
   decantsAvailable,
   settings = DEFAULT_SYSTEM_SETTINGS,
+  exchangeRate = 1250,
 }: ProductDetailClientProps) {
   const { addItem, openDrawer } = useCartStore();
 
@@ -35,7 +37,6 @@ export function ProductDetailClient({
   const [quantity, setQuantity] = useState(1);
 
   const isDecant = product.type === 'decant_liquid';
-  const exchangeRate = 1200;
 
   // Recálculo dinámico de precio según el formato seleccionado (Botella vs Decants 5ml / 10ml)
   const currentOption = decantsAvailable.find((d) => d.size === selectedFormat) || {
@@ -79,7 +80,7 @@ export function ProductDetailClient({
   };
 
   return (
-    <div className="min-h-screen bg-[#08130E] text-zinc-100 flex flex-col font-sans selection:bg-[#D0A96B]/30 selection:text-[#E5C158]">
+    <div className="min-h-screen bg-erp-bg text-zinc-100 flex flex-col font-sans selection:bg-erp-gold/30 selection:text-erp-gold-hover">
       
       {/* HEADER & DRAWER */}
       <StorefrontHeader settings={settings} />
@@ -92,7 +93,7 @@ export function ProductDetailClient({
         <div className="flex items-center justify-between">
           <Link
             href="/tienda"
-            className="inline-flex items-center gap-2 text-xs font-bold text-zinc-400 hover:text-[#D0A96B] transition-colors"
+            className="inline-flex items-center gap-2 text-xs font-bold text-zinc-400 hover:text-erp-gold transition-colors"
           >
             <ArrowLeft className="h-4 w-4" />
             <span>Volver al Catálogo</span>
@@ -110,7 +111,7 @@ export function ProductDetailClient({
           <div className="space-y-6">
             
             {/* CAJA PRINCIPAL DE LA BOTELLA / IMAGEN */}
-            <div className="relative aspect-square w-full rounded-2xl bg-gradient-to-br from-[#13261E] via-[#08130E] to-[#1B362A]/40 border border-[#1B362A] flex items-center justify-center overflow-hidden shadow-2xl">
+            <div className="relative aspect-square w-full rounded-2xl bg-gradient-to-br from-erp-surface via-erp-bg to-erp-border/40 border border-erp-border flex items-center justify-center overflow-hidden shadow-2xl">
               {product.image_url ? (
                 <img
                   src={product.image_url}
@@ -119,11 +120,11 @@ export function ProductDetailClient({
                 />
               ) : (
                 <div className="flex flex-col items-center justify-center text-center space-y-3 p-12">
-                  <div className="h-28 w-28 rounded-2xl bg-[#13261E] border-2 border-[#D0A96B]/40 flex items-center justify-center text-[#D0A96B] shadow-2xl">
+                  <div className="h-28 w-28 rounded-2xl bg-erp-surface border-2 border-erp-gold/40 flex items-center justify-center text-erp-gold shadow-2xl">
                     {isDecant ? (
                       <Droplet className="h-14 w-14 text-blue-400" />
                     ) : (
-                      <Package className="h-14 w-14 text-[#D0A96B]" />
+                      <Package className="h-14 w-14 text-erp-gold" />
                     )}
                   </div>
                   <div className="text-xs font-mono text-zinc-400 tracking-widest uppercase">
@@ -134,11 +135,11 @@ export function ProductDetailClient({
 
               {/* BADGES EN LA IMAGEN */}
               <div className="absolute top-4 left-4 flex flex-col gap-1.5">
-                <span className="px-3 py-1 rounded-full bg-[#D0A96B] text-[#08130E] text-[10px] font-black uppercase tracking-wider shadow-md">
+                <span className="px-3 py-1 rounded-full bg-erp-gold text-erp-bg text-[11px] font-black uppercase tracking-wider shadow-md">
                   100% Original
                 </span>
                 {isDecant && (
-                  <span className="px-3 py-1 rounded-full bg-blue-500 text-white text-[10px] font-black uppercase tracking-wider shadow-md">
+                  <span className="px-3 py-1 rounded-full bg-blue-500 text-white text-[11px] font-black uppercase tracking-wider shadow-md">
                     Decant Fraccionado
                   </span>
                 )}
@@ -147,8 +148,8 @@ export function ProductDetailClient({
 
             {/* PIRÁMIDE OLFATIVA & NOTAS */}
             {product.olfactory_notes && product.olfactory_notes.length > 0 && (
-              <div className="p-5 rounded-2xl bg-[#13261E] border border-[#1B362A] space-y-3 shadow-xl">
-                <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-[#D0A96B]">
+              <div className="p-5 rounded-2xl bg-erp-surface border border-erp-border space-y-3 shadow-xl">
+                <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-erp-gold">
                   <Sparkles className="h-4 w-4" />
                   <span>Pirámide & Notas Olfativas</span>
                 </div>
@@ -161,7 +162,7 @@ export function ProductDetailClient({
                   {product.olfactory_notes.map((note, idx) => (
                     <span
                       key={idx}
-                      className="px-2.5 py-1 rounded-lg bg-[#08130E] border border-[#1B362A] text-xs font-medium text-zinc-200"
+                      className="px-2.5 py-1 rounded-lg bg-erp-bg border border-erp-border text-xs font-medium text-zinc-200"
                     >
                       • {note}
                     </span>
@@ -176,7 +177,7 @@ export function ProductDetailClient({
           <div className="space-y-6">
             
             <div>
-              <span className="text-xs font-extrabold uppercase tracking-widest text-[#D0A96B] font-mono">
+              <span className="text-xs font-extrabold uppercase tracking-widest text-erp-gold font-mono">
                 {product.brand}
               </span>
               <h1 className="text-2xl sm:text-4xl font-black text-white font-serif mt-1">
@@ -184,15 +185,15 @@ export function ProductDetailClient({
               </h1>
 
               {product.olfactory_family && (
-                <div className="mt-2 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#1B362A] border border-[#1B362A] text-xs text-zinc-300">
-                  <Sparkles className="h-3.5 w-3.5 text-[#D0A96B]" />
+                <div className="mt-2 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-secondary border border-erp-border text-xs text-zinc-300">
+                  <Sparkles className="h-3.5 w-3.5 text-erp-gold" />
                   <span>Familia Olfativa: <strong className="text-white">{product.olfactory_family}</strong></span>
                 </div>
               )}
             </div>
 
             {/* PRECIO & DISPONIBILIDAD */}
-            <div className="p-5 rounded-2xl bg-[#13261E] border border-[#1B362A] space-y-2">
+            <div className="p-5 rounded-2xl bg-erp-surface border border-erp-border space-y-2">
               <div className="flex items-baseline gap-3">
                 <span className="text-3xl sm:text-4xl font-black font-mono text-white">
                   ${product.base_price_ars.toLocaleString('es-AR')}
@@ -228,15 +229,15 @@ export function ProductDetailClient({
                     onClick={() => setSelectedFormat(d.size)}
                     className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
                       selectedFormat === d.size
-                        ? 'bg-[#1B362A] border-[#D0A96B] text-white shadow-md'
-                        : 'bg-[#13261E] border-[#1B362A] text-zinc-400 hover:border-zinc-500'
+                        ? 'bg-secondary border-erp-gold text-white shadow-md'
+                        : 'bg-erp-surface border-erp-border text-zinc-400 hover:border-zinc-500'
                     }`}
                   >
                     <div className="text-xs font-bold text-white flex items-center justify-between">
                       <span>{d.size}</span>
-                      {selectedFormat === d.size && <Check className="h-3.5 w-3.5 text-[#D0A96B]" />}
+                      {selectedFormat === d.size && <Check className="h-3.5 w-3.5 text-erp-gold" />}
                     </div>
-                    <div className="text-[11px] font-mono text-[#D0A96B] font-semibold mt-1">
+                    <div className="text-[11px] font-mono text-erp-gold font-semibold mt-1">
                       ${d.priceArs.toLocaleString('es-AR')} ARS
                     </div>
                   </button>
@@ -249,7 +250,7 @@ export function ProductDetailClient({
               <div className="flex items-center gap-4">
                 
                 {/* STEPPER */}
-                <div className="flex items-center gap-2 bg-[#13261E] border border-[#1B362A] rounded-xl p-1">
+                <div className="flex items-center gap-2 bg-erp-surface border border-erp-border rounded-xl p-1">
                   <button
                     onClick={() => setQuantity(Math.max(1, quantity - 1))}
                     className="p-2 text-zinc-400 hover:text-white cursor-pointer"
@@ -274,7 +275,7 @@ export function ProductDetailClient({
                 <Button
                   onClick={handleAddToCart}
                   disabled={product.stock_quantity <= 0}
-                  className="flex-1 h-12 bg-[#D0A96B] hover:bg-[#E5C158] text-[#08130E] font-black text-xs uppercase tracking-wider cursor-pointer shadow-xl shadow-[#D0A96B]/20 flex items-center justify-center gap-2"
+                  className="flex-1 h-12 bg-erp-gold hover:bg-erp-gold-hover text-erp-bg font-black text-xs uppercase tracking-wider cursor-pointer shadow-xl shadow-erp-gold/20 flex items-center justify-center gap-2"
                 >
                   <ShoppingBag className="h-4 w-4" />
                   <span>Agregar a la Bolsa</span>
@@ -294,9 +295,9 @@ export function ProductDetailClient({
             </div>
 
             {/* BENEFICIOS DE COMPRA */}
-            <div className="border-t border-[#1B362A] pt-6 space-y-3 text-xs text-zinc-400">
+            <div className="border-t border-erp-border pt-6 space-y-3 text-xs text-zinc-400">
               <div className="flex items-center gap-2.5">
-                <Truck className="h-4 w-4 text-[#D0A96B] shrink-0" />
+                <Truck className="h-4 w-4 text-erp-gold shrink-0" />
                 <span>Envíos rápidos a todo el país o retiro sin cargo en nuestro Showroom.</span>
               </div>
               <div className="flex items-center gap-2.5">
@@ -311,7 +312,7 @@ export function ProductDetailClient({
 
         {/* FRAGANCIAS RELACIONADAS */}
         {related.length > 0 && (
-          <section className="border-t border-[#1B362A] pt-12 space-y-6">
+          <section className="border-t border-erp-border pt-12 space-y-6">
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-xl font-bold text-white font-serif">
@@ -324,7 +325,7 @@ export function ProductDetailClient({
 
               <Link
                 href="/tienda"
-                className="text-xs font-bold text-[#D0A96B] hover:underline"
+                className="text-xs font-bold text-erp-gold hover:underline"
               >
                 Ver Todo
               </Link>

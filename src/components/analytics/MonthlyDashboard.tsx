@@ -30,28 +30,28 @@ const CustomBarTooltip = ({ active, payload, label }: BarTooltipProps) => {
     const gananciaNeta = data?.gananciaNeta ?? payload[2]?.value ?? payload[1]?.value;
 
     return (
-      <div className="bg-[#08130E]/95 border border-[#1B362A] p-3.5 rounded-xl shadow-2xl text-xs space-y-2 backdrop-blur-md">
-        <p className="font-serif font-bold text-[#D0A96B] border-b border-[#1B362A] pb-1 uppercase tracking-wider">
+      <div className="bg-erp-bg/95 border border-erp-border p-3.5 rounded-xl shadow-2xl text-xs space-y-2 backdrop-blur-md">
+        <p className="font-serif font-bold text-erp-gold border-b border-erp-border pb-1 uppercase tracking-wider">
           Mes de {label}
         </p>
         <div className="space-y-1.5 font-mono">
           <div className="flex items-center justify-between gap-4 text-zinc-300">
             <span className="flex items-center gap-1.5 font-sans">
-              <span className="h-2 w-2 rounded-full bg-[#D0A96B]"></span> Facturación Bruta:
+              <span className="h-2 w-2 rounded-full bg-erp-gold"></span> Facturación Bruta:
             </span>
-            <span className="font-bold text-[#D0A96B]">${Number(ingresos).toLocaleString('es-AR')} ARS</span>
+            <span className="font-bold text-erp-gold">${Number(ingresos || 0).toLocaleString('es-AR')} ARS</span>
           </div>
           <div className="flex items-center justify-between gap-4 text-zinc-300">
             <span className="flex items-center gap-1.5 font-sans">
               <span className="h-2 w-2 rounded-full bg-[#10B981]"></span> Ganancia Comercial Real:
             </span>
-            <span className="font-bold text-emerald-400">${Number(gananciaReal).toLocaleString('es-AR')} ARS</span>
+            <span className="font-bold text-emerald-400">${Number(gananciaReal || 0).toLocaleString('es-AR')} ARS</span>
           </div>
           <div className="flex items-center justify-between gap-4 text-zinc-300">
             <span className="flex items-center gap-1.5 font-sans">
               <span className="h-2 w-2 rounded-full bg-[#2E5C47]"></span> Ganancia Neta Final:
             </span>
-            <span className="font-bold text-teal-300">${Number(gananciaNeta).toLocaleString('es-AR')} ARS</span>
+            <span className="font-bold text-teal-300">${Number(gananciaNeta || 0).toLocaleString('es-AR')} ARS</span>
           </div>
         </div>
       </div>
@@ -76,10 +76,10 @@ const CustomPieTooltip = ({ active, payload }: PieTooltipProps) => {
   if (active && payload && payload.length) {
     const data = payload[0].payload;
     return (
-      <div className="bg-[#08130E]/95 border border-[#1B362A] p-3 rounded-xl shadow-2xl text-xs space-y-1 backdrop-blur-md font-mono">
+      <div className="bg-erp-bg/95 border border-erp-border p-3 rounded-xl shadow-2xl text-xs space-y-1 backdrop-blur-md font-mono">
         <p className="font-serif font-bold text-white font-sans">{data.name}</p>
-        <p className="text-[#D0A96B] font-bold">
-          {data.value}% del Total (${Number(data.amountArs).toLocaleString('es-AR')} ARS)
+        <p className="text-erp-gold font-bold">
+          {data.value}% del Total (${Number(data.amountArs || 0).toLocaleString('es-AR')} ARS)
         </p>
       </div>
     );
@@ -88,7 +88,7 @@ const CustomPieTooltip = ({ active, payload }: PieTooltipProps) => {
 };
 
 export function MonthlyDashboard() {
-  const { role } = useUserStore();
+  const role = useUserStore((state) => state.role);
   const [visualData, setVisualData] = useState<VisualDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -113,7 +113,7 @@ export function MonthlyDashboard() {
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center py-28 space-y-4">
-        <RefreshCw className="h-8 w-8 animate-spin text-[#D0A96B]" />
+        <RefreshCw className="h-8 w-8 animate-spin text-erp-gold" />
         <p className="text-sm font-medium text-zinc-400">Consultando datos reales de Supabase...</p>
       </div>
     );
@@ -125,7 +125,7 @@ export function MonthlyDashboard() {
         <AlertCircle className="h-10 w-10 text-rose-500" />
         <h3 className="text-base font-bold">No se pudieron cargar las métricas reales</h3>
         <p className="text-xs text-zinc-400 max-w-md">{error || 'Ocurrió un error al obtener la analítica gráfica.'}</p>
-        <Button variant="outline" onClick={fetchDashboardData} className="border-[#1B362A] bg-[#08130E] text-xs font-bold text-white">
+        <Button variant="outline" onClick={fetchDashboardData} className="border-erp-border bg-erp-bg text-xs font-bold text-white">
           Reintentar
         </Button>
       </div>
@@ -138,9 +138,9 @@ export function MonthlyDashboard() {
     <div className="space-y-6">
       
       {/* HEADER DE BIENVENIDA Y ACCIONES DE REPORTES */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between bg-[#13261E] p-6 rounded-2xl border border-[#1B362A] shadow-xl">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between bg-erp-surface p-6 rounded-2xl border border-erp-border shadow-xl">
         <div>
-          <span className="text-[10px] font-extrabold uppercase tracking-widest text-[#D0A96B] flex items-center gap-1">
+          <span className="text-[11px] font-extrabold uppercase tracking-widest text-erp-gold flex items-center gap-1">
             <Sparkles className="h-3.5 w-3.5" /> Analítica Real en Tiempo Real
           </span>
           <h2 className="text-2xl font-bold tracking-tight text-white font-serif mt-1">
@@ -156,14 +156,14 @@ export function MonthlyDashboard() {
             variant="outline" 
             size="sm" 
             onClick={fetchDashboardData}
-            className="border-[#1B362A] bg-[#08130E] text-xs font-semibold text-zinc-300 hover:bg-zinc-800 cursor-pointer"
+            className="border-erp-border bg-erp-bg text-xs font-semibold text-zinc-300 hover:bg-zinc-800 cursor-pointer"
           >
-            <RefreshCw className="mr-1.5 h-3.5 w-3.5 text-[#D0A96B]" /> Actualizar
+            <RefreshCw className="mr-1.5 h-3.5 w-3.5 text-erp-gold" /> Actualizar
           </Button>
 
           <Link href="/admin/reportes">
-            <Button variant="outline" size="sm" className="border-[#1B362A] bg-[#08130E] text-xs font-semibold text-zinc-300 hover:bg-zinc-800 cursor-pointer">
-              <BarChart3 className="mr-1.5 h-3.5 w-3.5 text-[#D0A96B]" /> Reporte Numérico / PDF
+            <Button variant="outline" size="sm" className="border-erp-border bg-erp-bg text-xs font-semibold text-zinc-300 hover:bg-zinc-800 cursor-pointer">
+              <BarChart3 className="mr-1.5 h-3.5 w-3.5 text-erp-gold" /> Reporte Numérico / PDF
             </Button>
           </Link>
         </div>
@@ -173,12 +173,12 @@ export function MonthlyDashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
         {/* GRÁFICO PRINCIPAL (BAR CHART): EVOLUCIÓN DE INGRESOS Y GANANCIAS */}
-        <Card className="border border-[#1B362A] bg-[#13261E] lg:col-span-2 rounded-2xl shadow-xl overflow-hidden">
-          <CardHeader className="pb-2 border-b border-[#1B362A]">
+        <Card className="border border-erp-border bg-erp-surface lg:col-span-2 rounded-2xl shadow-xl overflow-hidden">
+          <CardHeader className="pb-2 border-b border-erp-border">
             <div className="flex items-center justify-between">
               <div>
                 <CardTitle className="text-base font-bold text-white font-serif flex items-center gap-2">
-                  <BarChart3 className="h-5 w-5 text-[#D0A96B]" />
+                  <BarChart3 className="h-5 w-5 text-erp-gold" />
                   Evolución de Ingresos y Ganancias (Últimos 6 Meses)
                 </CardTitle>
                 <CardDescription className="text-xs text-zinc-400 mt-0.5">
@@ -186,9 +186,9 @@ export function MonthlyDashboard() {
                 </CardDescription>
               </div>
 
-              <div className="flex items-center gap-4 text-xs font-mono hidden sm:flex">
+              <div className="flex items-center gap-4 text-xs font-mono flex-wrap">
                 <div className="flex items-center gap-1.5 text-zinc-300">
-                  <span className="h-3 w-3 rounded bg-[#D0A96B]"></span> Facturación Bruta
+                  <span className="h-3 w-3 rounded bg-erp-gold"></span> Facturación Bruta
                 </div>
                 <div className="flex items-center gap-1.5 text-zinc-300">
                   <span className="h-3 w-3 rounded bg-[#10B981]"></span> Ganancia Real
@@ -201,18 +201,19 @@ export function MonthlyDashboard() {
           </CardHeader>
 
           <CardContent className="pt-6">
+            {monthlyRevenueData.length > 0 ? (
             <div className="h-80 w-full">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={monthlyRevenueData} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#1B362A" vertical={false} />
+                <BarChart data={monthlyRevenueData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
                   <XAxis 
                     dataKey="month" 
-                    stroke="#71717a" 
+                    stroke="var(--muted-foreground)" 
                     fontSize={12}
                     tickLine={false}
                   />
                   <YAxis 
-                    stroke="#71717a" 
+                    stroke="var(--muted-foreground)" 
                     fontSize={11}
                     tickFormatter={(value) => `$${(value / 1000000).toFixed(1)}M`}
                     tickLine={false}
@@ -240,12 +241,19 @@ export function MonthlyDashboard() {
                 </BarChart>
               </ResponsiveContainer>
             </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center h-64 text-center text-zinc-500 space-y-2 border border-dashed border-erp-border rounded-2xl bg-erp-bg/50">
+                <BarChart3 className="h-8 w-8 text-zinc-600" />
+                <p className="text-xs font-bold text-zinc-400">Sin datos suficientes para el gráfico</p>
+                <p className="text-[11px] max-w-xs">Aún no hay ventas registradas en los últimos 6 meses.</p>
+              </div>
+            )}
           </CardContent>
         </Card>
 
         {/* GRÁFICO SECUNDARIO (DONUT CHART): DISTRIBUCIÓN POR MEDIO DE PAGO */}
-        <Card className="border border-[#1B362A] bg-[#13261E] rounded-2xl shadow-xl flex flex-col justify-between overflow-hidden">
-          <CardHeader className="pb-2 border-b border-[#1B362A]">
+        <Card className="border border-erp-border bg-erp-surface rounded-2xl shadow-xl flex flex-col justify-between overflow-hidden">
+          <CardHeader className="pb-2 border-b border-erp-border">
             <CardTitle className="text-base font-bold text-white font-serif flex items-center gap-2">
               <PieChartIcon className="h-5 w-5 text-emerald-400" />
               Distribución por Medio de Pago
@@ -285,19 +293,19 @@ export function MonthlyDashboard() {
 
                   {/* Centro Informativo en el Donut */}
                   <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none text-center">
-                    <span className="text-[10px] uppercase font-extrabold tracking-widest text-zinc-500">Recaudado</span>
+                    <span className="text-[11px] uppercase font-extrabold tracking-widest text-zinc-500">Recaudado</span>
                     <span className="text-sm font-bold text-white font-mono">${(totalCurrentMonthGross / 1000000).toFixed(2)}M</span>
                   </div>
                 </div>
 
                 {/* Leyenda personalizada */}
-                <div className="grid grid-cols-2 gap-2 pt-2 border-t border-[#1B362A] text-xs font-mono">
+                <div className="grid grid-cols-2 gap-2 pt-2 border-t border-erp-border text-xs font-mono">
                   {paymentMethodDistribution.map((item, idx) => (
                     <div key={idx} className="flex items-center gap-2">
                       <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: item.color }}></span>
                       <div className="truncate">
                         <span className="text-zinc-300 font-sans text-[11px] block truncate">{item.name}</span>
-                        <span className="font-bold text-[#D0A96B]">{item.value}%</span>
+                        <span className="font-bold text-erp-gold">{item.value}%</span>
                       </div>
                     </div>
                   ))}
@@ -310,19 +318,19 @@ export function MonthlyDashboard() {
       </div>
 
       {/* RANKING TOP 5 PERFUMES MÁS VENDIDOS */}
-      <Card className="border border-[#1B362A] bg-[#13261E] rounded-2xl shadow-xl overflow-hidden">
-        <CardHeader className="border-b border-[#1B362A] pb-4">
+      <Card className="border border-erp-border bg-erp-surface rounded-2xl shadow-xl overflow-hidden">
+        <CardHeader className="border-b border-erp-border pb-4">
           <div className="flex items-center justify-between">
             <div>
               <CardTitle className="text-lg font-bold text-white font-serif flex items-center gap-2">
-                <Trophy className="h-5 w-5 text-[#D0A96B]" />
+                <Trophy className="h-5 w-5 text-erp-gold" />
                 Top 5 Fragancias Más Vendidas (Ranking Mes Actual)
               </CardTitle>
               <CardDescription className="text-xs text-zinc-400 mt-1">
                 Los productos estrella de perfumería con mayor rotación de stock e ingresos en Supabase.
               </CardDescription>
             </div>
-            <span className="text-xs font-mono text-[#D0A96B] bg-[#D0A96B]/10 px-3 py-1 rounded-full border border-[#D0A96B]/30 font-bold hidden sm:inline-block">
+            <span className="text-xs font-mono text-erp-gold bg-erp-gold/10 px-3 py-1 rounded-full border border-erp-gold/30 font-bold hidden sm:inline-block">
               ★ Best Sellers Reales
             </span>
           </div>
@@ -335,17 +343,17 @@ export function MonthlyDashboard() {
               <p>Las fragancias más vendidas aparecerán automáticamente al realizar cobros en el POS.</p>
             </div>
           ) : (
-            <div className="divide-y divide-[#1B362A]">
+            <div className="divide-y divide-erp-border">
               {topSellingProducts.map((prod) => (
-                <div key={prod.rank} className="p-4 flex items-center justify-between hover:bg-[#08130E]/40 transition-colors">
+                <div key={prod.rank} className="p-4 flex items-center justify-between hover:bg-erp-bg/40 transition-colors">
                   
                   <div className="flex items-center gap-4">
                     {/* Badge de Ranking */}
                     <div className={`h-10 w-10 rounded-xl flex items-center justify-center font-serif font-black text-base shadow-md ${
-                      prod.rank === 1 ? 'bg-[#D0A96B] text-[#08130E] shadow-[#D0A96B]/20' :
+                      prod.rank === 1 ? 'bg-erp-gold text-erp-bg shadow-erp-gold/20' :
                       prod.rank === 2 ? 'bg-zinc-300 text-zinc-900' :
                       prod.rank === 3 ? 'bg-amber-700 text-amber-100' :
-                      'bg-[#08130E] text-zinc-400 border border-[#1B362A]'
+                      'bg-erp-bg text-zinc-400 border border-erp-border'
                     }`}>
                       #{prod.rank}
                     </div>
@@ -361,7 +369,7 @@ export function MonthlyDashboard() {
                   </div>
 
                   <div className="text-right">
-                    <div className="text-sm font-bold text-[#D0A96B] font-mono">
+                    <div className="text-sm font-bold text-erp-gold font-mono">
                       ${prod.totalRevenueArs.toLocaleString('es-AR')} ARS
                     </div>
                     <div className="text-xs text-emerald-400 font-bold font-mono mt-0.5">

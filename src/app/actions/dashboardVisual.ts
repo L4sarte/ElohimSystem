@@ -3,6 +3,8 @@
 import { getServiceSupabase, isSupabaseConfigured } from '@/lib/supabase';
 import { UserRole } from '@/types';
 import { requireAdmin } from '@/lib/auth-checks';
+import { resolveItemUnitCost } from '@/lib/financial-calculations';
+import { buildRecipeFallbackMap } from '@/lib/recipe-fallback';
 import Decimal from 'decimal.js';
 
 export interface VisualDashboardData {
@@ -40,6 +42,7 @@ interface DbVisualSaleRow {
   status?: string | null;
   created_at?: string | null;
   gateway_fee_ars?: number | null;
+  exchange_rate_used?: number | null;
 }
 
 interface DbVisualItemRow {
@@ -47,6 +50,7 @@ interface DbVisualItemRow {
   product_id: string;
   quantity?: number | null;
   price_ars_at_moment?: number | null;
+  unit_cost_at_moment?: number | null;
   products?: {
     name?: string | null;
     brand?: string | null;
@@ -63,6 +67,7 @@ interface PaymentBreakdownItem {
   final_amount?: number;
   amount_base?: number;
   method_name?: string;
+  amount_usd?: number;
 }
 
 /**
@@ -107,7 +112,7 @@ export async function getVisualDashboardData(role?: UserRole): Promise<{
     const [salesRes, expensesRes] = await Promise.all([
       supabase
         .from('sales')
-        .select('id, total_ars, payment_methods, status, created_at, gateway_fee_ars')
+        .select('id, total_ars, payment_methods, status, created_at, gateway_fee_ars, exchange_rate_used')
         .gte('created_at', isoStart)
         .lte('created_at', isoEnd)
         .neq('status', 'voided')
@@ -123,6 +128,15 @@ export async function getVisualDashboardData(role?: UserRole): Promise<{
     if (salesRes.error) throw salesRes.error;
     if (expensesRes.error) throw expensesRes.error;
 
+    // Tasa de respaldo para ventas legacy sin metadata ni tasa histórica:
+    // última cotización registrada en DB -> 1000 (último recurso)
+    const { data: lastRateData } = await supabase
+      .from('exchange_rates')
+      .select('value_ars')
+      .order('created_at', { ascending: false })
+      .limit(1);
+    const legacyFallbackRate = Number(lastRateData?.[0]?.value_ars) || 1000;
+
     const allSales = (salesRes.data || []) as unknown as DbVisualSaleRow[];
     const allExpenses = (expensesRes.data || []) as unknown as DbVisualExpenseRow[];
 
@@ -133,22 +147,62 @@ export async function getVisualDashboardData(role?: UserRole): Promise<{
     if (allSaleIds.length > 0) {
       const { data: itemsData, error: itemsErr } = await supabase
         .from('sale_items')
-        .select('sale_id, product_id, quantity, price_ars_at_moment, products(name, brand, type, base_cost_ars)')
+        .select('sale_id, product_id, quantity, price_ars_at_moment, unit_cost_at_moment, products(name, brand, type, base_cost_ars)')
         .in('sale_id', allSaleIds);
 
-      if (!itemsErr && itemsData) {
-        allItems = itemsData as unknown as DbVisualItemRow[];
+      if (itemsErr) {
+        // Sin fallback silencioso: un saleCogsMap vacío computaría márgenes irreales del 100% (ingreso - 0 COGS)
+        throw itemsErr;
       }
+      allItems = (itemsData || []) as unknown as DbVisualItemRow[];
     }
 
-    // Mapear costo canónico por venta
+    // --- Mapear costo canónico por venta (misma cadena que el P&L) ---
     const saleCogsMap = new Map<string, Decimal>();
+
+    // Detectar productos que requieren fallbacks de costo (sin congelado ni de catálogo)
+    const missingCostProductIds = new Set<string>();
+    allItems.forEach((item: any) => {
+      const catCost = Number(item.products?.base_cost_ars || 0);
+      if (catCost <= 0 && item.product_id) {
+        missingCostProductIds.add(item.product_id);
+      }
+    });
+
+    // Fallbacks canónicos: último costo de compra + recetas BOM (sin constantes hardcodeadas)
+    const poCostMap: Record<string, Decimal> = {};
+    if (missingCostProductIds.size > 0) {
+      const { data: poItems } = await supabase
+        .from('purchase_order_items')
+        .select('product_id, unit_cost, created_at')
+        .in('product_id', Array.from(missingCostProductIds))
+        .order('created_at', { ascending: false });
+
+      if (poItems) {
+        poItems.forEach((poItem: any) => {
+          if (!poCostMap[poItem.product_id] && Number(poItem.unit_cost) > 0) {
+            poCostMap[poItem.product_id] = new Decimal(poItem.unit_cost);
+          }
+        });
+      }
+    }
+    const recipeFallbackMap = await buildRecipeFallbackMap(missingCostProductIds);
+
     allItems.forEach((item: any) => {
       const qty = new Decimal(item.quantity || 1);
-      const isDecant = item.products?.type === 'decant_liquid';
-      const mlCost = Number(item.products?.base_cost_ars || 0);
-      const unitCost = isDecant ? (mlCost * 5) + 559 : mlCost;
-      const itemCost = new Decimal(unitCost).times(qty);
+      const recipeInfo = recipeFallbackMap[item.product_id];
+
+      // Cadena canónica de resolución de costo unitario (idéntica a analytics.ts)
+      const costResolution = resolveItemUnitCost({
+        itemUnitCostAtMoment: item.unit_cost_at_moment,
+        productBaseCostArs: item.products?.base_cost_ars,
+        lastPurchaseOrderCostArs: poCostMap[item.product_id]?.toNumber(),
+        productType: item.products?.type,
+        decantMl: recipeInfo?.sizeMl ?? null,
+        supplyCostArs: recipeInfo?.supplyCostArs ?? null,
+      });
+
+      const itemCost = new Decimal(costResolution.unitCost).times(qty);
 
       const prev = saleCogsMap.get(item.sale_id) || new Decimal(0);
       saleCogsMap.set(item.sale_id, prev.plus(itemCost));
@@ -245,22 +299,29 @@ export async function getVisualDashboardData(role?: UserRole): Promise<{
 
       if (pm.breakdown && Array.isArray(pm.breakdown) && pm.breakdown.length > 0) {
         (pm.breakdown as PaymentBreakdownItem[]).forEach((b) => {
-          const amt = new Decimal(b.final_amount || b.amount_base || 0);
           const mName = String(b.method_name || '').toLowerCase();
 
           if (mName.includes('dólar') || mName.includes('usd') || mName.includes('billete')) {
-            sumCashUsd = sumCashUsd.plus(amt);
+            // Canal USD canónico: amount_usd × tasa histórica de la venta
+            // (consistente con cash.ts y el desglose del checkout). Fallback: el ARS
+            // ya convertido que trae el breakdown legacy.
+            const amtUsd = Number(b.amount_usd) || 0;
+            const rate = Number(sale.exchange_rate_used) || 0;
+            const arsValue = amtUsd > 0 && rate > 0
+              ? new Decimal(amtUsd).times(rate)
+              : new Decimal(b.final_amount || b.amount_base || 0);
+            sumCashUsd = sumCashUsd.plus(arsValue);
           } else if (mName.includes('transfer') || mName.includes('alias') || mName.includes('directo')) {
-            sumTransfer = sumTransfer.plus(amt);
+            sumTransfer = sumTransfer.plus(new Decimal(b.final_amount || b.amount_base || 0));
           } else if (mName.includes('efectivo')) {
-            sumCashArs = sumCashArs.plus(amt);
+            sumCashArs = sumCashArs.plus(new Decimal(b.final_amount || b.amount_base || 0));
           } else {
-            sumDigital = sumDigital.plus(amt);
+            sumDigital = sumDigital.plus(new Decimal(b.final_amount || b.amount_base || 0));
           }
         });
       } else {
         const cArs = new Decimal(Number(pm.cash_ars) || 0);
-        const cUsd = new Decimal(Number(pm.cash_usd) || 0).times(Number(pm.exchange_rate_usd) || 1000);
+        const cUsd = new Decimal(Number(pm.cash_usd) || 0).times(Number(sale.exchange_rate_used) || legacyFallbackRate);
         const dArs = new Decimal(Number(pm.digital_ars) || 0);
         const tArs = new Decimal(Number(pm.transfer_ars) || 0);
 

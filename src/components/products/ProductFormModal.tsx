@@ -250,7 +250,7 @@ export function ProductFormModal({ isOpen, onClose, onSuccess, product, role = '
   if (role !== 'admin') {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-        <div className="w-full max-w-md bg-white dark:bg-[#08130E] p-6 rounded-xl border border-rose-200 dark:border-rose-900/30 shadow-2xl">
+        <div className="w-full max-w-md bg-white dark:bg-erp-bg p-6 rounded-xl border border-rose-200 dark:border-rose-900/30 shadow-2xl">
           <div className="flex gap-3 text-rose-600 dark:text-rose-400">
             <AlertCircle className="h-6 w-6 shrink-0" />
             <div>
@@ -295,9 +295,9 @@ export function ProductFormModal({ isOpen, onClose, onSuccess, product, role = '
 
     let result;
     if (isEditing && product) {
-      result = await updateProduct(role, product.id, formData);
+      result = await updateProduct(product.id, formData);
     } else {
-      result = await createProduct(role, formData);
+      result = await createProduct(formData);
     }
 
     setLoading(false);
@@ -316,7 +316,7 @@ export function ProductFormModal({ isOpen, onClose, onSuccess, product, role = '
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200 overflow-y-auto">
-      <div className="w-[95vw] sm:max-w-xl bg-white dark:bg-[#08130E] border border-slate-200 dark:border-[#1B362A] rounded-xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 my-auto">
+      <div className="w-[95vw] sm:max-w-xl bg-white dark:bg-erp-bg border border-slate-200 dark:border-erp-border rounded-xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 my-auto">
         <form onSubmit={handleSubmit}>
           
           <CardHeader className="border-b border-slate-100 dark:border-zinc-900 pb-4">
@@ -379,14 +379,14 @@ export function ProductFormModal({ isOpen, onClose, onSuccess, product, role = '
             </div>
 
             {/* SECCIÓN IMAGEN DEL PRODUCTO CON OPTIMIZADOR AUTOMÁTICO WEBP */}
-            <div className="space-y-2 p-3.5 rounded-2xl bg-[#13261E]/80 border border-[#1B362A]">
+            <div className="space-y-2 p-3.5 rounded-2xl bg-erp-surface/80 border border-erp-border">
               <div className="flex items-center justify-between">
-                <label className="text-xs font-bold uppercase tracking-wider text-[#D0A96B] flex items-center gap-1.5">
+                <label className="text-xs font-bold uppercase tracking-wider text-erp-gold flex items-center gap-1.5">
                   <ImageIcon className="h-3.5 w-3.5" />
                   <span>Foto de Catálogo (Optimizador WebP Automático)</span>
                 </label>
                 {imageStats && (
-                  <span className="text-[10px] font-mono font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
+                  <span className="text-[11px] font-mono font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
                     {imageStats.originalSize} ➔ {imageStats.compressedSize} (-{imageStats.ratio}%)
                   </span>
                 )}
@@ -394,7 +394,7 @@ export function ProductFormModal({ isOpen, onClose, onSuccess, product, role = '
 
               <div className="flex items-center gap-4">
                 {imageUrl ? (
-                  <div className="relative h-20 w-20 rounded-xl overflow-hidden border border-[#D0A96B]/40 bg-[#08130E] shrink-0 group">
+                  <div className="relative h-20 w-20 rounded-xl overflow-hidden border border-erp-gold/40 bg-erp-bg shrink-0 group">
                     <img src={imageUrl} alt={name || 'Producto'} className="h-full w-full object-cover" />
                     <button
                       type="button"
@@ -405,14 +405,14 @@ export function ProductFormModal({ isOpen, onClose, onSuccess, product, role = '
                     </button>
                   </div>
                 ) : (
-                  <div className="h-20 w-20 rounded-xl border border-dashed border-[#1B362A] bg-[#08130E] flex flex-col items-center justify-center text-zinc-500 shrink-0">
+                  <div className="h-20 w-20 rounded-xl border border-dashed border-erp-border bg-erp-bg flex flex-col items-center justify-center text-zinc-500 shrink-0">
                     <UploadCloud className="h-6 w-6 text-zinc-400" />
-                    <span className="text-[9px] mt-1 text-zinc-400 font-medium">Sin foto</span>
+                    <span className="text-xs mt-1 text-zinc-400 font-medium">Sin foto</span>
                   </div>
                 )}
 
                 <div className="flex-1 space-y-1.5">
-                  <label className="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-xl bg-[#08130E] border border-[#D0A96B]/40 text-[#D0A96B] hover:bg-[#13261E] text-xs font-bold cursor-pointer transition-colors shadow-sm">
+                  <label className="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-xl bg-erp-bg border border-erp-gold/40 text-erp-gold hover:bg-erp-surface text-xs font-bold cursor-pointer transition-colors shadow-sm">
                     {optimizingImage ? (
                       <>
                         <RefreshCw className="h-3.5 w-3.5 animate-spin" />
@@ -432,7 +432,7 @@ export function ProductFormModal({ isOpen, onClose, onSuccess, product, role = '
                       className="hidden"
                     />
                   </label>
-                  <p className="text-[10px] text-zinc-400">
+                  <p className="text-[11px] text-zinc-400">
                     Redimensiona a máx. 1200px y comprime automáticamente a <span className="text-white font-semibold">WebP (80%)</span>.
                   </p>
                 </div>
@@ -469,9 +469,9 @@ export function ProductFormModal({ isOpen, onClose, onSuccess, product, role = '
 
             {/* BOTÓN Y SECCIÓN AUTO-COMPLETAR CON IA */}
             {type !== 'supply' && (
-              <div className="flex items-center justify-between p-2.5 rounded-xl bg-[#13261E] border border-[#1B362A]">
+              <div className="flex items-center justify-between p-2.5 rounded-xl bg-erp-surface border border-erp-border">
                 <div className="flex items-center gap-2">
-                  <Sparkles className="h-4 w-4 text-[#D0A96B]" />
+                  <Sparkles className="h-4 w-4 text-erp-gold" />
                   <span className="text-xs font-bold text-white">¿Tienes el texto de Fragrantica?</span>
                 </div>
                 <Button
@@ -479,7 +479,7 @@ export function ProductFormModal({ isOpen, onClose, onSuccess, product, role = '
                   size="sm"
                   variant="outline"
                   onClick={() => setAiModalOpen(true)}
-                  className="border-[#D0A96B]/40 bg-[#08130E] text-[#D0A96B] hover:bg-zinc-800 text-xs font-bold h-7 cursor-pointer flex items-center gap-1.5"
+                  className="border-erp-gold/40 bg-erp-bg text-erp-gold hover:bg-zinc-800 text-xs font-bold h-7 cursor-pointer flex items-center gap-1.5"
                 >
                   <Wand2 className="h-3.5 w-3.5" />
                   <span>Auto-completar con IA</span>
@@ -537,21 +537,21 @@ export function ProductFormModal({ isOpen, onClose, onSuccess, product, role = '
             {/* NOTAS OLFATIVAS CON CHIPS INTERACTIVOS (Solo Perfumes y Decants) */}
             {type !== 'supply' && (
               <div className="space-y-2">
-                <label className="text-xs font-bold uppercase tracking-wider text-[#D0A96B]">
+                <label className="text-xs font-bold uppercase tracking-wider text-erp-gold">
                   Notas Olfativas (separadas por coma)
                 </label>
                 <Input
                   placeholder="Ej. Vainilla, Tabaco, Bergamota, Cuero, Sándalo"
                   value={olfactoryNotesText}
                   onChange={(e) => setOlfactoryNotesText(e.target.value)}
-                  className="border-[#1B362A] focus-visible:ring-[#D0A96B]"
+                  className="border-erp-border focus-visible:ring-erp-gold"
                 />
                 
                 {/* SUGERENCIAS RÁPIDAS EN CHIPS */}
                 {dynamicNotes.length > 0 && (
                   <div className="space-y-1">
-                    <span className="text-[10px] font-bold text-zinc-400">Clic para agregar notas del catálogo:</span>
-                    <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto p-1 bg-[#08130E]/50 rounded-lg border border-[#1B362A]">
+                    <span className="text-[11px] font-bold text-zinc-400">Clic para agregar notas del catálogo:</span>
+                    <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto p-1 bg-erp-bg/50 rounded-lg border border-erp-border">
                       {dynamicNotes.slice(0, 15).map((note, idx) => {
                         const isSelected = olfactoryNotesText.toLowerCase().includes(note.toLowerCase());
                         return (
@@ -568,10 +568,10 @@ export function ProductFormModal({ isOpen, onClose, onSuccess, product, role = '
                                 setOlfactoryNotesText([...currentNotes, note].join(', '));
                               }
                             }}
-                            className={`text-[9px] px-2 py-0.5 rounded-md font-semibold transition-all cursor-pointer ${
+                            className={`text-xs px-2 py-0.5 rounded-md font-semibold transition-all cursor-pointer ${
                               isSelected
-                                ? 'bg-[#D0A96B] text-[#08130E] font-bold'
-                                : 'bg-[#13261E] text-zinc-300 hover:text-white border border-[#1B362A]'
+                                ? 'bg-erp-gold text-erp-bg font-bold'
+                                : 'bg-erp-surface text-zinc-300 hover:text-white border border-erp-border'
                             }`}
                           >
                             {isSelected ? `✓ ${note}` : `+ ${note}`}
@@ -604,7 +604,7 @@ export function ProductFormModal({ isOpen, onClose, onSuccess, product, role = '
                   <label className="text-xs font-bold uppercase tracking-wider text-amber-500 dark:text-amber-400">
                     Tipo de Insumo
                   </label>
-                  <div className="text-xs text-zinc-400 p-2 rounded-lg bg-[#13261E] border border-[#1B362A] font-mono">
+                  <div className="text-xs text-zinc-400 p-2 rounded-lg bg-erp-surface border border-erp-border font-mono">
                     Packaging / Envase Vacio (JIT)
                   </div>
                 </div>
@@ -629,7 +629,7 @@ export function ProductFormModal({ isOpen, onClose, onSuccess, product, role = '
             <div className="space-y-1.5">
               <label className="text-xs font-bold uppercase tracking-wider text-amber-500 dark:text-amber-400 flex items-center justify-between">
                 <span>Límite de Alerta de Stock Mínimo *</span>
-                <span className="text-[10px] text-zinc-500 font-normal">Dispara alerta en Radar de Re-Stock</span>
+                <span className="text-[11px] text-zinc-500 font-normal">Dispara alerta en Radar de Re-Stock</span>
               </label>
               <Input
                 type="number"
@@ -643,23 +643,23 @@ export function ProductFormModal({ isOpen, onClose, onSuccess, product, role = '
             </div>
 
             {/* SECCIÓN DE PRECIOS Y CALCULADORA AUTOMÁTICA DE RENTABILIDAD */}
-            <div className="space-y-3 border-t border-[#1B362A] pt-4 bg-[#13261E]/40 p-4 rounded-xl border">
+            <div className="space-y-3 border-t border-erp-border pt-4 bg-erp-surface/40 p-4 rounded-xl border">
               
               {/* TOGGLE Y TÍTULO DE CALCULADORA */}
               {type !== 'supply' && (
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-extrabold uppercase tracking-wider text-[#D0A96B] font-serif">
+                  <span className="text-xs font-extrabold uppercase tracking-wider text-erp-gold font-serif">
                     Calculadora de Rentabilidad
                   </span>
 
                   {/* TOGGLE SWITCH ENTRE MARGEN REAL Y MARKUP DIRECTO */}
-                  <div className="flex items-center rounded-lg bg-[#08130E] p-0.5 border border-[#1B362A]">
+                  <div className="flex items-center rounded-lg bg-erp-bg p-0.5 border border-erp-border">
                     <button
                       type="button"
                       onClick={() => handleModeChange('real_margin')}
-                      className={`px-2 py-1 rounded-md text-[10px] font-bold transition-all cursor-pointer ${
+                      className={`px-2 py-1 rounded-md text-[11px] font-bold transition-all cursor-pointer ${
                         profitMode === 'real_margin'
-                          ? 'bg-[#D0A96B] text-[#08130E] shadow-sm'
+                          ? 'bg-erp-gold text-erp-bg shadow-sm'
                           : 'text-zinc-400 hover:text-white'
                       }`}
                       title="Margen Real sobre Precio de Venta: Precio = Costo / (1 - %)"
@@ -669,9 +669,9 @@ export function ProductFormModal({ isOpen, onClose, onSuccess, product, role = '
                     <button
                       type="button"
                       onClick={() => handleModeChange('markup')}
-                      className={`px-2 py-1 rounded-md text-[10px] font-bold transition-all cursor-pointer ${
+                      className={`px-2 py-1 rounded-md text-[11px] font-bold transition-all cursor-pointer ${
                         profitMode === 'markup'
-                          ? 'bg-[#D0A96B] text-[#08130E] shadow-sm'
+                          ? 'bg-erp-gold text-erp-bg shadow-sm'
                           : 'text-zinc-400 hover:text-white'
                       }`}
                       title="Markup Directo sobre Costo: Precio = Costo * (1 + %)"
@@ -687,7 +687,7 @@ export function ProductFormModal({ isOpen, onClose, onSuccess, product, role = '
                 
                 {/* 1. COSTO ADQUISICIÓN ARS */}
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold uppercase tracking-wider text-[#D0A96B]">
+                  <label className="text-xs font-bold uppercase tracking-wider text-erp-gold">
                     {type === 'decant_liquid' ? 'Costo por ml (ARS/ml) *' : 'Costo (ARS) *'}
                   </label>
                   <div className="relative">
@@ -698,7 +698,7 @@ export function ProductFormModal({ isOpen, onClose, onSuccess, product, role = '
                       placeholder={type === 'decant_liquid' ? 'Ej. 1000' : 'Ej. 45000'}
                       value={baseCostArs}
                       onChange={(e) => handleCostChange(e.target.value)}
-                      className="pl-7 border-[#1B362A] focus-visible:ring-[#D0A96B] font-mono text-white"
+                      className="pl-7 border-erp-border focus-visible:ring-erp-gold font-mono text-white"
                     />
                   </div>
                 </div>
@@ -706,7 +706,7 @@ export function ProductFormModal({ isOpen, onClose, onSuccess, product, role = '
                 {/* 2. RENTABILIDAD DESEADA (%) - SOLO PERFUMES Y DECANTS */}
                 {type !== 'supply' && (
                   <div className="space-y-1.5">
-                    <label className="text-xs font-bold uppercase tracking-wider text-[#E5C158]">
+                    <label className="text-xs font-bold uppercase tracking-wider text-erp-gold-hover">
                       Rentabilidad (%)
                     </label>
                     <div className="relative">
@@ -716,7 +716,7 @@ export function ProductFormModal({ isOpen, onClose, onSuccess, product, role = '
                         placeholder="Ej. 40"
                         value={marginPercent}
                         onChange={(e) => handleMarginChange(e.target.value)}
-                        className="pr-7 border-[#1B362A] focus-visible:ring-[#D0A96B] font-mono text-white text-right"
+                        className="pr-7 border-erp-border focus-visible:ring-erp-gold font-mono text-white text-right"
                       />
                       <span className="absolute right-3 top-2 text-sm text-zinc-400 font-bold">%</span>
                     </div>
@@ -730,14 +730,14 @@ export function ProductFormModal({ isOpen, onClose, onSuccess, product, role = '
                       {type === 'decant_liquid' ? 'Precio Venta por ml (ARS/ml) *' : 'Precio Venta (ARS) *'}
                     </label>
                     <div className="relative">
-                      <span className="absolute left-3 top-2 px-0.5 text-sm text-[#D0A96B] font-bold">$</span>
+                      <span className="absolute left-3 top-2 px-0.5 text-sm text-erp-gold font-bold">$</span>
                       <Input
                         required
                         type="number"
                         placeholder={type === 'decant_liquid' ? 'Ej. 2000' : 'Ej. 75000'}
                         value={basePriceArs}
                         onChange={(e) => handlePriceChange(e.target.value)}
-                        className="pl-7 border-[#1B362A] focus-visible:ring-[#D0A96B] font-mono text-[#D0A96B] font-bold"
+                        className="pl-7 border-erp-border focus-visible:ring-erp-gold font-mono text-erp-gold font-bold"
                       />
                     </div>
                   </div>
@@ -746,7 +746,7 @@ export function ProductFormModal({ isOpen, onClose, onSuccess, product, role = '
                     <label className="text-xs font-bold uppercase tracking-wider text-zinc-500">
                       Precio Venta Directa
                     </label>
-                    <div className="text-xs text-zinc-400 p-2 rounded-lg bg-[#08130E] border border-[#1B362A] font-mono italic">
+                    <div className="text-xs text-zinc-400 p-2 rounded-lg bg-erp-bg border border-erp-border font-mono italic">
                       Sin venta al público ($0)
                     </div>
                   </div>
@@ -756,7 +756,7 @@ export function ProductFormModal({ isOpen, onClose, onSuccess, product, role = '
 
               {/* ESTIMADOR EN VIVO PARA DECANTS (MUESTRAS 5ML / 10ML) */}
               {type === 'decant_liquid' && numPrice > 0 && (
-                <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 rounded-lg bg-[#08130E] border border-[#1B362A] text-xs font-mono">
+                <div className="flex flex-wrap items-center justify-between gap-2 p-2.5 rounded-lg bg-erp-bg border border-erp-border text-xs font-mono">
                   <span className="text-zinc-400 text-[11px]">Proyección de venta por muestra:</span>
                   <div className="flex items-center gap-3">
                     <span className="text-emerald-400 font-bold text-[11px]">5ml: ${(numPrice * 5).toLocaleString('es-AR')} ARS</span>
@@ -768,11 +768,11 @@ export function ProductFormModal({ isOpen, onClose, onSuccess, product, role = '
 
               {/* FEEDBACK VISUAL EN TIEMPO REAL: GANANCIA NETA PROYECTADA */}
               {type !== 'supply' && numCost > 0 && numPrice > 0 && (
-                <div className="flex items-center justify-between text-xs pt-2 border-t border-[#1B362A]/60 font-mono">
+                <div className="flex items-center justify-between text-xs pt-2 border-t border-erp-border/60 font-mono">
                   <span className="text-zinc-400">
                     {type === 'decant_liquid' ? 'Ganancia neta proyectada por ml:' : 'Ganancia neta proyectada por unidad:'}
                   </span>
-                  <span className={projectedNetProfit >= 0 ? 'text-[#D0A96B] font-extrabold text-sm' : 'text-rose-400 font-extrabold text-sm'}>
+                  <span className={projectedNetProfit >= 0 ? 'text-erp-gold font-extrabold text-sm' : 'text-rose-400 font-extrabold text-sm'}>
                     ${Math.round(projectedNetProfit).toLocaleString('es-AR')} ARS
                   </span>
                 </div>
@@ -782,7 +782,7 @@ export function ProductFormModal({ isOpen, onClose, onSuccess, product, role = '
 
           </CardContent>
 
-          <CardFooter className="border-t border-slate-100 dark:border-zinc-900 pt-4 flex justify-end gap-3 bg-slate-50/50 dark:bg-[#13261E]/20 px-6 py-4">
+          <CardFooter className="border-t border-slate-100 dark:border-zinc-900 pt-4 flex justify-end gap-3 bg-slate-50/50 dark:bg-erp-surface/20 px-6 py-4">
             <Button
               type="button"
               variant="outline"
@@ -794,7 +794,7 @@ export function ProductFormModal({ isOpen, onClose, onSuccess, product, role = '
             <Button
               type="submit"
               disabled={loading}
-              className="bg-[#D0A96B] hover:bg-[#E5C158] text-[#08130E] font-extrabold shadow-md shadow-[#D0A96B]/20 text-[#08130E]"
+              className="bg-erp-gold hover:bg-erp-gold-hover text-erp-bg font-extrabold shadow-md shadow-erp-gold/20 text-erp-bg"
             >
               {loading ? (
                 <>
@@ -814,10 +814,10 @@ export function ProductFormModal({ isOpen, onClose, onSuccess, product, role = '
       {/* MODAL POPUP PARA PEGAR TEXTO DE FRAGRANTICA Y EXTRAER CON IA */}
       {aiModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
-          <div className="w-full max-w-lg bg-[#08130E] border border-[#1B362A] rounded-2xl shadow-2xl overflow-hidden p-6 space-y-4">
-            <div className="flex items-center justify-between border-b border-[#1B362A] pb-3">
+          <div className="w-full max-w-lg bg-erp-bg border border-erp-border rounded-2xl shadow-2xl overflow-hidden p-6 space-y-4">
+            <div className="flex items-center justify-between border-b border-erp-border pb-3">
               <div className="flex items-center gap-2">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#D0A96B]/10 text-[#D0A96B] border border-[#D0A96B]/30">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-erp-gold/10 text-erp-gold border border-erp-gold/30">
                   <Sparkles className="h-4 w-4" />
                 </div>
                 <h3 className="text-sm font-bold text-white">Extracción de Notas con IA</h3>
@@ -840,7 +840,7 @@ export function ProductFormModal({ isOpen, onClose, onSuccess, product, role = '
               value={rawFragranticaText}
               onChange={(e) => setRawFragranticaText(e.target.value)}
               placeholder="Pega aquí el texto... Ej: 'Bleu de Chanel es una fragancia de la familia olfativa Amaderada Aromática. Las Notas de Salida son Toronja, Limón, Menta y Pimienta Rosa. Las Notas de Corazón son Jengibre, Nuez Moscada y Jazmín...'"
-              className="w-full bg-[#13261E] border border-[#1B362A] rounded-xl p-3 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-[#D0A96B] font-mono"
+              className="w-full bg-erp-surface border border-erp-border rounded-xl p-3 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-erp-gold font-mono"
             />
 
             <div className="flex items-center justify-end gap-3 pt-2">
@@ -849,7 +849,7 @@ export function ProductFormModal({ isOpen, onClose, onSuccess, product, role = '
                 variant="outline"
                 onClick={() => setAiModalOpen(false)}
                 disabled={aiExtracting}
-                className="border-[#1B362A] text-zinc-400 hover:text-white text-xs cursor-pointer"
+                className="border-erp-border text-zinc-400 hover:text-white text-xs cursor-pointer"
               >
                 Cancelar
               </Button>
@@ -857,7 +857,7 @@ export function ProductFormModal({ isOpen, onClose, onSuccess, product, role = '
                 type="button"
                 onClick={handleAiAutoFill}
                 disabled={aiExtracting || !rawFragranticaText.trim()}
-                className="bg-[#D0A96B] hover:bg-[#E5C158] text-[#08130E] font-bold text-xs h-9 px-5 cursor-pointer flex items-center gap-2"
+                className="bg-erp-gold hover:bg-erp-gold-hover text-erp-bg font-bold text-xs h-9 px-5 cursor-pointer flex items-center gap-2"
               >
                 {aiExtracting ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />}
                 <span>{aiExtracting ? 'Procesando IA...' : 'Extraer y Auto-completar'}</span>

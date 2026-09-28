@@ -1,6 +1,17 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 
+const PUBLIC_ROUTE_PREFIXES = ['/login', '/auth', '/tienda', '/catalogo', '/_next', '/api'];
+
+function isPublicPath(pathname: string): boolean {
+  return (
+    PUBLIC_ROUTE_PREFIXES.some((prefix) => pathname.startsWith(prefix)) ||
+    pathname.includes('.') ||
+    pathname === '/favicon.ico' ||
+    pathname === '/logo-elohim.png'
+  );
+}
+
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({
     request,
@@ -8,9 +19,17 @@ export async function updateSession(request: NextRequest) {
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const pathname = request.nextUrl.pathname;
+  const isPublicRoute = isPublicPath(pathname);
 
-  // Si no está configurado Supabase en el entorno, continuar sin bloquear desarrollo local
+  // Fail-closed: si Supabase no está configurado, en producción las rutas protegidas redirigen a /login.
+  // En desarrollo local se permite continuar para trabajar con el fallback simulado.
   if (!supabaseUrl || !supabaseAnonKey || supabaseUrl.includes('placeholder')) {
+    if (process.env.NODE_ENV === 'production' && !isPublicRoute) {
+      const url = request.nextUrl.clone();
+      url.pathname = '/login';
+      return NextResponse.redirect(url);
+    }
     return supabaseResponse;
   }
 
@@ -40,21 +59,6 @@ export async function updateSession(request: NextRequest) {
       data: { user },
     } = await supabase.auth.getUser();
 
-    const pathname = request.nextUrl.pathname;
-
-    // Rutas públicas permitidas sin autenticación
-    const isPublicRoute =
-      pathname === '/login' ||
-      pathname.startsWith('/login') ||
-      pathname.startsWith('/auth') ||
-      pathname.startsWith('/tienda') ||
-      pathname.startsWith('/catalogo') ||
-      pathname.startsWith('/_next') ||
-      pathname.startsWith('/api') ||
-      pathname.includes('.') ||
-      pathname === '/favicon.ico' ||
-      pathname === '/logo-elohim.png';
-
     if (!user && !isPublicRoute) {
       const url = request.nextUrl.clone();
       url.pathname = '/login';
@@ -70,6 +74,13 @@ export async function updateSession(request: NextRequest) {
     return supabaseResponse;
   } catch (error) {
     console.error('Error en updateSession middleware:', error);
+    // Fail-closed: si falla la validación de sesión en una ruta protegida del ERP,
+    // redirigir a /login en lugar de dejar pasar la petición sin autenticar.
+    if (!isPublicRoute) {
+      const url = request.nextUrl.clone();
+      url.pathname = '/login';
+      return NextResponse.redirect(url);
+    }
     return supabaseResponse;
   }
 }

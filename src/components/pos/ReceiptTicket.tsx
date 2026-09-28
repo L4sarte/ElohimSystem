@@ -112,22 +112,22 @@ export function ReceiptTicket({
             {settings.trade_name || 'ELOHIM IMPORT'}
           </h2>
           {settings.slogan && (
-            <p className="text-[9px] text-zinc-800">{settings.slogan}</p>
+            <p className="text-xs text-zinc-800">{settings.slogan}</p>
           )}
           
-          <div className="text-[9px] text-zinc-700 space-y-0.5 pt-0.5">
+          <div className="text-xs text-zinc-700 space-y-0.5 pt-0.5">
             {settings.cuit_tax_id && <div>CUIT: {settings.cuit_tax_id}</div>}
             {settings.address && <div>{settings.address} {settings.city ? `• ${settings.city}` : ''}</div>}
             {settings.phone && <div>Tel / WhatsApp: {settings.phone}</div>}
           </div>
 
-          <div className="text-[9px] font-bold border border-black px-2 py-0.5 mt-1 inline-block text-black uppercase">
+          <div className="text-xs font-bold border border-black px-2 py-0.5 mt-1 inline-block text-black uppercase">
             {settings.receipt_header || 'DOCUMENTO NO VÁLIDO COMO FACTURA'}
           </div>
         </div>
 
         {/* METADATA DE LA TRANSACCIÓN */}
-        <div className="py-2 border-b border-dashed border-black space-y-1 text-[10px] text-black">
+        <div className="py-2 border-b border-dashed border-black space-y-1 text-[11px] text-black">
           <div className="flex justify-between">
             <span>N° Ticket:</span>
             <span className="font-bold">#{ticketNumber}</span>
@@ -148,7 +148,7 @@ export function ReceiptTicket({
 
         {/* CUERPO - PRODUCTOS, DECANTS Y PACKAGING */}
         <div className="py-2.5 border-b border-dashed border-black space-y-2 text-black">
-          <div className="flex justify-between font-bold border-b border-black pb-1 text-[10px]">
+          <div className="flex justify-between font-bold border-b border-black pb-1 text-[11px]">
             <span className="w-1/2">CONCEPTO</span>
             <span className="w-1/4 text-center">CANT x P.U</span>
             <span className="w-1/4 text-right">TOTAL</span>
@@ -159,7 +159,7 @@ export function ReceiptTicket({
               <div className="font-bold truncate">
                 {item.brand ? `[${item.brand}] ` : ''}{item.name}
               </div>
-              <div className="flex justify-between text-[10px] pl-2">
+              <div className="flex justify-between text-[11px] pl-2">
                 <span className="w-1/2"></span>
                 <span className="w-1/4 text-center">
                   {item.quantity} x ${item.priceArs.toLocaleString('es-AR')}
@@ -180,7 +180,7 @@ export function ReceiptTicket({
           </div>
 
           {(discountAmountArs > 0 || (paymentMethods?.discount?.amount_ars > 0)) && (
-            <div className="flex justify-between font-bold text-[10px]">
+            <div className="flex justify-between font-bold text-[11px]">
               <span>
                 Descuento aplicado
                 {(discountPercentage > 0 || paymentMethods?.discount?.percentage > 0)
@@ -194,7 +194,7 @@ export function ReceiptTicket({
           )}
 
           {surchargeArs > 0 && (
-            <div className="flex justify-between font-bold text-[10px]">
+            <div className="flex justify-between font-bold text-[11px]">
               <span>Costo Financiero Cuotas:</span>
               <span>+${surchargeArs.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
             </div>
@@ -205,15 +205,15 @@ export function ReceiptTicket({
             <span>${totalArs.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
           </div>
 
-          <div className="flex justify-between text-[10px] text-zinc-800">
+          <div className="flex justify-between text-[11px] text-zinc-800">
             <span>Equiv. Dólares (USD):</span>
             <span>u$s {totalUsd.toFixed(2)} (Tasa: ${exchangeRate})</span>
           </div>
         </div>
 
         {/* MEDIOS DE PAGO RECIBIDOS */}
-        <div className="py-2 border-b border-dashed border-black space-y-1 text-[10px] text-black">
-          <span className="font-bold block uppercase tracking-wider text-[9px] mb-1">Medios de Pago:</span>
+        <div className="py-2 border-b border-dashed border-black space-y-1 text-[11px] text-black">
+          <span className="font-bold block uppercase tracking-wider text-xs mb-1">Medios de Pago:</span>
           
           {breakdown.length > 0 ? (
             breakdown.map((b: any, i: number) => (
@@ -231,13 +231,13 @@ export function ReceiptTicket({
         </div>
 
         {/* PIE Y AGRADECIMIENTO */}
-        <div className="pt-3 text-center space-y-1 text-[10px] text-black">
+        <div className="pt-3 text-center space-y-1 text-[11px] text-black">
           <p className="font-bold">{settings.receipt_footer_message || settings.receipt_footer_text}</p>
-          <p className="text-[9px]">
+          <p className="text-xs">
             Conserve este comprobante para cambios o devoluciones dentro de los {settings.warranty_policy_days || 30} días.
           </p>
           {settings.instagram_handle && (
-            <p className="text-[9px] font-semibold">Instagram: {settings.instagram_handle}</p>
+            <p className="text-xs font-semibold">Instagram: {settings.instagram_handle}</p>
           )}
           <div className="pt-2 text-[8px] tracking-widest text-zinc-600 uppercase font-sans">
             {settings.trade_name} ERP • Sistema Bimonetario

@@ -6,7 +6,8 @@ import { CreatePOPayload, PurchaseOrder, CheckInItemPayload, CheckInPaymentDetai
 import { revalidatePath } from 'next/cache';
 import { requireAdmin } from '@/lib/auth-checks';
 import { purchaseInputSchema } from '@/lib/purchase-validation';
-import { withdrawFromAccount, getTreasuryAccounts } from '@/app/actions/treasury';
+import { getTreasuryAccounts } from '@/app/actions/treasury';
+import { withdrawFromAccount } from '@/lib/treasury-ops';
 
 export interface PurchaseItemInput {
   product_id: string;
@@ -418,6 +419,7 @@ export async function confirmCheckInAction(
 ): Promise<{
   success: boolean;
   message?: string;
+  warning?: string;
   error?: string;
 }> {
   try {
@@ -483,7 +485,6 @@ export async function confirmCheckInAction(
     // 4. Procesar ítems y calcular unidades totales recibidas
     const poItems = po.purchase_order_items || [];
     let totalReceivedUnits = 0;
-    let totalMerchandiseCost = 0;
 
     const itemsToProcess: Array<{
       poiId: string;
@@ -498,7 +499,6 @@ export async function confirmCheckInAction(
         : Number(item.expected_quantity || 0);
 
       totalReceivedUnits += receivedQty;
-      totalMerchandiseCost += receivedQty * Number(item.unit_cost || 0);
 
       itemsToProcess.push({
         poiId: item.id,
@@ -515,83 +515,17 @@ export async function confirmCheckInAction(
       };
     }
 
-    // Gasto logístico prorrateado por cada unidad que ingresa
-    const expensePerUnit = totalExpenses > 0 ? totalExpenses / totalReceivedUnits : 0;
+    // (Las actualizaciones de ítems, incremento de stock y recálculo de PPP ocurren
+    // dentro del RPC transaccional confirm_purchase_order_checkin)
 
-    // 5. Actualizar received_quantity en purchase_order_items
-    for (const it of itemsToProcess) {
-      const { error: poiUpdateErr } = await supabase
-        .from('purchase_order_items')
-        .update({ received_quantity: it.receivedQty })
-        .eq('id', it.poiId);
-
-      if (poiUpdateErr) {
-        console.error('Error al actualizar purchase_order_items:', poiUpdateErr);
-        return {
-          success: false,
-          error: `Error al actualizar cantidades de la orden: ${poiUpdateErr.message}`,
-        };
-      }
-    }
-
-    // 6. Incrementar stock y recalcular Costo Promedio Ponderado (PPP) en products
-    for (const it of itemsToProcess) {
-      if (it.receivedQty <= 0) continue;
-
-      const { data: product, error: prodErr } = await supabase
-        .from('products')
-        .select('id, name, type, stock_quantity, base_cost_ars')
-        .eq('id', it.productId)
-        .single();
-
-      if (prodErr || !product) {
-        console.error(`Producto ID ${it.productId} no encontrado al recibir stock:`, prodErr);
-        continue;
-      }
-
-      const currentStock = Number(product.stock_quantity || 0);
-      const currentCost = Number(product.base_cost_ars || 0);
-      const newStock = currentStock + it.receivedQty;
-
-      // Costo landed unitario (costo proveedor + flete/gasto prorrateado)
-      const landedUnitCost = it.unitCost + expensePerUnit;
-
-      // Cálculo del nuevo Costo Promedio Ponderado (Weighted Average Cost)
-      let newAverageCost = landedUnitCost;
-      if (newStock > 0) {
-        newAverageCost = ((currentStock * currentCost) + (it.receivedQty * landedUnitCost)) / newStock;
-      }
-      newAverageCost = Math.round(newAverageCost * 100) / 100;
-
-      // Actualizar tabla products (compatible tanto con perfumes bottle como insumos supply)
-      const { error: updateProdErr } = await supabase
-        .from('products')
-        .update({
-          stock_quantity: newStock,
-          base_cost_ars: newAverageCost,
-        })
-        .eq('id', it.productId);
-
-      if (updateProdErr) {
-        console.error(`Error actualizando stock de producto ${product.name}:`, updateProdErr);
-        return {
-          success: false,
-          error: `Error actualizando stock de ${product.name}: ${updateProdErr.message}`,
-        };
-      }
-    }
-
-    // 7. Actualizar la orden purchase_orders a 'received'
-    const grandTotal = totalMerchandiseCost + totalExpenses;
-
-    // 8. Procesamiento Financiero Contable y Deducción de Tesorería
+    // 7. Procesamiento Financiero: preparar el pago para el RPC transaccional
     const isPaid = paymentDetails ? Boolean(paymentDetails.isPaid) : true;
-    let paymentNote = '';
-    let usedAccountName = '';
 
+    // Resolver cuenta de tesorería de origen (el RPC valida existencia y saldo duramente)
+    let targetAccId: string | null = null;
+    let usedAccountName = '';
     if (isPaid) {
-      // Opción A: Pagado al Contado / Inmediato
-      let targetAccId = paymentDetails?.treasuryAccountId;
+      targetAccId = paymentDetails?.treasuryAccountId || null;
       if (!targetAccId) {
         const resAcc = await getTreasuryAccounts();
         if (resAcc.success && resAcc.data && resAcc.data.length > 0) {
@@ -606,83 +540,42 @@ export async function confirmCheckInAction(
           .single();
         if (accData) usedAccountName = accData.account_name;
       }
-
-      if (targetAccId && grandTotal > 0) {
-        // Debitar saldo de la cuenta de tesorería seleccionada y asentar movimiento único de auditoría
-        const poDescription = `Pago a Proveedor ${(po.suppliers as any)?.name || 'B2B'} - Orden #${poId.slice(0, 8).toUpperCase()}`;
-        await withdrawFromAccount(targetAccId, grandTotal, poDescription, poId);
-      }
-
-      paymentNote = `[PAGADO CONTADO: ${usedAccountName || 'Tesorería'} - $${grandTotal.toLocaleString('es-AR')}]`;
-
-      // Sincronizar en tabla purchases para reflejar en Historial de Compras B2B
-      try {
-        await supabase.from('purchases').upsert({
-          id: poId,
-          supplier_id: po.supplier_id,
-          admin_id: adminUser.id,
-          total_ars: grandTotal,
-          total_usd: 0,
-          status: 'received',
-          payment_status: 'paid',
-          created_at: (po as any).created_at || new Date().toISOString(),
-        });
-      } catch (purErr) {
-        console.warn('Nota: Sincronización en purchases:', purErr);
-      }
-    } else {
-      // Opción B: Pendiente de Pago (Cuentas por Pagar - CxP)
-      const dueDate = paymentDetails?.dueDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-      paymentNote = `[PENDIENTE CxP - Vence: ${dueDate}]`;
-
-      // Sincronizar en tabla purchases como unpaid
-      try {
-        await supabase.from('purchases').upsert({
-          id: poId,
-          supplier_id: po.supplier_id,
-          admin_id: adminUser.id,
-          total_ars: grandTotal,
-          total_usd: 0,
-          status: 'received',
-          payment_status: 'unpaid',
-          created_at: (po as any).created_at || new Date().toISOString(),
-        });
-
-        // Insertar en tabla accounts_payable para impactar el módulo de Deudas Pendientes
-        await supabase.from('accounts_payable').insert({
-          supplier_id: po.supplier_id,
-          purchase_id: poId,
-          total_amount_ars: grandTotal,
-          paid_amount_ars: 0,
-          due_date: dueDate,
-          status: 'pending',
-        });
-      } catch (cxpErr) {
-        console.warn('Nota: Registro en accounts_payable:', cxpErr);
-      }
     }
 
+    // Notas de auditoría de la orden (el débito ocurre dentro del RPC: si falla, TODO el check-in revierte)
+    const paymentNote = isPaid
+      ? `[PAGADO CONTADO: ${usedAccountName || 'Tesorería'}]`
+      : `[PENDIENTE CxP - Vence: ${paymentDetails?.dueDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}]`;
     const previousNotes = (po as any).notes;
     const finalNotes = previousNotes ? `${previousNotes} | ${paymentNote}` : paymentNote;
 
-    const { error: updatePoErr } = await supabase
-      .from('purchase_orders')
-      .update({
-        status: 'received',
-        total_expenses: totalExpenses,
-        grand_total: grandTotal,
-        notes: finalNotes,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', poId);
+    // 8. RPC TRANSACCIONAL: todo el check-in en un solo bloque SQL atómico
+    // (ítems + stock + PPP + tesorería/CxP + estado de la orden). Cualquier fallo
+    // intermedio revierte COMPLETAMENTE la transacción: no quedan órdenes a medio
+    // recibir ni cuentas desbalanceadas. Un débito con saldo insuficiente rechaza
+    // todo el check-in con error explícito.
+    const { data: rpcData, error: rpcError } = await supabase.rpc('confirm_purchase_order_checkin', {
+      p_po_id: poId,
+      p_admin_id: adminUser.id,
+      p_items: itemsToProcess.map((it) => ({
+        poi_id: it.poiId,
+        received_qty: it.receivedQty,
+      })),
+      p_is_paid: isPaid,
+      p_treasury_account_id: targetAccId,
+      p_due_date: isPaid ? null : (paymentDetails?.dueDate || null),
+      p_notes: finalNotes,
+      p_description: `Pago a Proveedor ${(po.suppliers as any)?.name || 'B2B'} - Orden #${poId.slice(0, 8).toUpperCase()}`,
+    });
 
-    if (updatePoErr) {
-      console.error('Error al actualizar estado de purchase_orders:', updatePoErr);
-      return {
-        success: false,
-        error: `Error al actualizar estado de la orden: ${updatePoErr.message}`,
-      };
+    if (rpcError) {
+      console.error('[CONFIRM_CHECKIN_RPC_ERROR]:', rpcError);
+      throw rpcError;
     }
+
+    const rpcRows = (rpcData as unknown as Array<{ o_received_units: number; o_grand_total: number }> | null) || [];
+    const receivedUnitsFinal = Number(rpcRows[0]?.o_received_units ?? totalReceivedUnits);
+    const grandTotalFinal = Number(rpcRows[0]?.o_grand_total ?? 0);
 
     // 9. Revalidar rutas clave del sistema
     revalidatePath('/compras');
@@ -695,12 +588,12 @@ export async function confirmCheckInAction(
     revalidatePath('/');
 
     const financialFeedback = isPaid
-      ? `Fondos de $${grandTotal.toLocaleString('es-AR')} debitados contablemente de ${usedAccountName || 'Tesorería'}.`
+      ? `Fondos de $${grandTotalFinal.toLocaleString('es-AR')} debitados contablemente de ${usedAccountName || 'Tesorería'}.`
       : `Orden registrada en Cuentas por Pagar (CxP) pendiente de liquidación.`;
 
     return {
       success: true,
-      message: `¡Mercadería ingresada exitosamente! Se sumaron +${totalReceivedUnits} unidades al stock. ${financialFeedback}`,
+      message: `¡Mercadería ingresada exitosamente! Se sumaron +${receivedUnitsFinal} unidades al stock. ${financialFeedback}`,
     };
   } catch (error: unknown) {
     console.error('Error en confirmCheckInAction:', error);

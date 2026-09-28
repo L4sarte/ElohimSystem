@@ -65,13 +65,13 @@ export function CatalogGeneratorModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-200 overflow-y-auto">
-      <div className="w-[95vw] sm:max-w-3xl bg-[#13261E] border border-[#1B362A] rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 my-auto">
+      <div className="w-[95vw] sm:max-w-3xl bg-erp-surface border border-erp-border rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 my-auto">
         
         {/* HEADER */}
-        <CardHeader className="border-b border-[#1B362A] pb-4">
+        <CardHeader className="border-b border-erp-border pb-4">
           <div className="flex items-center justify-between">
             <CardTitle className="text-lg font-bold text-white font-serif flex items-center gap-2">
-              <Crown className="h-5 w-5 text-[#D0A96B]" />
+              <Crown className="h-5 w-5 text-erp-gold" />
               Generador de Catálogo Rápido ({selectedProducts.length} productos)
             </CardTitle>
             <button onClick={onClose} className="text-zinc-400 hover:text-white p-1 cursor-pointer">
@@ -85,19 +85,19 @@ export function CatalogGeneratorModal({
           {/* SELECTORES DE ESTILO Y MONEDA */}
           <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
             <div className="flex items-center gap-2">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Estética:</span>
-              <div className="flex rounded-lg bg-[#08130E] border border-[#1B362A] p-0.5">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-400">Estética:</span>
+              <div className="flex rounded-lg bg-erp-bg border border-erp-border p-0.5">
                 <button
                   onClick={() => setThemeMode('luxury_dark')}
-                  className={`px-2.5 py-1 rounded-md text-[10px] font-bold cursor-pointer transition-all ${
-                    themeMode === 'luxury_dark' ? 'bg-[#13261E] text-[#D0A96B] border border-[#D0A96B]/30' : 'text-zinc-400'
+                  className={`px-2.5 py-1 rounded-md text-[11px] font-bold cursor-pointer transition-all ${
+                    themeMode === 'luxury_dark' ? 'bg-erp-surface text-erp-gold border border-erp-gold/30' : 'text-zinc-400'
                   }`}
                 >
                   Luxury Dark
                 </button>
                 <button
                   onClick={() => setThemeMode('minimal_light')}
-                  className={`px-2.5 py-1 rounded-md text-[10px] font-bold cursor-pointer transition-all ${
+                  className={`px-2.5 py-1 rounded-md text-[11px] font-bold cursor-pointer transition-all ${
                     themeMode === 'minimal_light' ? 'bg-white text-zinc-900 border border-zinc-300' : 'text-zinc-400'
                   }`}
                 >
@@ -107,20 +107,20 @@ export function CatalogGeneratorModal({
             </div>
 
             <div className="flex items-center gap-2">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Moneda:</span>
-              <div className="flex rounded-lg bg-[#08130E] border border-[#1B362A] p-0.5">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-400">Moneda:</span>
+              <div className="flex rounded-lg bg-erp-bg border border-erp-border p-0.5">
                 <button
                   onClick={() => setCurrencyMode('ARS')}
-                  className={`px-2.5 py-1 rounded-md text-[10px] font-bold cursor-pointer transition-all ${
-                    currencyMode === 'ARS' ? 'bg-[#D0A96B] text-[#08130E]' : 'text-zinc-400'
+                  className={`px-2.5 py-1 rounded-md text-[11px] font-bold cursor-pointer transition-all ${
+                    currencyMode === 'ARS' ? 'bg-erp-gold text-erp-bg' : 'text-zinc-400'
                   }`}
                 >
                   $ ARS
                 </button>
                 <button
                   onClick={() => setCurrencyMode('USD')}
-                  className={`px-2.5 py-1 rounded-md text-[10px] font-bold cursor-pointer transition-all ${
-                    currencyMode === 'USD' ? 'bg-[#D0A96B] text-[#08130E]' : 'text-zinc-400'
+                  className={`px-2.5 py-1 rounded-md text-[11px] font-bold cursor-pointer transition-all ${
+                    currencyMode === 'USD' ? 'bg-erp-gold text-erp-bg' : 'text-zinc-400'
                   }`}
                 >
                   u$s USD
@@ -131,14 +131,14 @@ export function CatalogGeneratorModal({
         </CardHeader>
 
         {/* PREVISUALIZACIÓN DE ÁREA CAPTURABLE */}
-        <CardContent className="p-4 sm:p-6 max-h-[65vh] overflow-y-auto bg-[#08130E]/50">
+        <CardContent className="p-4 sm:p-6 max-h-[65vh] overflow-y-auto bg-erp-bg/50">
           
           <div 
             ref={captureRef}
             id="catalog-capture-area"
             className={`p-6 rounded-2xl shadow-2xl space-y-6 border transition-all ${
               themeMode === 'luxury_dark'
-                ? 'bg-[#08130E] text-white border-[#1B362A]'
+                ? 'bg-erp-bg text-white border-erp-border'
                 : 'bg-white text-zinc-900 border-zinc-200'
             }`}
           >
@@ -146,7 +146,7 @@ export function CatalogGeneratorModal({
             <div className="flex items-center justify-between border-b pb-4 border-current opacity-80">
               <div className="flex items-center gap-2.5">
                 <div className={`flex h-9 w-9 items-center justify-center rounded-xl font-serif font-black text-lg ${
-                  themeMode === 'luxury_dark' ? 'bg-[#D0A96B] text-[#08130E]' : 'bg-zinc-900 text-white'
+                  themeMode === 'luxury_dark' ? 'bg-erp-gold text-erp-bg' : 'bg-zinc-900 text-white'
                 }`}>
                   E
                 </div>
@@ -154,15 +154,15 @@ export function CatalogGeneratorModal({
                   <h2 className="text-base font-extrabold tracking-widest font-serif uppercase">
                     ELOHIM
                   </h2>
-                  <p className={`text-[9px] font-mono tracking-widest uppercase ${
-                    themeMode === 'luxury_dark' ? 'text-[#D0A96B]' : 'text-amber-700'
+                  <p className={`text-xs font-mono tracking-widest uppercase ${
+                    themeMode === 'luxury_dark' ? 'text-erp-gold' : 'text-amber-700'
                   }`}>
                     Perfumería de Nicho & Decants
                   </p>
                 </div>
               </div>
 
-              <div className="text-right text-[10px] font-mono opacity-60">
+              <div className="text-right text-[11px] font-mono opacity-60">
                 Catálogo Selección Exclusiva
               </div>
             </div>
@@ -182,17 +182,17 @@ export function CatalogGeneratorModal({
                     key={prod.id} 
                     className={`p-4 rounded-xl border flex flex-col justify-between space-y-3 transition-all ${
                       themeMode === 'luxury_dark'
-                        ? 'bg-[#13261E]/80 border-[#1B362A]'
+                        ? 'bg-erp-surface/80 border-erp-border'
                         : 'bg-zinc-50 border-zinc-200'
                     }`}
                   >
                     <div>
                       {/* BADGE TIPO & MARCA */}
-                      <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-wider mb-1">
-                        <span className={themeMode === 'luxury_dark' ? 'text-[#D0A96B]' : 'text-amber-700'}>
+                      <div className="flex items-center justify-between text-[11px] font-bold uppercase tracking-wider mb-1">
+                        <span className={themeMode === 'luxury_dark' ? 'text-erp-gold' : 'text-amber-700'}>
                           {prod.brand}
                         </span>
-                        <span className={`px-2 py-0.5 rounded-full font-mono text-[9px] ${
+                        <span className={`px-2 py-0.5 rounded-full font-mono text-xs ${
                           isDecant
                             ? 'bg-amber-500/10 text-amber-500 border border-amber-500/30'
                             : 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/30'
@@ -218,9 +218,9 @@ export function CatalogGeneratorModal({
                           {prod.olfactory_notes.slice(0, 4).map((note, idx) => (
                             <span 
                               key={idx}
-                              className={`text-[9px] font-semibold px-2 py-0.5 rounded-md ${
+                              className={`text-xs font-semibold px-2 py-0.5 rounded-md ${
                                 themeMode === 'luxury_dark'
-                                  ? 'bg-[#08130E] text-zinc-300 border border-[#1B362A]'
+                                  ? 'bg-erp-bg text-zinc-300 border border-erp-border'
                                   : 'bg-white text-zinc-700 border border-zinc-300'
                               }`}
                             >
@@ -233,7 +233,7 @@ export function CatalogGeneratorModal({
 
                     {/* PRECIO FINAL */}
                     <div className="pt-3 border-t border-current opacity-95 flex items-center justify-between mt-2">
-                      <span className="text-[10px] font-extrabold uppercase tracking-widest opacity-60 font-mono">
+                      <span className="text-[11px] font-extrabold uppercase tracking-widest opacity-60 font-mono">
                         Precio Final
                       </span>
                       <span className={`text-base font-black font-mono ${
@@ -249,7 +249,7 @@ export function CatalogGeneratorModal({
             </div>
 
             {/* FOOTER DEL CATÁLOGO */}
-            <div className="pt-4 border-t border-current opacity-60 text-[10px] font-mono flex items-center justify-between">
+            <div className="pt-4 border-t border-current opacity-60 text-[11px] font-mono flex items-center justify-between">
               <span>Elohim Import ERP • Envíos a todo el país</span>
               <span>Consultá disponibilidad por WhatsApp</span>
             </div>
@@ -259,13 +259,13 @@ export function CatalogGeneratorModal({
         </CardContent>
 
         {/* ACCIONES DE EXPORTACIÓN */}
-        <div className="p-4 border-t border-[#1B362A] bg-[#08130E]/60 flex flex-wrap items-center justify-between gap-3">
+        <div className="p-4 border-t border-erp-border bg-erp-bg/60 flex flex-wrap items-center justify-between gap-3">
           <Button
             variant="outline"
             onClick={handlePrint}
-            className="border-[#1B362A] bg-[#13261E] text-xs font-bold text-zinc-300 hover:bg-zinc-800 cursor-pointer"
+            className="border-erp-border bg-erp-surface text-xs font-bold text-zinc-300 hover:bg-zinc-800 cursor-pointer"
           >
-            <Printer className="mr-1.5 h-3.5 w-3.5 text-[#D0A96B]" />
+            <Printer className="mr-1.5 h-3.5 w-3.5 text-erp-gold" />
             Imprimir / Vista PDF
           </Button>
 
@@ -273,14 +273,14 @@ export function CatalogGeneratorModal({
             <Button
               onClick={onClose}
               variant="outline"
-              className="border-[#1B362A] bg-[#13261E] text-xs font-bold text-zinc-400 hover:text-white cursor-pointer"
+              className="border-erp-border bg-erp-surface text-xs font-bold text-zinc-400 hover:text-white cursor-pointer"
             >
               Cancelar
             </Button>
             <Button
               onClick={handleDownloadImage}
               disabled={exporting}
-              className="bg-[#D0A96B] hover:bg-[#E5C158] text-[#08130E] font-extrabold text-xs cursor-pointer shadow-lg"
+              className="bg-erp-gold hover:bg-erp-gold-hover text-erp-bg font-extrabold text-xs cursor-pointer shadow-lg"
             >
               <Download className="mr-1.5 h-3.5 w-3.5" />
               {exporting ? 'Exportando...' : 'Descargar Imagen (PNG)'}

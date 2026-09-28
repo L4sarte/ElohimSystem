@@ -1,7 +1,7 @@
 'use server';
 
 import { getServiceSupabase, isSupabaseConfigured } from '@/lib/supabase';
-import { UserRole, Product } from '@/types';
+import { Product } from '@/types';
 import { getProducts } from '@/app/actions/products';
 import { requireAuth } from '@/lib/auth-checks';
 
@@ -50,7 +50,6 @@ const DEFAULT_FAMILY_NOTES: Record<string, string[]> = {
  * priorizando mover líquidos a granel (type === 'decant_liquid').
  */
 export async function getOlfactoryMatchForClient(
-  role: UserRole,
   clientId: string
 ): Promise<{
   success: boolean;
@@ -100,7 +99,7 @@ export async function getOlfactoryMatchForClient(
     }
 
     // 2. Obtener productos del catálogo
-    const productsRes = await getProducts(role);
+    const productsRes = await getProducts();
     if (!productsRes.success || !productsRes.data) {
       throw new Error(productsRes.error || 'Error al consultar productos');
     }
@@ -190,7 +189,6 @@ interface SaleItemWithRelations {
  * Genera automáticamente un mensaje de campaña personalizado para WhatsApp Web.
  */
 export async function matchNewArrivalsToClients(
-  role: UserRole,
   newProductId: string
 ): Promise<{
   success: boolean;
@@ -373,7 +371,6 @@ export async function matchNewArrivalsToClients(
  * Obtener el historial completo de VibePoints ganados o canjeados por un cliente.
  */
 export async function getClientPointsHistory(
-  role: UserRole,
   clientId: string
 ): Promise<{ success: boolean; data?: PointsHistoryRecord[]; error?: string }> {
   try {

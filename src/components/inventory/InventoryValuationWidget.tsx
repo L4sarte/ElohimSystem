@@ -23,7 +23,7 @@ const DEFAULT_METRICS: InventoryValuationMetrics = {
 };
 
 export function InventoryValuationWidget() {
-  const { role } = useUserStore();
+  const role = useUserStore((state) => state.role);
   const [metrics, setMetrics] = useState<InventoryValuationMetrics>(DEFAULT_METRICS);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -40,7 +40,7 @@ export function InventoryValuationWidget() {
     setIsLoading(true);
     setError(null);
     try {
-      const res = await getInventoryValuation(role);
+      const res = await getInventoryValuation();
       if (res.success && res.data) {
         setMetrics(res.data);
       } else {
@@ -65,12 +65,12 @@ export function InventoryValuationWidget() {
       {/* CABECERA DEL WIDGET */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Vault className="h-4 w-4 text-[#D0A96B]" />
+          <Vault className="h-4 w-4 text-erp-gold" />
           <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-300 font-serif">
             Valoración y Proyección de Inventario en Estantería
           </h3>
           {!isLoading && (
-            <span className="text-[10px] font-mono text-zinc-400 bg-[#08130E] px-2 py-0.5 rounded-md border border-[#1B362A]">
+            <span className="text-[11px] font-mono text-zinc-400 bg-erp-bg px-2 py-0.5 rounded-md border border-erp-border">
               {metrics.totalProductsCount} SKUs ({metrics.totalUnitsInStock} unidades)
             </span>
           )}
@@ -78,7 +78,7 @@ export function InventoryValuationWidget() {
 
         <div className="flex items-center gap-2">
           {error && (
-            <span className="text-[10px] font-mono text-rose-400 bg-rose-500/10 border border-rose-500/30 px-2 py-0.5 rounded-md flex items-center gap-1">
+            <span className="text-[11px] font-mono text-rose-400 bg-rose-500/10 border border-rose-500/30 px-2 py-0.5 rounded-md flex items-center gap-1">
               <AlertCircle className="h-3 w-3" /> Error en cálculo
             </span>
           )}
@@ -86,10 +86,10 @@ export function InventoryValuationWidget() {
           <button
             onClick={fetchValuation}
             disabled={isLoading}
-            className="text-zinc-400 hover:text-white transition-colors cursor-pointer text-xs p-1 rounded-lg hover:bg-[#13261E]"
+            className="text-zinc-400 hover:text-white transition-colors cursor-pointer text-xs p-1 rounded-lg hover:bg-erp-surface"
             title="Recalcular Inventario"
           >
-            <RefreshCw className={`h-3.5 w-3.5 ${isLoading ? 'animate-spin text-[#D0A96B]' : ''}`} />
+            <RefreshCw className={`h-3.5 w-3.5 ${isLoading ? 'animate-spin text-erp-gold' : ''}`} />
           </button>
         </div>
       </div>
@@ -98,11 +98,11 @@ export function InventoryValuationWidget() {
       {isLoading ? (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {[1, 2, 3].map((i) => (
-            <Card key={i} className="border border-[#1B362A] bg-[#13261E]/90 rounded-2xl p-5 shadow-xl animate-pulse">
+            <Card key={i} className="border border-erp-border bg-erp-surface/90 rounded-2xl p-5 shadow-xl animate-pulse">
               <div className="space-y-3">
-                <div className="h-3 w-1/2 bg-[#1B362A] rounded"></div>
-                <div className="h-7 w-3/4 bg-[#1B362A] rounded"></div>
-                <div className="h-3 w-2/3 bg-[#1B362A] rounded"></div>
+                <div className="h-3 w-1/2 bg-secondary rounded"></div>
+                <div className="h-7 w-3/4 bg-secondary rounded"></div>
+                <div className="h-3 w-2/3 bg-secondary rounded"></div>
               </div>
             </Card>
           ))}
@@ -112,10 +112,10 @@ export function InventoryValuationWidget() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           
           {/* CARD 1: CAPITAL INVERTIDO (COSTO) */}
-          <Card className="border border-[#1B362A] bg-[#13261E]/90 rounded-2xl p-5 shadow-xl hover:border-[#D0A96B]/50 transition-all">
+          <Card className="border border-erp-border bg-erp-surface/90 rounded-2xl p-5 shadow-xl hover:border-erp-gold/50 transition-all">
             <CardHeader className="p-0 space-y-2">
               <div className="flex items-center justify-between">
-                <CardDescription className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 flex items-center gap-1">
+                <CardDescription className="text-[11px] font-bold uppercase tracking-wider text-zinc-400 flex items-center gap-1">
                   Capital Invertido (Costo)
                 </CardDescription>
                 <div className="p-1.5 rounded-lg bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
@@ -132,26 +132,26 @@ export function InventoryValuationWidget() {
                 </p>
               </CardContent>
 
-              <p className="text-[11px] text-zinc-400 leading-snug pt-1 border-t border-[#1B362A]/60">
+              <p className="text-[11px] text-zinc-400 leading-snug pt-1 border-t border-erp-border/60">
                 Si vendieras todo tu stock hoy a precio de costo.
               </p>
             </CardHeader>
           </Card>
 
           {/* CARD 2: VALOR BRUTO POTENCIAL (VENTA TOTAL) */}
-          <Card className="border border-[#1B362A] bg-[#13261E]/90 rounded-2xl p-5 shadow-xl hover:border-[#D0A96B]/50 transition-all">
+          <Card className="border border-erp-border bg-erp-surface/90 rounded-2xl p-5 shadow-xl hover:border-erp-gold/50 transition-all">
             <CardHeader className="p-0 space-y-2">
               <div className="flex items-center justify-between">
-                <CardDescription className="text-[10px] font-bold uppercase tracking-wider text-[#D0A96B] flex items-center gap-1">
+                <CardDescription className="text-[11px] font-bold uppercase tracking-wider text-erp-gold flex items-center gap-1">
                   Valor Bruto Potencial (Venta)
                 </CardDescription>
-                <div className="p-1.5 rounded-lg bg-[#D0A96B]/10 text-[#D0A96B] border border-[#D0A96B]/30">
+                <div className="p-1.5 rounded-lg bg-erp-gold/10 text-erp-gold border border-erp-gold/30">
                   <TrendingUp className="h-4 w-4" />
                 </div>
               </div>
 
               <CardContent className="p-0">
-                <CardTitle className="text-xl sm:text-2xl font-black font-mono text-[#E5C158]">
+                <CardTitle className="text-xl sm:text-2xl font-black font-mono text-erp-gold-hover">
                   {formatArs(metrics.valorBrutoVenta)}
                 </CardTitle>
                 <p className="text-xs text-zinc-400 font-mono mt-0.5">
@@ -159,29 +159,29 @@ export function InventoryValuationWidget() {
                 </p>
               </CardContent>
 
-              <p className="text-[11px] text-zinc-400 leading-snug pt-1 border-t border-[#1B362A]/60">
+              <p className="text-[11px] text-zinc-400 leading-snug pt-1 border-t border-erp-border/60">
                 Facturación bruta potencial al 100% de ocupación.
               </p>
             </CardHeader>
           </Card>
 
           {/* CARD 3: GANANCIA NETA POTENCIAL */}
-          <Card className="border border-[#1B362A] bg-[#13261E]/90 rounded-2xl p-5 shadow-xl hover:border-emerald-500/50 transition-all">
+          <Card className="border border-erp-border bg-erp-surface/90 rounded-2xl p-5 shadow-xl hover:border-emerald-500/50 transition-all">
             <CardHeader className="p-0 space-y-2">
               <div className="flex items-center justify-between">
-                <CardDescription className="text-[10px] font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-1">
+                <CardDescription className="text-[11px] font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-1">
                   Ganancia Neta Potencial
                 </CardDescription>
                 <div className="flex flex-wrap items-center gap-1.5">
                   <span 
                     title="Margen s/ Venta: ((Venta - Costo) / Venta) * 100" 
-                    className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 font-mono cursor-help"
+                    className="text-[11px] font-extrabold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 font-mono cursor-help"
                   >
                     +{metrics.potentialProfitMarginPercent}% Margen
                   </span>
                   <span 
                     title="Markup s/ Costo (ROI): ((Venta - Costo) / Costo) * 100" 
-                    className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-[#D0A96B]/10 text-[#D0A96B] border border-[#D0A96B]/30 font-mono cursor-help"
+                    className="text-[11px] font-extrabold px-2 py-0.5 rounded-full bg-erp-gold/10 text-erp-gold border border-erp-gold/30 font-mono cursor-help"
                   >
                     +{metrics.potentialMarkupPercent}% Markup
                   </span>
@@ -200,9 +200,9 @@ export function InventoryValuationWidget() {
                 </p>
               </CardContent>
 
-              <div className="text-[11px] text-zinc-400 leading-snug pt-1 border-t border-[#1B362A]/60 flex flex-col gap-0.5">
+              <div className="text-[11px] text-zinc-400 leading-snug pt-1 border-t border-erp-border/60 flex flex-col gap-0.5">
                 <span>Utilidad neta proyectada tras recuperar la inversión.</span>
-                <span className="text-[10px] text-zinc-500 font-mono">
+                <span className="text-[11px] text-zinc-500 font-mono">
                   Margen s/ Venta: {metrics.potentialProfitMarginPercent}% • Markup s/ Costo: {metrics.potentialMarkupPercent}%
                 </span>
               </div>

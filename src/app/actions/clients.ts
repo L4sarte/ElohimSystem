@@ -69,25 +69,25 @@ export async function getClientsDetailed(role?: UserRole): Promise<{
     }
 
     const supabase = getServiceSupabase();
-    const [{ data, error }, { data: salesSumData }] = await Promise.all([
+
+    // Agregación SQL (GROUP BY en el motor): una fila por cliente en lugar de
+    // traer TODO el historial de ventas a memoria para sumar en el cliente.
+    const [{ data, error }, { data: salesTotals, error: totalsError }] = await Promise.all([
       supabase.from('clients').select('*').order('name', { ascending: true }),
-      supabase
-        .from('sales')
-        .select('client_id, total_ars')
-        .neq('status', 'voided')
-        .neq('status', 'pending_payment')
-        .not('client_id', 'is', null),
+      supabase.rpc('get_client_sales_totals'),
     ]);
 
     if (error) {
       throw error;
     }
+    if (totalsError) {
+      console.warn('[CLIENTS_METRICS_WARN] Fallback a total_spent_ars almacenado:', totalsError.message);
+    }
 
     const spentByClient = new Map<string, number>();
-    (salesSumData || []).forEach((s: any) => {
+    (salesTotals || []).forEach((s: any) => {
       if (s.client_id) {
-        const cur = spentByClient.get(s.client_id) || 0;
-        spentByClient.set(s.client_id, cur + Number(s.total_ars || 0));
+        spentByClient.set(s.client_id, Number(s.total_spent || 0));
       }
     });
 

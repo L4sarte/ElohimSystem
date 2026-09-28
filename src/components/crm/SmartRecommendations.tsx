@@ -16,7 +16,7 @@ interface SmartRecommendationsProps {
 }
 
 export function SmartRecommendations({ products }: SmartRecommendationsProps) {
-  const { role } = useUserStore();
+  const role = useUserStore((state) => state.role);
   const [selectedProductId, setSelectedProductId] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [targetProduct, setTargetProduct] = useState<Product | null>(null);
@@ -36,7 +36,7 @@ export function SmartRecommendations({ products }: SmartRecommendationsProps) {
 
     const runMatch = async () => {
       setLoading(true);
-      const res = await matchNewArrivalsToClients(role, selectedProductId);
+      const res = await matchNewArrivalsToClients(selectedProductId);
       if (res.success && res.recommendations) {
         setTargetProduct(res.newProduct || null);
         setRecommendations(res.recommendations);
@@ -56,12 +56,12 @@ export function SmartRecommendations({ products }: SmartRecommendationsProps) {
   };
 
   return (
-    <div className="bg-[#13261E] border border-[#1B362A] rounded-2xl p-6 shadow-xl space-y-6">
+    <div className="bg-erp-surface border border-erp-border rounded-2xl p-6 shadow-xl space-y-6">
       
       {/* ENCABEZADO Y SELECTOR DE PRODUCTO NUEVO */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b border-[#1B362A] pb-5">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b border-erp-border pb-5">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#D0A96B]/10 border border-[#D0A96B]/30 text-[#D0A96B]">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-erp-gold/10 border border-erp-gold/30 text-erp-gold">
             <Sparkles className="h-5 w-5" />
           </div>
           <div>
@@ -76,13 +76,13 @@ export function SmartRecommendations({ products }: SmartRecommendationsProps) {
 
         {/* SELECTOR DE LANZAMIENTO */}
         <div className="min-w-[280px]">
-          <label className="block text-[10px] font-bold uppercase tracking-wider text-[#D0A96B] mb-1">
+          <label className="block text-[11px] font-bold uppercase tracking-wider text-erp-gold mb-1">
             Seleccionar Lanzamiento / Nuevo Perfume
           </label>
           <select
             value={selectedProductId}
             onChange={e => setSelectedProductId(e.target.value)}
-            className="w-full bg-[#08130E] border border-[#1B362A] rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-[#D0A96B]"
+            className="w-full bg-erp-bg border border-erp-border rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-erp-gold"
           >
             {availablePerfumes.map(p => (
               <option key={p.id} value={p.id}>
@@ -95,18 +95,18 @@ export function SmartRecommendations({ products }: SmartRecommendationsProps) {
 
       {/* DETALLE DEL PRODUCTO SELECCIONADO Y METRICAS */}
       {targetProduct && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 bg-[#08130E] border border-[#1B362A] rounded-xl font-mono text-xs">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 bg-erp-bg border border-erp-border rounded-xl font-mono text-xs">
           <div>
-            <span className="text-[10px] uppercase font-bold text-zinc-500">Perfume Seleccionado</span>
+            <span className="text-[11px] uppercase font-bold text-zinc-500">Perfume Seleccionado</span>
             <p className="text-sm font-bold text-white">{targetProduct.name}</p>
-            <p className="text-[11px] text-[#D0A96B]">{targetProduct.brand}</p>
+            <p className="text-[11px] text-erp-gold">{targetProduct.brand}</p>
           </div>
           <div>
-            <span className="text-[10px] uppercase font-bold text-zinc-500">Familia Olfativa</span>
+            <span className="text-[11px] uppercase font-bold text-zinc-500">Familia Olfativa</span>
             <p className="text-sm font-bold text-emerald-400">{targetProduct.olfactory_family || 'Sin especificar'}</p>
           </div>
           <div>
-            <span className="text-[10px] uppercase font-bold text-zinc-500">Notas Olfativas Clave</span>
+            <span className="text-[11px] uppercase font-bold text-zinc-500">Notas Olfativas Clave</span>
             <p className="text-xs text-zinc-300 line-clamp-1">
               {Array.isArray(targetProduct.olfactory_notes) && targetProduct.olfactory_notes.length > 0
                 ? targetProduct.olfactory_notes.join(', ')
@@ -114,7 +114,7 @@ export function SmartRecommendations({ products }: SmartRecommendationsProps) {
             </p>
           </div>
           <div className="flex flex-col justify-center items-end">
-            <span className="text-[10px] uppercase font-bold text-amber-400">Hot Leads Potenciales</span>
+            <span className="text-[11px] uppercase font-bold text-amber-400">Hot Leads Potenciales</span>
             <p className="text-xl font-black text-amber-400 flex items-center gap-1">
               <Flame className="h-5 w-5 text-amber-500" />
               {recommendations.length} Clientes
@@ -127,11 +127,11 @@ export function SmartRecommendations({ products }: SmartRecommendationsProps) {
       <div className="space-y-4">
         {loading ? (
           <div className="flex flex-col items-center justify-center py-12 gap-2 text-zinc-400 text-xs">
-            <RefreshCw className="h-6 w-6 animate-spin text-[#D0A96B]" />
+            <RefreshCw className="h-6 w-6 animate-spin text-erp-gold" />
             <span>Ejecutando algoritmo de Match Olfativo en historial de ventas...</span>
           </div>
         ) : recommendations.length === 0 ? (
-          <div className="p-8 text-center border border-dashed border-[#1B362A] rounded-xl text-zinc-500 text-xs">
+          <div className="p-8 text-center border border-dashed border-erp-border rounded-xl text-zinc-500 text-xs">
             No se encontraron clientes anteriores con coincidencia directa de notas para este producto.
           </div>
         ) : (
@@ -139,9 +139,9 @@ export function SmartRecommendations({ products }: SmartRecommendationsProps) {
             {recommendations.map((rec, idx) => (
               <div
                 key={idx}
-                className="p-4 bg-[#08130E] border border-[#1B362A] rounded-xl space-y-3 hover:border-[#D0A96B]/40 transition-colors"
+                className="p-4 bg-erp-bg border border-erp-border rounded-xl space-y-3 hover:border-erp-gold/40 transition-colors"
               >
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#1B362A]/60 pb-2">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-erp-border/60 pb-2">
                   <div className="flex items-center gap-2.5">
                     <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-500/10 text-amber-400 font-bold text-xs border border-amber-500/30">
                       #{idx + 1}
@@ -150,19 +150,19 @@ export function SmartRecommendations({ products }: SmartRecommendationsProps) {
                       <h4 className="text-sm font-bold text-white flex items-center gap-2">
                         {rec.clientName}
                         {rec.clientPhone && (
-                          <span className="text-[10px] text-zinc-400 font-mono font-normal">
+                          <span className="text-[11px] text-zinc-400 font-mono font-normal">
                             ({rec.clientPhone})
                           </span>
                         )}
                       </h4>
                       <p className="text-[11px] text-zinc-400">
-                        Compró previamente: <span className="text-[#D0A96B] font-medium">{rec.previousPerfumeName}</span>
+                        Compró previamente: <span className="text-erp-gold font-medium">{rec.previousPerfumeName}</span>
                       </p>
                     </div>
                   </div>
 
                   <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 flex items-center gap-1 font-mono">
+                    <span className="text-[11px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 flex items-center gap-1 font-mono">
                       <Zap className="h-3 w-3" />
                       {rec.matchScore} Notas Coincidentes
                     </span>
@@ -172,9 +172,9 @@ export function SmartRecommendations({ products }: SmartRecommendationsProps) {
                 {/* NOTAS COINCIDENTES TAGS */}
                 {rec.matchingNotes.length > 0 && (
                   <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
-                    <span className="text-zinc-500 text-[10px] font-bold uppercase">Notas de Match:</span>
+                    <span className="text-zinc-500 text-[11px] font-bold uppercase">Notas de Match:</span>
                     {rec.matchingNotes.map((note, nIdx) => (
-                      <span key={nIdx} className="px-2 py-0.5 rounded bg-[#13261E] text-amber-300 border border-[#1B362A] font-mono">
+                      <span key={nIdx} className="px-2 py-0.5 rounded bg-erp-surface text-amber-300 border border-erp-border font-mono">
                         {note}
                       </span>
                     ))}
@@ -182,7 +182,7 @@ export function SmartRecommendations({ products }: SmartRecommendationsProps) {
                 )}
 
                 {/* MENSAJE DE WHATSAPP GENERADO */}
-                <div className="relative bg-[#13261E] border border-[#1B362A] rounded-xl p-3 text-xs text-zinc-200 font-sans">
+                <div className="relative bg-erp-surface border border-erp-border rounded-xl p-3 text-xs text-zinc-200 font-sans">
                   <p className="leading-relaxed whitespace-pre-line">{rec.whatsAppMessage}</p>
                 </div>
 
@@ -192,7 +192,7 @@ export function SmartRecommendations({ products }: SmartRecommendationsProps) {
                     size="sm"
                     variant="outline"
                     onClick={() => handleCopyMessage(rec.whatsAppMessage, rec.clientName)}
-                    className="border-[#1B362A] bg-[#13261E] text-zinc-300 hover:text-white text-xs h-8 cursor-pointer"
+                    className="border-erp-border bg-erp-surface text-zinc-300 hover:text-white text-xs h-8 cursor-pointer"
                   >
                     <Copy className="h-3.5 w-3.5 mr-1.5" />
                     Copiar Mensaje

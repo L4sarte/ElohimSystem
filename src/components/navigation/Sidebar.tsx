@@ -18,7 +18,7 @@ interface SidebarProps {
 
 export function Sidebar() {
   const pathname = usePathname();
-  const { role } = useUserStore();
+  const role = useUserStore((state) => state.role);
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const isActive = (path: string) => {
@@ -31,11 +31,11 @@ export function Sidebar() {
     {
       title: 'VENTAS & CLIENTES',
       items: [
-        { name: 'Punto de Venta (POS)', href: '/pos', icon: ShoppingBag, color: 'text-[#D0A96B]' },
+        { name: 'Punto de Venta (POS)', href: '/pos', icon: ShoppingBag, color: 'text-erp-gold' },
         { name: 'Kanban Pedidos', href: '/kanban', icon: LayoutGrid, color: 'text-emerald-400' },
         { name: 'CRM Clientes & Points', href: '/clientes', icon: Users, color: 'text-indigo-400' },
         { name: 'Cobranzas / Fiados', href: '/admin/finanzas/cxcobrar', icon: CreditCard, color: 'text-amber-400' },
-        { name: 'Historial de Ventas', href: '/auditoria/ventas', icon: Printer, color: 'text-[#D0A96B]' },
+        { name: 'Historial de Ventas', href: '/auditoria/ventas', icon: Printer, color: 'text-erp-gold' },
       ]
     },
     {
@@ -44,7 +44,7 @@ export function Sidebar() {
         { name: 'Catálogo Productos', href: '/productos', icon: Package, color: 'text-violet-400' },
         { name: 'Hub Decants & Granel', href: '/admin/inventario/decants', icon: Droplet, color: 'text-cyan-400', adminOnly: true },
         { name: 'Kardex & Movimientos', href: '/admin/inventario/kardex', icon: Activity, color: 'text-emerald-400', adminOnly: true },
-        { name: 'Recetas Decants (BOM)', href: '/admin/inventario/recetas', icon: Calculator, color: 'text-[#D0A96B]', adminOnly: true },
+        { name: 'Recetas Decants (BOM)', href: '/admin/inventario/recetas', icon: Calculator, color: 'text-erp-gold', adminOnly: true },
         { name: 'Insumos de Packaging', href: '/admin/inventario/insumos', icon: Archive, color: 'text-amber-400', adminOnly: true },
         { name: 'Ajustes / Mermas', href: '/admin/inventario/ajustes', icon: PackageX, color: 'text-rose-400', adminOnly: true },
         { name: 'Vidriera Digital B2C', href: '/catalogo', icon: Globe, color: 'text-teal-400' },
@@ -61,13 +61,13 @@ export function Sidebar() {
     {
       title: 'FINANZAS & AUDITORÍA',
       items: [
-        { name: 'Dashboard Principal', href: '/', icon: Home, color: 'text-[#D0A96B]' },
-        { name: 'Tesorería & Cuentas', href: '/admin/finanzas/tesoreria', icon: Landmark, color: 'text-[#D0A96B]' },
-        { name: 'Comisiones & Pasarelas', href: '/admin/finanzas/comisiones', icon: Percent, color: 'text-[#D0A96B]', adminOnly: true },
-        { name: 'Cuotas & Recargos', href: '/config/pagos', icon: CreditCard, color: 'text-[#D0A96B]', adminOnly: true },
+        { name: 'Dashboard Principal', href: '/', icon: Home, color: 'text-erp-gold' },
+        { name: 'Tesorería & Cuentas', href: '/admin/finanzas/tesoreria', icon: Landmark, color: 'text-erp-gold' },
+        { name: 'Comisiones & Pasarelas', href: '/admin/finanzas/comisiones', icon: Percent, color: 'text-erp-gold', adminOnly: true },
+        { name: 'Cuotas & Recargos', href: '/config/pagos', icon: CreditCard, color: 'text-erp-gold', adminOnly: true },
         { name: 'Gastos OPEX', href: '/admin/gastos', icon: DollarSign, color: 'text-rose-400', adminOnly: true },
         { name: 'Reportes Financieros', href: '/admin/reportes', icon: TrendingUp, color: 'text-emerald-400', adminOnly: true },
-        { name: 'Dashboard Visual Mensual', href: '/admin/reportes/mensual', icon: BarChart3, color: 'text-[#D0A96B]', adminOnly: true },
+        { name: 'Dashboard Visual Mensual', href: '/admin/reportes/mensual', icon: BarChart3, color: 'text-erp-gold', adminOnly: true },
         { name: 'Auditoría General', href: '/auditoria', icon: ShieldCheck, color: 'text-zinc-400' },
       ]
     },
@@ -81,10 +81,10 @@ export function Sidebar() {
   ];
 
   const sidebarContent = (
-    <div className="flex flex-col h-full bg-[#13261E] border-r border-[#1B362A] w-64 text-zinc-100">
+    <div className="flex flex-col h-full bg-erp-surface border-r border-erp-border w-64 text-zinc-100">
       
       {/* LOGO SUPERIOR CON FALLBACK ONERROR */}
-      <div className="p-4 border-b border-[#1B362A] flex items-center justify-between">
+      <div className="p-4 border-b border-erp-border flex items-center justify-between">
         <Link href="/" className="flex items-center gap-2 cursor-pointer">
           <img 
             src="/logo-elohim.png" 
@@ -114,7 +114,7 @@ export function Sidebar() {
 
           return (
             <div key={catIdx} className="space-y-1">
-              <div className="text-[10px] font-extrabold uppercase tracking-widest text-zinc-500 px-3 py-1 font-serif">
+              <div className="text-[11px] font-extrabold uppercase tracking-widest text-zinc-500 px-3 py-1 font-serif">
                 {category.title}
               </div>
 
@@ -129,16 +129,16 @@ export function Sidebar() {
                     onClick={() => setMobileOpen(false)}
                     className={`flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                       active
-                        ? 'bg-[#1B362A] text-[#D0A96B] border border-[#D0A96B]/40 shadow-sm shadow-[#D0A96B]/10'
-                        : 'text-zinc-300 hover:bg-[#1B362A]/60 hover:text-white'
+                        ? 'bg-secondary text-erp-gold border border-erp-gold/40 shadow-sm shadow-erp-gold/10'
+                        : 'text-zinc-300 hover:bg-secondary/60 hover:text-white'
                     }`}
                   >
                     <div className="flex items-center gap-2.5">
-                      <Icon className={`h-4 w-4 ${active ? 'text-[#D0A96B]' : item.color}`} />
+                      <Icon className={`h-4 w-4 ${active ? 'text-erp-gold' : item.color}`} />
                       <span>{item.name}</span>
                     </div>
 
-                    {active && <ChevronRight className="h-3.5 w-3.5 text-[#D0A96B]" />}
+                    {active && <ChevronRight className="h-3.5 w-3.5 text-erp-gold" />}
                   </Link>
                 );
               })}
@@ -148,19 +148,19 @@ export function Sidebar() {
       </div>
 
       {/* PIE DEL SIDEBAR */}
-      <div className="p-3 border-t border-[#1B362A] bg-[#08130E]/60 text-[10px] text-zinc-400 flex items-center justify-between">
+      <div className="p-3 border-t border-erp-border bg-erp-bg/60 text-[11px] text-zinc-400 flex items-center justify-between">
         <div>
           <div className="font-bold text-white font-serif">Elohim Import ERP</div>
           <div className="text-zinc-500 font-mono">v2.5 Enterprise</div>
         </div>
         <div className="flex items-center gap-2">
-          <kbd className="px-1.5 py-0.5 rounded bg-[#13261E] border border-[#1B362A] text-[#D0A96B] font-mono text-[9px]">
+          <kbd className="px-1.5 py-0.5 rounded bg-erp-surface border border-erp-border text-erp-gold font-mono text-xs">
             ⌘K
           </kbd>
           <button
             onClick={() => logoutAction()}
             title="Cerrar Sesión Segura"
-            className="p-1.5 rounded-lg bg-[#13261E] border border-[#1B362A] text-zinc-400 hover:text-rose-400 hover:border-rose-500/30 transition-colors cursor-pointer"
+            className="p-1.5 rounded-lg bg-erp-surface border border-erp-border text-zinc-400 hover:text-rose-400 hover:border-rose-500/30 transition-colors cursor-pointer"
           >
             <LogOut className="h-3.5 w-3.5" />
           </button>
@@ -181,7 +181,7 @@ export function Sidebar() {
       <div className="md:hidden fixed top-3 left-3 z-50">
         <button
           onClick={() => setMobileOpen(true)}
-          className="p-2 rounded-xl bg-[#13261E] border border-[#1B362A] text-[#D0A96B] shadow-lg cursor-pointer"
+          className="p-2 rounded-xl bg-erp-surface border border-erp-border text-erp-gold shadow-lg cursor-pointer"
           title="Abrir menú"
         >
           <Menu className="h-5 w-5" />

@@ -3,7 +3,8 @@
 import { getServiceSupabase, isSupabaseConfigured } from '@/lib/supabase';
 import { UserRole } from '@/types';
 import { revalidatePath } from 'next/cache';
-import { withdrawFromAccount, getTreasuryAccounts } from '@/app/actions/treasury';
+import { getTreasuryAccounts } from '@/app/actions/treasury';
+import { withdrawFromAccount } from '@/lib/treasury-ops';
 import { requireAuth } from '@/lib/auth-checks';
 import { returnProcessInputSchema } from '@/lib/sales-validation';
 
@@ -40,7 +41,7 @@ interface SaleForReturn {
 export async function processReturn(
   role: UserRole,
   input: ReturnProcessInput
-): Promise<{ success: boolean; returnId?: string; error?: string }> {
+): Promise<{ success: boolean; returnId?: string; warning?: string; error?: string }> {
   try {
     const currentUser = await requireAuth();
 
@@ -197,6 +198,7 @@ export async function processReturn(
     }
 
     // 6. Registro de egreso en Tesorería & Cuentas con descripción y referencia
+    let treasuryWarning: string | null = null;
     if (refund_amount_ars > 0) {
       let targetAccId = input.treasury_account_id;
       if (!targetAccId) {
@@ -208,12 +210,16 @@ export async function processReturn(
       }
 
       if (targetAccId) {
-        await withdrawFromAccount(
+        const withdrawOk = await withdrawFromAccount(
           targetAccId,
           refund_amount_ars,
           `Reintegro por devolución ticket #${sale_id.slice(0, 8).toUpperCase()}`,
           sale_id
         );
+        if (!withdrawOk) {
+          console.error('[RETURN_TREASURY_WITHDRAW_FAILED]: venta', sale_id, '- reintegro', refund_amount_ars);
+          treasuryWarning = 'La devolución fue registrada pero el reintegro NO pudo debitarse de la cuenta de tesorería. Verificá el saldo manualmente.';
+        }
       }
     }
 
@@ -226,7 +232,7 @@ export async function processReturn(
     revalidatePath('/clientes');
     revalidatePath('/admin/inventario/kardex');
 
-    return { success: true, returnId: returnRecord?.id };
+    return { success: true, returnId: returnRecord?.id, warning: treasuryWarning || undefined };
   } catch (error: unknown) {
     console.error('Error al procesar la devolución:', error);
     const msg = error instanceof Error ? error.message : 'Error al procesar la devolución';

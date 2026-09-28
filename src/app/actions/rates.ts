@@ -68,6 +68,10 @@ export async function getCurrentRate(): Promise<{
     try {
       const res = await fetch('https://dolarapi.com/v1/dolares/blue', {
         next: { revalidate: 60 },
+        // Timeout duro: evita colgar Server Actions si la API externa no responde.
+        // Nota: pasar un signal desactiva la memoización/caché de este fetch en Next 16;
+        // la mitigación queda en la tasa manual de DB (consultada primero) y el fallback.
+        signal: AbortSignal.timeout(5000),
       });
 
       if (!res.ok) {
@@ -75,10 +79,15 @@ export async function getCurrentRate(): Promise<{
       }
 
       const apiData = await res.json();
+      const venta = Number(apiData.venta);
+      // Sanity check: valor finito y dentro de un rango razonable para una cotización ARS/USD
+      if (!Number.isFinite(venta) || venta <= 100 || venta >= 50000) {
+        throw new Error('Cotización de dolarapi.com fuera de rango razonable');
+      }
       return {
         success: true,
         data: {
-          value_ars: Number(apiData.venta),
+          value_ars: venta,
           type: 'blue_venta',
           is_active: false,
         },

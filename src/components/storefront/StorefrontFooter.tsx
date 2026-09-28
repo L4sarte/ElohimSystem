@@ -14,14 +14,14 @@ interface StorefrontFooterProps {
 
 export function StorefrontFooter({ settings = DEFAULT_SYSTEM_SETTINGS }: StorefrontFooterProps) {
   return (
-    <footer id="contacto" className="bg-[#08130E] border-t border-[#1B362A] text-zinc-400 text-xs">
+    <footer id="contacto" className="bg-erp-bg border-t border-erp-border text-zinc-400 text-xs">
       
       {/* BENEFICIOS DESTACADOS */}
-      <div className="border-b border-[#1B362A] bg-[#13261E]/60 py-8 px-4 sm:px-6">
+      <div className="border-b border-erp-border bg-erp-surface/60 py-8 px-4 sm:px-6">
         <div className="container mx-auto max-w-6xl grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 text-center sm:text-left">
           
           <div className="flex items-center sm:items-start gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#1B362A] text-[#D0A96B]">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-secondary text-erp-gold">
               <ShieldCheck className="h-5 w-5" />
             </div>
             <div>
@@ -31,7 +31,7 @@ export function StorefrontFooter({ settings = DEFAULT_SYSTEM_SETTINGS }: Storefr
           </div>
 
           <div className="flex items-center sm:items-start gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#1B362A] text-[#D0A96B]">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-secondary text-erp-gold">
               <Truck className="h-5 w-5" />
             </div>
             <div>
@@ -41,7 +41,7 @@ export function StorefrontFooter({ settings = DEFAULT_SYSTEM_SETTINGS }: Storefr
           </div>
 
           <div className="flex items-center sm:items-start gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#1B362A] text-[#D0A96B]">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-secondary text-erp-gold">
               <CreditCard className="h-5 w-5" />
             </div>
             <div>
@@ -51,7 +51,7 @@ export function StorefrontFooter({ settings = DEFAULT_SYSTEM_SETTINGS }: Storefr
           </div>
 
           <div className="flex items-center sm:items-start gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#1B362A] text-[#D0A96B]">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-secondary text-erp-gold">
               <Sparkles className="h-5 w-5" />
             </div>
             <div>
@@ -81,7 +81,7 @@ export function StorefrontFooter({ settings = DEFAULT_SYSTEM_SETTINGS }: Storefr
               <div className="font-black text-white text-base uppercase font-serif tracking-wider">
                 {settings.trade_name}
               </div>
-              <div className="text-[10px] text-[#D0A96B] font-mono uppercase">
+              <div className="text-[11px] text-erp-gold font-mono uppercase">
                 Alta Perfumería
               </div>
             </div>
@@ -92,7 +92,7 @@ export function StorefrontFooter({ settings = DEFAULT_SYSTEM_SETTINGS }: Storefr
           </p>
 
           {settings.cuit_tax_id && (
-            <div className="text-[10px] font-mono text-zinc-500">
+            <div className="text-[11px] font-mono text-zinc-500">
               CUIT: {settings.cuit_tax_id}
             </div>
           )}
@@ -100,7 +100,7 @@ export function StorefrontFooter({ settings = DEFAULT_SYSTEM_SETTINGS }: Storefr
 
         {/* COLUMNA 2: NAVEGACIÓN RÁPIDA */}
         <div className="space-y-3">
-          <h4 className="font-bold text-white text-xs uppercase tracking-widest font-serif text-[#D0A96B]">
+          <h4 className="font-bold text-white text-xs uppercase tracking-widest font-serif text-erp-gold">
             Explorar Tienda
           </h4>
           <ul className="space-y-2 text-xs">
@@ -129,13 +129,13 @@ export function StorefrontFooter({ settings = DEFAULT_SYSTEM_SETTINGS }: Storefr
 
         {/* COLUMNA 3: ATENCIÓN & UBICACIÓN */}
         <div className="space-y-3">
-          <h4 className="font-bold text-white text-xs uppercase tracking-widest font-serif text-[#D0A96B]">
+          <h4 className="font-bold text-white text-xs uppercase tracking-widest font-serif text-erp-gold">
             Showroom & Atención
           </h4>
           <div className="space-y-2 text-xs">
             {settings.address && (
               <div className="flex items-start gap-2 text-zinc-300">
-                <MapPin className="h-4 w-4 text-[#D0A96B] shrink-0 mt-0.5" />
+                <MapPin className="h-4 w-4 text-erp-gold shrink-0 mt-0.5" />
                 <span>{settings.address} {settings.city ? `(${settings.city})` : ''}</span>
               </div>
             )}
@@ -163,8 +163,8 @@ export function StorefrontFooter({ settings = DEFAULT_SYSTEM_SETTINGS }: Storefr
       </div>
 
       {/* COPYRIGHT & ERP BADGE */}
-      <div className="border-t border-[#1B362A] bg-[#08130E] py-4 px-4 sm:px-6">
-        <div className="container mx-auto max-w-6xl flex flex-col sm:flex-row items-center justify-between gap-2 text-[10px] text-zinc-500 font-mono">
+      <div className="border-t border-erp-border bg-erp-bg py-4 px-4 sm:px-6">
+        <div className="container mx-auto max-w-6xl flex flex-col sm:flex-row items-center justify-between gap-2 text-[11px] text-zinc-500 font-mono">
           <div>
             © {new Date().getFullYear()} {settings.company_name || settings.trade_name}. Todos los derechos reservados.
           </div>

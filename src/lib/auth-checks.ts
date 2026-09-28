@@ -42,8 +42,9 @@ export async function getCurrentUser(): Promise<AuthenticatedUser | null> {
     } = await supabase.auth.getUser();
 
     if (authError || !user) {
-      // Si Supabase no está configurado en entorno local, proveer fallback controlado
-      if (!isSupabaseConfigured()) {
+      // Fallback de desarrollo SOLO fuera de producción.
+      // En producción: fail-closed (sin sesión válida = no autenticado).
+      if (!isSupabaseConfigured() && process.env.NODE_ENV !== 'production') {
         return {
           id: 'dev-admin-id',
           email: 'admin@elohimimport.com',
@@ -74,7 +75,9 @@ export async function getCurrentUser(): Promise<AuthenticatedUser | null> {
     };
   } catch (error) {
     console.error('Error inesperado al obtener sesión de usuario:', error);
-    if (!isSupabaseConfigured()) {
+    // Fallback de desarrollo SOLO fuera de producción.
+    // En producción: fail-closed (sin sesión válida = no autenticado).
+    if (!isSupabaseConfigured() && process.env.NODE_ENV !== 'production') {
       return {
         id: 'dev-admin-id',
         email: 'admin@elohimimport.com',

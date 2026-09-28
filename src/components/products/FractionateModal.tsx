@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { Product, UserRole } from '@/types';
 import { getDecantLiquids, fractionateBottle, createProduct } from '@/app/actions/products';
 import { CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
+import { Modal } from '@/components/ui/modal';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { X, AlertTriangle, RefreshCw, AlertCircle, Sparkles, Check } from 'lucide-react';
@@ -54,7 +55,7 @@ export function FractionateModal({ isOpen, onClose, onSuccess, bottle, role, ava
     async function loadDecants() {
       setLoadingData(true);
       setError(null);
-      const res = await getDecantLiquids(role);
+      const res = await getDecantLiquids();
       setLoadingData(false);
 
       if (res.success && res.data && currentBottle) {
@@ -116,7 +117,7 @@ export function FractionateModal({ isOpen, onClose, onSuccess, bottle, role, ava
 
       // 1. Si el usuario seleccionó crear un nuevo decant, lo registramos primero
       if (targetDecantId === 'create_new') {
-        const createRes = await createProduct(role, {
+        const createRes = await createProduct({
           sku: newDecantSku.trim(),
           name: newDecantName.trim(),
           brand: activeBottle.brand,
@@ -135,7 +136,7 @@ export function FractionateModal({ isOpen, onClose, onSuccess, bottle, role, ava
 
       // 2. Ejecutar la transacción de fraccionamiento seguro en Supabase
       const volumeToFractionate = activeBottle.volume_ml || 100;
-      const fracRes = await fractionateBottle(role, activeBottle.id, finalDecantId, volumeToFractionate);
+      const fracRes = await fractionateBottle(activeBottle.id, finalDecantId, volumeToFractionate);
 
       if (!fracRes.success) {
         throw new Error(fracRes.error || 'Error al procesar el fraccionamiento en base de datos');
@@ -151,9 +152,8 @@ export function FractionateModal({ isOpen, onClose, onSuccess, bottle, role, ava
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="w-full max-w-lg bg-white dark:bg-[#08130E] border border-slate-200 dark:border-[#1B362A] rounded-xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
-        <form onSubmit={handleFractionate}>
+    <Modal isOpen={isOpen} onClose={onClose} maxWidth="max-w-lg" className="overflow-hidden">
+      <form onSubmit={handleFractionate}>
           
           <CardHeader className="border-b border-slate-100 dark:border-zinc-900 pb-4">
             <div className="flex items-center justify-between">
@@ -207,7 +207,7 @@ export function FractionateModal({ isOpen, onClose, onSuccess, bottle, role, ava
 
             {/* RESUMEN DE LA BOTELLA ORIGEN */}
             {activeBottle && (
-              <div className="rounded-lg border border-slate-200 bg-slate-50/50 p-4 dark:border-[#1B362A] dark:bg-[#13261E]/30 space-y-2">
+              <div className="rounded-lg border border-slate-200 bg-slate-50/50 p-4 dark:border-erp-border dark:bg-erp-surface/30 space-y-2">
                 <div className="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-500">
                   Botella de Origen a Abrir
                 </div>
@@ -219,10 +219,10 @@ export function FractionateModal({ isOpen, onClose, onSuccess, bottle, role, ava
                     </p>
                   </div>
                   <div className="text-right">
-                    <span className="text-xs rounded bg-violet-100 px-2 py-0.5 font-bold text-violet-800 dark:bg-[#D0A96B]/10 dark:text-[#D0A96B]">
+                    <span className="text-xs rounded bg-violet-100 px-2 py-0.5 font-bold text-violet-800 dark:bg-erp-gold/10 dark:text-erp-gold">
                       -{activeBottle.volume_ml || 100} ml
                     </span>
-                    <p className="text-[10px] text-slate-400 mt-1">
+                    <p className="text-[11px] text-slate-400 mt-1">
                       Stock actual: {activeBottle.stock_quantity} uds
                     </p>
                   </div>
@@ -238,7 +238,7 @@ export function FractionateModal({ isOpen, onClose, onSuccess, bottle, role, ava
               
               {loadingData ? (
                 <div className="flex items-center justify-center py-4 text-xs text-slate-400 gap-2">
-                  <RefreshCw className="h-4 w-4 animate-spin text-[#D0A96B]" />
+                  <RefreshCw className="h-4 w-4 animate-spin text-erp-gold" />
                   <span>Buscando decants existentes...</span>
                 </div>
               ) : (
@@ -267,7 +267,7 @@ export function FractionateModal({ isOpen, onClose, onSuccess, bottle, role, ava
                 
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
-                    <label className="text-[10px] font-bold uppercase text-slate-400 dark:text-zinc-500">
+                    <label className="text-[11px] font-bold uppercase text-slate-400 dark:text-zinc-500">
                       SKU del Decant *
                     </label>
                     <Input
@@ -279,7 +279,7 @@ export function FractionateModal({ isOpen, onClose, onSuccess, bottle, role, ava
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[10px] font-bold uppercase text-slate-400 dark:text-zinc-500">
+                    <label className="text-[11px] font-bold uppercase text-slate-400 dark:text-zinc-500">
                       Nombre Comercial del Decant *
                     </label>
                     <Input
@@ -294,7 +294,7 @@ export function FractionateModal({ isOpen, onClose, onSuccess, bottle, role, ava
 
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
-                    <label className="text-[10px] font-bold uppercase text-slate-400 dark:text-zinc-500">
+                    <label className="text-[11px] font-bold uppercase text-slate-400 dark:text-zinc-500">
                       Costo Adquisición por ml (ARS) *
                     </label>
                     <Input
@@ -307,7 +307,7 @@ export function FractionateModal({ isOpen, onClose, onSuccess, bottle, role, ava
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-[10px] font-bold uppercase text-slate-400 dark:text-zinc-500">
+                    <label className="text-[11px] font-bold uppercase text-slate-400 dark:text-zinc-500">
                       Precio de Venta Base por ml (ARS) *
                     </label>
                     <Input
@@ -337,7 +337,7 @@ export function FractionateModal({ isOpen, onClose, onSuccess, bottle, role, ava
 
           </CardContent>
 
-          <CardFooter className="border-t border-slate-100 dark:border-zinc-900 pt-4 flex justify-end gap-3 bg-slate-50/50 dark:bg-[#13261E]/20 px-6 py-4">
+          <CardFooter className="border-t border-slate-100 dark:border-zinc-900 pt-4 flex justify-end gap-3 bg-slate-50/50 dark:bg-erp-surface/20 px-6 py-4">
             <Button
               type="button"
               variant="outline"
@@ -364,7 +364,6 @@ export function FractionateModal({ isOpen, onClose, onSuccess, bottle, role, ava
           </CardFooter>
           
         </form>
-      </div>
-    </div>
+    </Modal>
   );
 }

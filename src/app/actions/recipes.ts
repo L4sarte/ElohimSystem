@@ -70,6 +70,9 @@ export async function calculateDynamicCost(
       throw new Error('ID de producto inválido.');
     }
 
+    // Seguridad: la estructura de costos (BOM) solo se expone a Administradores, rol de la sesión
+    await requireAdmin();
+
     if (!isSupabaseConfigured()) {
       return {
         success: true,

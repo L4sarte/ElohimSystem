@@ -1,7 +1,7 @@
 'use server';
 
 import { getServiceSupabase } from '@/lib/supabase';
-import { UserRole } from '@/types';
+import { requireAdmin } from '@/lib/auth-checks';
 import { getCurrentRate } from '@/app/actions/rates';
 
 export interface InventoryValuationMetrics {
@@ -40,8 +40,11 @@ const DEFAULT_METRICS: InventoryValuationMetrics = {
  * Obtener la valoración financiera del inventario activo y la proyección de ganancia potencial.
  * Garantiza que NUNCA lance una excepción no capturada y devuelva siempre data estructurada con ceros como fallback.
  */
-export async function getInventoryValuation(role: UserRole): Promise<InventoryValuationResponse> {
+export async function getInventoryValuation(): Promise<InventoryValuationResponse> {
   try {
+    // Seguridad: expone costos de inventario (capital invertido) — solo Administradores, rol de la sesión
+    await requireAdmin();
+
     const supabase = getServiceSupabase();
     let exchangeRate = 1000;
     

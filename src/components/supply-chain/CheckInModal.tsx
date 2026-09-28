@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useSupplyChainStore } from '@/store/supplyChainStore';
 import { PurchaseOrder, CheckInItemPayload } from '@/types/supplyChain';
 import { getTreasuryAccounts, TreasuryAccount } from '@/app/actions/treasury';
@@ -10,6 +10,8 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card';
+import { Modal } from '@/components/ui/modal';
+import { toast } from 'sonner';
 
 interface CheckInModalProps {
   order: PurchaseOrder;
@@ -18,7 +20,9 @@ interface CheckInModalProps {
 }
 
 export function CheckInModal({ order, isOpen, onClose }: CheckInModalProps) {
-  const { confirmCheckIn, error: storeError, isLoading } = useSupplyChainStore();
+  const confirmCheckIn = useSupplyChainStore((state) => state.confirmCheckIn);
+  const storeError = useSupplyChainStore((state) => state.error);
+  const isLoading = useSupplyChainStore((state) => state.isLoading);
 
   // Mapear los items esperados a un estado local editable de cantidades verdaderamente recibidas
   const [receivedItems, setReceivedItems] = useState<CheckInItemPayload[]>(
@@ -27,6 +31,15 @@ export function CheckInModal({ order, isOpen, onClose }: CheckInModalProps) {
       received_quantity: Number(item.expected_quantity)
     })) || []
   );
+
+  // Timer de cierre automático — se limpia si el modal se desmonta antes (evita onClose() fantasma)
+  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
+    };
+  }, []);
 
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -114,18 +127,23 @@ export function CheckInModal({ order, isOpen, onClose }: CheckInModalProps) {
     }
 
     try {
-      await confirmCheckIn(order.id, cleanedPayload, {
+      const result = await confirmCheckIn(order.id, cleanedPayload, {
         isPaid: paymentType === 'immediate',
         treasuryAccountId: paymentType === 'immediate' ? selectedTreasuryAccountId : undefined,
         dueDate: paymentType === 'cxp' ? dueDate : null,
       });
 
       setSuccessMsg(
-        paymentType === 'immediate'
-          ? '¡Mercadería ingresada exitosamente! Fondos debitados contablemente de la cuenta de tesorería.'
-          : '¡Mercadería ingresada exitosamente! Registrada en Cuentas por Pagar (CxP) pendiente de liquidación.'
+        result?.message ||
+          (paymentType === 'immediate'
+            ? '¡Mercadería ingresada exitosamente! Fondos debitados contablemente de la cuenta de tesorería.'
+            : '¡Mercadería ingresada exitosamente! Registrada en Cuentas por Pagar (CxP) pendiente de liquidación.')
       );
-      setTimeout(() => {
+      if (result?.warning) {
+        toast.warning(result.warning);
+      }
+      if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = setTimeout(() => {
         onClose();
       }, 1500);
     } catch (err: unknown) {
@@ -140,11 +158,10 @@ export function CheckInModal({ order, isOpen, onClose }: CheckInModalProps) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
-      <div className="relative w-full max-w-3xl rounded-xl bg-white dark:bg-[#13261E] border border-slate-200 dark:border-[#1B362A] shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+    <Modal isOpen={isOpen} onClose={onClose} maxWidth="max-w-3xl" className="overflow-hidden">
         
         {/* CABECERA DEL MODAL */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-[#1B362A] bg-slate-50/50 dark:bg-[#08130E]/50">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-erp-border bg-slate-50/50 dark:bg-erp-bg/50">
           <div className="flex items-center gap-3">
             <div className="p-2.5 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
               <PackageCheck className="h-6 w-6" />
@@ -169,7 +186,7 @@ export function CheckInModal({ order, isOpen, onClose }: CheckInModalProps) {
         </div>
 
         {/* CUERPO DEL MODAL */}
-        <div className="p-6 space-y-5 max-h-[70vh] overflow-y-auto">
+        <div className="p-6 space-y-5 max-h-[70dvh] overflow-y-auto">
           {(errorMsg || storeError) && (
             <div className="p-3.5 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold flex items-center gap-2 dark:bg-rose-950/30 dark:border-rose-900/40 dark:text-rose-400">
               <AlertTriangle className="h-4 w-4 shrink-0" />
@@ -190,17 +207,17 @@ export function CheckInModal({ order, isOpen, onClose }: CheckInModalProps) {
           </div>
 
           {/* TABLA DE PRODUCTOS ESPERADOS VS RECIBIDOS */}
-          <div className="border border-slate-200 dark:border-[#1B362A] rounded-lg overflow-hidden">
+          <div className="border border-slate-200 dark:border-erp-border rounded-lg overflow-hidden">
             <table className="w-full text-left border-collapse text-xs">
               <thead>
-                <tr className="bg-slate-100 dark:bg-[#08130E] text-slate-500 uppercase font-bold border-b border-slate-200 dark:border-[#1B362A]">
+                <tr className="bg-slate-100 dark:bg-erp-bg text-slate-500 uppercase font-bold border-b border-slate-200 dark:border-erp-border">
                   <th className="p-3 pl-4">Producto / Perfume</th>
                   <th className="p-3 text-center">Cant. Esperada</th>
                   <th className="p-3 text-center">Cant. Recibida (Real)</th>
                   <th className="p-3 text-right">Costo Landed Est.</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-[#1B362A]">
+              <tbody className="divide-y divide-slate-100 dark:divide-erp-border">
                 {order.items?.map((item) => {
                   const currentReceived = receivedItems.find(i => i.item_id === item.id)?.received_quantity ?? Number(item.expected_quantity);
                   const isDifference = currentReceived !== Number(item.expected_quantity);
@@ -209,7 +226,7 @@ export function CheckInModal({ order, isOpen, onClose }: CheckInModalProps) {
                   return (
                     <tr 
                       key={item.id} 
-                      className={`hover:bg-slate-50/50 dark:hover:bg-[#08130E]/30 ${
+                      className={`hover:bg-slate-50/50 dark:hover:bg-erp-bg/30 ${
                         isDifference ? 'bg-amber-50/30 dark:bg-amber-950/10' : ''
                       }`}
                     >
@@ -219,7 +236,7 @@ export function CheckInModal({ order, isOpen, onClose }: CheckInModalProps) {
                         </div>
                         {item.product?.name || 'Producto N/A'}
                         {isDifference && (
-                          <span className="block text-[10px] text-amber-600 dark:text-amber-400 font-semibold mt-0.5">
+                          <span className="block text-[11px] text-amber-600 dark:text-amber-400 font-semibold mt-0.5">
                             ⚠️ Diferencia detectada (Faltante / Rotura)
                           </span>
                         )}
@@ -240,14 +257,14 @@ export function CheckInModal({ order, isOpen, onClose }: CheckInModalProps) {
                           className={`w-24 rounded border p-1 text-center font-bold text-xs ${
                             isDifference
                               ? 'border-amber-500 bg-amber-50 text-amber-900 dark:bg-amber-950/40 dark:text-amber-300'
-                              : 'border-slate-300 bg-white dark:border-[#1B362A] dark:bg-[#08130E] dark:text-white'
+                              : 'border-slate-300 bg-white dark:border-erp-border dark:bg-erp-bg dark:text-white'
                           }`}
                         />
                       </td>
 
                       <td className="p-3 text-right font-mono font-bold text-emerald-600 dark:text-emerald-400">
                         ${landedUnitCost.toLocaleString('es-AR', { minimumFractionDigits: 2 })}/u
-                        <span className="block text-[9px] text-slate-400 font-normal">
+                        <span className="block text-xs text-slate-400 font-normal">
                           (${Number(item.unit_cost).toLocaleString('es-AR')} + ${expensePerUnit.toFixed(2)} flete)
                         </span>
                       </td>
@@ -260,15 +277,15 @@ export function CheckInModal({ order, isOpen, onClose }: CheckInModalProps) {
 
           {/* RESUMEN DE PRORRATEO Y STOCK */}
           <div className="grid grid-cols-2 gap-4 text-xs">
-            <div className="p-3 rounded-lg bg-slate-50 dark:bg-[#08130E] border border-slate-200 dark:border-[#1B362A]">
-              <span className="text-[10px] font-bold uppercase text-slate-400 block">Total Unidades Recibidas</span>
+            <div className="p-3 rounded-lg bg-slate-50 dark:bg-erp-bg border border-slate-200 dark:border-erp-border">
+              <span className="text-[11px] font-bold uppercase text-slate-400 block">Total Unidades Recibidas</span>
               <span className="text-base font-black text-slate-900 dark:text-white font-mono mt-0.5 block">
                 {totalUnitsReceived} unidades
               </span>
             </div>
 
-            <div className="p-3 rounded-lg bg-slate-50 dark:bg-[#08130E] border border-slate-200 dark:border-[#1B362A]">
-              <span className="text-[10px] font-bold uppercase text-slate-400 block">Gastos Prorrateados / Unidad</span>
+            <div className="p-3 rounded-lg bg-slate-50 dark:bg-erp-bg border border-slate-200 dark:border-erp-border">
+              <span className="text-[11px] font-bold uppercase text-slate-400 block">Gastos Prorrateados / Unidad</span>
               <span className="text-base font-black text-amber-600 dark:text-amber-400 font-mono mt-0.5 block">
                 +${expensePerUnit.toLocaleString('es-AR', { minimumFractionDigits: 2 })} / unidad
               </span>
@@ -276,10 +293,10 @@ export function CheckInModal({ order, isOpen, onClose }: CheckInModalProps) {
           </div>
 
           {/* CONDICIÓN FINANCIERA & IMPUTACIÓN DE PAGO EN TESORERÍA */}
-          <div className="p-4 rounded-xl border border-slate-200 dark:border-[#1B362A] bg-slate-50/70 dark:bg-[#08130E]/80 space-y-3">
+          <div className="p-4 rounded-xl border border-slate-200 dark:border-erp-border bg-slate-50/70 dark:bg-erp-bg/80 space-y-3">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
               <span className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-zinc-200 flex items-center gap-1.5">
-                <Wallet className="h-4 w-4 text-[#D0A96B]" />
+                <Wallet className="h-4 w-4 text-erp-gold" />
                 Condición Financiera & Pago a Proveedor
               </span>
               <span className="text-xs font-mono font-black text-emerald-600 dark:text-emerald-400">
@@ -293,7 +310,7 @@ export function CheckInModal({ order, isOpen, onClose }: CheckInModalProps) {
                 className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
                   paymentType === 'immediate'
                     ? 'border-emerald-500 bg-emerald-500/10 text-slate-900 dark:text-white shadow-sm'
-                    : 'border-slate-200 dark:border-[#1B362A] hover:bg-slate-100 dark:hover:bg-[#13261E] text-slate-600 dark:text-zinc-400'
+                    : 'border-slate-200 dark:border-erp-border hover:bg-slate-100 dark:hover:bg-erp-surface text-slate-600 dark:text-zinc-400'
                 }`}
               >
                 <input
@@ -308,7 +325,7 @@ export function CheckInModal({ order, isOpen, onClose }: CheckInModalProps) {
                   <span className="font-bold block text-emerald-700 dark:text-emerald-400">
                     Pagado al Contado / Inmediato
                   </span>
-                  <span className="text-[10px] text-slate-500 dark:text-zinc-400 block mt-0.5 leading-snug">
+                  <span className="text-[11px] text-slate-500 dark:text-zinc-400 block mt-0.5 leading-snug">
                     Descuenta los fondos automáticamente de la cuenta de tesorería hoy.
                   </span>
                 </div>
@@ -319,7 +336,7 @@ export function CheckInModal({ order, isOpen, onClose }: CheckInModalProps) {
                 className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
                   paymentType === 'cxp'
                     ? 'border-amber-500 bg-amber-500/10 text-slate-900 dark:text-white shadow-sm'
-                    : 'border-slate-200 dark:border-[#1B362A] hover:bg-slate-100 dark:hover:bg-[#13261E] text-slate-600 dark:text-zinc-400'
+                    : 'border-slate-200 dark:border-erp-border hover:bg-slate-100 dark:hover:bg-erp-surface text-slate-600 dark:text-zinc-400'
                 }`}
               >
                 <input
@@ -334,7 +351,7 @@ export function CheckInModal({ order, isOpen, onClose }: CheckInModalProps) {
                   <span className="font-bold block text-amber-700 dark:text-amber-400">
                     Pendiente de Pago (CxP)
                   </span>
-                  <span className="text-[10px] text-slate-500 dark:text-zinc-400 block mt-0.5 leading-snug">
+                  <span className="text-[11px] text-slate-500 dark:text-zinc-400 block mt-0.5 leading-snug">
                     Registra la orden como deuda exigible sin debitar tesorería hoy.
                   </span>
                 </div>
@@ -349,7 +366,7 @@ export function CheckInModal({ order, isOpen, onClose }: CheckInModalProps) {
                     Cuenta Financiera de Tesorería (Origen del Egreso) *
                   </label>
                   {loadingAccounts && (
-                    <span className="text-[10px] text-slate-400 flex items-center gap-1">
+                    <span className="text-[11px] text-slate-400 flex items-center gap-1">
                       <RefreshCw className="h-3 w-3 animate-spin" /> Cargando cuentas...
                     </span>
                   )}
@@ -358,7 +375,7 @@ export function CheckInModal({ order, isOpen, onClose }: CheckInModalProps) {
                 <select
                   value={selectedTreasuryAccountId}
                   onChange={(e) => setSelectedTreasuryAccountId(e.target.value)}
-                  className="w-full h-10 rounded-lg border border-slate-300 dark:border-[#1B362A] bg-white dark:bg-[#08130E] px-3 text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500 font-medium"
+                  className="w-full h-10 rounded-lg border border-slate-300 dark:border-erp-border bg-white dark:bg-erp-bg px-3 text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500 font-medium"
                 >
                   {treasuryAccounts.length === 0 ? (
                     <option value="">-- No hay cuentas de tesorería activas --</option>
@@ -370,7 +387,7 @@ export function CheckInModal({ order, isOpen, onClose }: CheckInModalProps) {
                     ))
                   )}
                 </select>
-                <p className="text-[10px] text-slate-400 leading-snug">
+                <p className="text-[11px] text-slate-400 leading-snug">
                   • El egreso se registrará como pago a proveedor, descontando de tesorería sin computarse como gasto OPEX.
                 </p>
               </div>
@@ -386,9 +403,9 @@ export function CheckInModal({ order, isOpen, onClose }: CheckInModalProps) {
                   type="date"
                   value={dueDate}
                   onChange={(e) => setDueDate(e.target.value)}
-                  className="w-full h-10 rounded-lg border border-slate-300 dark:border-[#1B362A] bg-white dark:bg-[#08130E] px-3 text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-amber-500 font-mono font-bold"
+                  className="w-full h-10 rounded-lg border border-slate-300 dark:border-erp-border bg-white dark:bg-erp-bg px-3 text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-amber-500 font-mono font-bold"
                 />
-                <p className="text-[10px] text-amber-600/90 dark:text-amber-400/90 leading-snug">
+                <p className="text-[11px] text-amber-600/90 dark:text-amber-400/90 leading-snug">
                   • La orden figurará en la pestaña "Cuentas por Pagar" con botón de liquidación posterior.
                 </p>
               </div>
@@ -397,7 +414,7 @@ export function CheckInModal({ order, isOpen, onClose }: CheckInModalProps) {
         </div>
 
         {/* PIE DE PÁGINA Y BOTÓN DE CONFIRMACIÓN DE INGRESO */}
-        <div className="flex items-center justify-between px-6 py-4 border-t border-slate-100 dark:border-[#1B362A] bg-slate-50/50 dark:bg-[#08130E]/50">
+        <div className="flex items-center justify-between px-6 py-4 border-t border-slate-100 dark:border-erp-border bg-slate-50/50 dark:bg-erp-bg/50">
           <Button
             variant="outline"
             onClick={onClose}
@@ -420,7 +437,6 @@ export function CheckInModal({ order, isOpen, onClose }: CheckInModalProps) {
             Confirmar Ingreso Definitivo a Stock
           </Button>
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 }

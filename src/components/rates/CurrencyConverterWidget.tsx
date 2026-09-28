@@ -37,17 +37,17 @@ export function CurrencyConverterWidget({
   };
 
   return (
-    <div className="mt-4 pt-4 border-t border-[#1B362A]/60 space-y-3">
+    <div className="mt-4 pt-4 border-t border-erp-border/60 space-y-3">
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-1.5 text-xs font-bold text-[#D0A96B] font-serif">
+        <div className="flex items-center gap-1.5 text-xs font-bold text-erp-gold font-serif">
           <Calculator className="h-3.5 w-3.5" />
           <span>Conversor Rápido en Vivo</span>
         </div>
         <button
           onClick={toggleCurrency}
-          className="text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-lg bg-[#08130E] border border-[#1B362A] text-zinc-300 hover:text-[#D0A96B] flex items-center gap-1 cursor-pointer transition-colors"
+          className="text-[11px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-lg bg-erp-bg border border-erp-border text-zinc-300 hover:text-erp-gold flex items-center gap-1 cursor-pointer transition-colors"
         >
-          <ArrowLeftRight className="h-3 w-3 text-[#D0A96B]" />
+          <ArrowLeftRight className="h-3 w-3 text-erp-gold" />
           Modo: Base {currency}
         </button>
       </div>
@@ -65,25 +65,25 @@ export function CurrencyConverterWidget({
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
             placeholder="0.00"
-            className="pl-7 h-9 bg-[#08130E] border-[#1B362A] text-white font-mono text-xs font-bold rounded-xl"
+            className="pl-7 h-9 bg-erp-bg border-erp-border text-white font-mono text-xs font-bold rounded-xl"
           />
         </div>
 
         {/* Resultado ARS */}
-        <div className="p-2.5 rounded-xl bg-[#08130E] border border-[#1B362A] flex justify-between items-center text-xs">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 font-mono">En ARS:</span>
+        <div className="p-2.5 rounded-xl bg-erp-bg border border-erp-border flex justify-between items-center text-xs">
+          <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-400 font-mono">En ARS:</span>
           <span className="font-mono font-bold text-white">${Math.round(arsValue).toLocaleString('es-AR')}</span>
         </div>
 
         {/* Resultado USD Blue */}
-        <div className="p-2.5 rounded-xl bg-[#08130E] border border-[#1B362A] flex justify-between items-center text-xs">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-[#D0A96B] font-mono">u$s Blue:</span>
-          <span className="font-mono font-bold text-[#D0A96B]">u$s {usdBlueValue.toFixed(2)}</span>
+        <div className="p-2.5 rounded-xl bg-erp-bg border border-erp-border flex justify-between items-center text-xs">
+          <span className="text-[11px] font-bold uppercase tracking-wider text-erp-gold font-mono">u$s Blue:</span>
+          <span className="font-mono font-bold text-erp-gold">u$s {usdBlueValue.toFixed(2)}</span>
         </div>
 
         {/* Resultado USDT Binance */}
-        <div className="p-2.5 rounded-xl bg-[#08130E] border border-[#1B362A] flex justify-between items-center text-xs">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400 font-mono">USDT P2P:</span>
+        <div className="p-2.5 rounded-xl bg-erp-bg border border-erp-border flex justify-between items-center text-xs">
+          <span className="text-[11px] font-bold uppercase tracking-wider text-amber-400 font-mono">USDT P2P:</span>
           <span className="font-mono font-bold text-amber-400">₮ {usdtBinanceValue.toFixed(2)}</span>
         </div>
       </div>

@@ -94,10 +94,10 @@ export function RegisterPaymentModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
-      <div className="relative w-full max-w-md rounded-2xl bg-white dark:bg-[#13261E] border border-slate-200 dark:border-[#1B362A] shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+      <div className="relative w-full max-w-md rounded-2xl bg-white dark:bg-erp-surface border border-slate-200 dark:border-erp-border shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
         
         {/* CABECERA */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-[#1B362A] bg-slate-50/50 dark:bg-[#08130E]/50">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-erp-border bg-slate-50/50 dark:bg-erp-bg/50">
           <div className="flex items-center gap-2.5">
             <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
               <Wallet className="h-5 w-5" />
@@ -131,16 +131,16 @@ export function RegisterPaymentModal({
           )}
 
           {/* DETALLES DE LA ORDEN */}
-          <div className="p-3 rounded-xl bg-slate-50 dark:bg-[#08130E] border border-slate-200 dark:border-[#1B362A] space-y-2 text-xs">
+          <div className="p-3 rounded-xl bg-slate-50 dark:bg-erp-bg border border-slate-200 dark:border-erp-border space-y-2 text-xs">
             <div className="flex justify-between items-center text-slate-600 dark:text-zinc-400">
               <span>Proveedor:</span>
               <span className="font-bold text-slate-900 dark:text-white flex items-center gap-1">
-                <Building className="h-3 w-3 text-[#D0A96B]" />
+                <Building className="h-3 w-3 text-erp-gold" />
                 {purchase.supplier_name || 'Proveedor B2B'}
               </span>
             </div>
 
-            <div className="flex justify-between items-center text-slate-600 dark:text-zinc-400 border-t border-slate-200 dark:border-[#1B362A]/60 pt-2">
+            <div className="flex justify-between items-center text-slate-600 dark:text-zinc-400 border-t border-slate-200 dark:border-erp-border/60 pt-2">
               <span>Importe Total a Liquidar:</span>
               <span className="font-mono text-base font-black text-emerald-600 dark:text-emerald-400">
                 ${totalAmount.toLocaleString('es-AR', { minimumFractionDigits: 2 })} ARS
@@ -155,7 +155,7 @@ export function RegisterPaymentModal({
                 Cuenta de Tesorería de Origen *
               </label>
               {loadingAccounts && (
-                <span className="text-[10px] text-slate-400 flex items-center gap-1">
+                <span className="text-[11px] text-slate-400 flex items-center gap-1">
                   <RefreshCw className="h-3 w-3 animate-spin" /> Cargando...
                 </span>
               )}
@@ -164,7 +164,7 @@ export function RegisterPaymentModal({
             <select
               value={selectedAccountId}
               onChange={(e) => setSelectedAccountId(e.target.value)}
-              className="w-full h-10 rounded-lg border border-slate-300 dark:border-[#1B362A] bg-white dark:bg-[#08130E] px-3 text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500 font-medium"
+              className="w-full h-10 rounded-lg border border-slate-300 dark:border-erp-border bg-white dark:bg-erp-bg px-3 text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500 font-medium"
             >
               {treasuryAccounts.length === 0 ? (
                 <option value="">-- No hay cuentas de tesorería activas --</option>
@@ -176,7 +176,7 @@ export function RegisterPaymentModal({
                 ))
               )}
             </select>
-            <p className="text-[10px] text-slate-400 leading-snug">
+            <p className="text-[11px] text-slate-400 leading-snug">
               El pago se debitará contablemente de la cuenta seleccionada sin mezclarse con gastos operativos (OPEX).
             </p>
           </div>
@@ -191,12 +191,12 @@ export function RegisterPaymentModal({
               placeholder="Ej: Transferencia nº 894120 / Factura A cancelada"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              className="w-full h-9 rounded-lg border border-slate-300 dark:border-[#1B362A] bg-white dark:bg-[#08130E] px-3 text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500"
+              className="w-full h-9 rounded-lg border border-slate-300 dark:border-erp-border bg-white dark:bg-erp-bg px-3 text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500"
             />
           </div>
 
           {/* ACCIONES */}
-          <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100 dark:border-[#1B362A]">
+          <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100 dark:border-erp-border">
             <Button
               type="button"
               variant="outline"

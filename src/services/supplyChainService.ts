@@ -72,11 +72,11 @@ export class SupplyChainService {
     po_id: string, 
     items: CheckInItemPayload[], 
     paymentDetails?: CheckInPaymentDetails
-  ): Promise<{ success: boolean; message: string }> {
+  ): Promise<{ success: boolean; message: string; warning?: string }> {
     const res = await confirmCheckInAction(po_id, items, paymentDetails);
     if (!res.success) {
       throw new Error(res.error || 'Error al confirmar ingreso a stock');
     }
-    return { success: true, message: res.message || 'Ingreso confirmado a stock' };
+    return { success: true, message: res.message || 'Ingreso confirmado a stock', warning: res.warning };
   }
 }

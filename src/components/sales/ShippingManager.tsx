@@ -26,7 +26,7 @@ export function ShippingManager({
   onUpdateSuccess,
   compact = false
 }: ShippingManagerProps) {
-  const { role } = useUserStore();
+  const role = useUserStore((state) => state.role);
 
   const [provider, setProvider] = useState<string>(initialProvider || 'Ninguno');
   const [trackingNumber, setTrackingNumber] = useState<string>(initialTracking || '');
@@ -72,16 +72,16 @@ export function ShippingManager({
   const trackingUrl = getTrackingUrl(provider, trackingNumber);
 
   return (
-    <Card className="border border-[#1B362A] bg-[#13261E] rounded-2xl shadow-xl overflow-hidden">
-      <CardHeader className="pb-3 border-b border-[#1B362A] bg-[#08130E]/50">
+    <Card className="border border-erp-border bg-erp-surface rounded-2xl shadow-xl overflow-hidden">
+      <CardHeader className="pb-3 border-b border-erp-border bg-erp-bg/50">
         <div className="flex items-center justify-between">
           <CardTitle className="text-sm font-bold text-white font-serif flex items-center gap-2">
-            <Truck className="h-4.5 w-4.5 text-[#D0A96B]" />
+            <Truck className="h-4.5 w-4.5 text-erp-gold" />
             Gestión Logística & Envíos
           </CardTitle>
 
           {/* Badge de Estado del Envío */}
-          <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold font-mono border ${
+          <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-extrabold font-mono border ${
             status === 'delivered'
               ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
               : status === 'shipped'
@@ -115,7 +115,7 @@ export function ShippingManager({
                 value={provider}
                 onChange={(e) => setProvider(e.target.value)}
                 disabled={saving}
-                className="flex h-9 w-full rounded-lg border border-[#1B362A] bg-[#08130E] px-3 py-1 text-xs font-bold text-white focus:outline-none focus:ring-1 focus:ring-[#D0A96B] disabled:opacity-50"
+                className="flex h-9 w-full rounded-lg border border-erp-border bg-erp-bg px-3 py-1 text-xs font-bold text-white focus:outline-none focus:ring-1 focus:ring-erp-gold disabled:opacity-50"
               >
                 <option value="Ninguno">🚫 Sin Envío (Retiro en Local)</option>
                 <option value="Andreani">🚚 Andreani</option>
@@ -133,7 +133,7 @@ export function ShippingManager({
                 value={status}
                 onChange={(e) => setStatus(e.target.value as 'pending' | 'shipped' | 'delivered')}
                 disabled={saving}
-                className="flex h-9 w-full rounded-lg border border-[#1B362A] bg-[#08130E] px-3 py-1 text-xs font-bold text-white focus:outline-none focus:ring-1 focus:ring-[#D0A96B] disabled:opacity-50"
+                className="flex h-9 w-full rounded-lg border border-erp-border bg-erp-bg px-3 py-1 text-xs font-bold text-white focus:outline-none focus:ring-1 focus:ring-erp-gold disabled:opacity-50"
               >
                 <option value="pending">⏳ Pendiente de Despacho</option>
                 <option value="shipped">🚚 Despachado / En Tránsito</option>
@@ -153,7 +153,7 @@ export function ShippingManager({
               value={trackingNumber}
               onChange={(e) => setTrackingNumber(e.target.value)}
               disabled={saving}
-              className="bg-[#08130E] border-[#1B362A] text-white font-mono text-xs font-bold disabled:opacity-50"
+              className="bg-erp-bg border-erp-border text-white font-mono text-xs font-bold disabled:opacity-50"
             />
           </div>
 
@@ -174,11 +174,11 @@ export function ShippingManager({
 
         </CardContent>
 
-        <CardFooter className="border-t border-[#1B362A] bg-[#08130E]/30 px-4 py-3 flex justify-end">
+        <CardFooter className="border-t border-erp-border bg-erp-bg/30 px-4 py-3 flex justify-end">
           <Button
             type="submit"
             disabled={saving}
-            className="bg-[#D0A96B] hover:bg-[#E5C158] text-[#08130E] font-extrabold text-xs shadow-md shadow-[#D0A96B]/20 cursor-pointer h-8"
+            className="bg-erp-gold hover:bg-erp-gold-hover text-erp-bg font-extrabold text-xs shadow-md shadow-erp-gold/20 cursor-pointer h-8"
           >
             {saving ? (
               <>

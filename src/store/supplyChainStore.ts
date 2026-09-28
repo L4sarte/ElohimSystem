@@ -19,7 +19,7 @@ interface SupplyChainState {
   fetchSuppliers: () => Promise<void>;
   fetchInTransitOrders: () => Promise<void>;
   createPurchaseOrder: (payload: CreatePOPayload) => Promise<PurchaseOrder>;
-  confirmCheckIn: (poId: string, items: CheckInItemPayload[], paymentDetails?: CheckInPaymentDetails) => Promise<void>;
+  confirmCheckIn: (poId: string, items: CheckInItemPayload[], paymentDetails?: CheckInPaymentDetails) => Promise<{ success: boolean; message?: string; warning?: string }>;
   addSupplier: (supplier: Omit<Supplier, 'id' | 'created_at' | 'updated_at'>) => Promise<Supplier>;
 }
 
@@ -81,8 +81,9 @@ export const useSupplyChainStore = create<SupplyChainState>((set, get) => ({
     });
 
     try {
-      await SupplyChainService.confirmCheckIn(poId, items, paymentDetails);
+      const result = await SupplyChainService.confirmCheckIn(poId, items, paymentDetails);
       set({ isLoading: false });
+      return result;
     } catch (err: unknown) {
       const msg = err instanceof Error 
         ? err.message 

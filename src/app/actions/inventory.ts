@@ -392,7 +392,8 @@ export async function getFractionationLogs(role?: UserRole): Promise<{
     return { success: true, data: formatted };
   } catch (err: unknown) {
     console.error('Error al obtener fractionation_logs:', err);
-    return { success: true, data: [] };
+    const msg = err instanceof Error ? err.message : 'Error al consultar el libro de fraccionamientos';
+    return { success: false, error: msg };
   }
 }
 

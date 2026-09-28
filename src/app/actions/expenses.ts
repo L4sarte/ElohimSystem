@@ -5,7 +5,8 @@ import { UserRole } from '@/types';
 import { revalidatePath } from 'next/cache';
 import { requireAdmin } from '@/lib/auth-checks';
 import { operatingExpenseInputSchema } from '@/lib/expense-validation';
-import { withdrawFromAccount, depositToAccount, getTreasuryAccounts } from '@/app/actions/treasury';
+import { getTreasuryAccounts } from '@/app/actions/treasury';
+import { depositToAccount, withdrawFromAccount } from '@/lib/treasury-ops';
 
 export interface OperatingExpense {
   id: string;
@@ -64,7 +65,7 @@ export async function getExpenses(role?: UserRole): Promise<{
 export async function createExpense(
   role: UserRole,
   input: OperatingExpenseInput
-): Promise<{ success: boolean; data?: OperatingExpense; error?: string }> {
+): Promise<{ success: boolean; data?: OperatingExpense; warning?: string; error?: string }> {
   try {
     const adminUser = await requireAdmin();
 
@@ -120,14 +121,24 @@ export async function createExpense(
       }
     }
 
+    let treasuryWarning: string | null = null;
     if (targetAccId) {
-      await withdrawFromAccount(targetAccId, clean.amount_ars);
+      const withdrawOk = await withdrawFromAccount(
+        targetAccId,
+        clean.amount_ars,
+        `Gasto operativo: ${clean.category || 'Gasto'}`,
+        data?.id || undefined
+      );
+      if (!withdrawOk) {
+        console.error('[EXPENSE_TREASURY_WITHDRAW_FAILED]: gasto', data?.id, '- monto', clean.amount_ars);
+        treasuryWarning = 'El débito de tesorería falló: el gasto fue registrado pero el dinero NO se descontó de la cuenta. Verificá el saldo manualmente.';
+      }
     }
 
     revalidatePath('/admin/gastos');
     revalidatePath('/admin/finanzas/tesoreria');
     revalidatePath('/admin/reportes');
-    return { success: true, data: data as unknown as OperatingExpense };
+    return { success: true, data: data as unknown as OperatingExpense, warning: treasuryWarning || undefined };
   } catch (error: unknown) {
     console.error('Error al crear gasto operativo:', error);
     const msg = error instanceof Error ? error.message : 'Error al registrar el gasto';
@@ -142,7 +153,7 @@ export async function updateExpense(
   role: UserRole,
   id: string,
   input: OperatingExpenseInput
-): Promise<{ success: boolean; data?: OperatingExpense; error?: string }> {
+): Promise<{ success: boolean; data?: OperatingExpense; warning?: string; error?: string }> {
   try {
     await requireAdmin();
 
@@ -203,6 +214,7 @@ export async function updateExpense(
     if (error) throw error;
 
     // 3. Ajustar saldo en Tesorería si varió el monto
+    let treasuryWarning: string | null = null;
     if (diff !== 0) {
       let targetAccId = clean.treasury_account_id;
       if (!targetAccId) {
@@ -213,9 +225,10 @@ export async function updateExpense(
       }
 
       if (targetAccId) {
+        let adjustOk = true;
         if (diff > 0) {
           // Aumentó el monto del gasto: debitar la diferencia
-          await withdrawFromAccount(
+          adjustOk = await withdrawFromAccount(
             targetAccId,
             diff,
             `Ajuste incremento de gasto: ${clean.description}`,
@@ -223,12 +236,16 @@ export async function updateExpense(
           );
         } else {
           // Disminuyó el monto del gasto: reintegrar la diferencia
-          await depositToAccount(
+          adjustOk = await depositToAccount(
             targetAccId,
             Math.abs(diff),
             `Ajuste reducción de gasto: ${clean.description}`,
             id.trim()
           );
+        }
+        if (!adjustOk) {
+          console.error('[EXPENSE_TREASURY_ADJUST_FAILED]: gasto', id.trim(), '- diferencial', diff);
+          treasuryWarning = 'El ajuste de tesorería falló: el gasto fue actualizado pero el diferencial NO se movió en la cuenta. Verificá el saldo manualmente.';
         }
       }
     }
@@ -236,7 +253,7 @@ export async function updateExpense(
     revalidatePath('/admin/gastos');
     revalidatePath('/admin/finanzas/tesoreria');
     revalidatePath('/admin/reportes');
-    return { success: true, data: data as unknown as OperatingExpense };
+    return { success: true, data: data as unknown as OperatingExpense, warning: treasuryWarning || undefined };
   } catch (error: unknown) {
     console.error('Error al actualizar gasto:', error);
     const msg = error instanceof Error ? error.message : 'Error al actualizar el gasto';
@@ -250,7 +267,7 @@ export async function updateExpense(
 export async function deleteExpense(
   role: UserRole,
   id: string
-): Promise<{ success: boolean; error?: string }> {
+): Promise<{ success: boolean; warning?: string; error?: string }> {
   try {
     await requireAdmin();
 
@@ -280,22 +297,27 @@ export async function deleteExpense(
     if (error) throw error;
 
     // 3. Reintegrar fondos a Tesorería
+    let treasuryWarning: string | null = null;
     if (oldExpense && Number(oldExpense.amount_ars) > 0) {
       const resAcc = await getTreasuryAccounts();
       if (resAcc.success && resAcc.data && resAcc.data.length > 0) {
-        await depositToAccount(
+        const depositOk = await depositToAccount(
           resAcc.data[0].id,
           Number(oldExpense.amount_ars),
           `Reversión por eliminación de gasto: ${oldExpense.description || 'Gasto'}`,
           id.trim()
         );
+        if (!depositOk) {
+          console.error('[EXPENSE_TREASURY_REFUND_FAILED]: gasto eliminado', id.trim());
+          treasuryWarning = 'El gasto fue eliminado pero el reintegro a tesorería NO se pudo acreditar. Verificá el saldo manualmente.';
+        }
       }
     }
 
     revalidatePath('/admin/gastos');
     revalidatePath('/admin/finanzas/tesoreria');
     revalidatePath('/admin/reportes');
-    return { success: true };
+    return { success: true, warning: treasuryWarning || undefined };
   } catch (error: unknown) {
     console.error('Error al eliminar gasto:', error);
     const msg = error instanceof Error ? error.message : 'Error al eliminar el gasto';

@@ -65,7 +65,7 @@ export function ProductList({ role, excludeSupplies = true }: ProductListProps) 
   const fetchProductsList = async () => {
     setLoading(true);
     setError(null);
-    const res = await getProducts(role);
+    const res = await getProducts();
     if (res.success && res.data) {
       setProducts(res.data);
     } else {
@@ -86,7 +86,7 @@ export function ProductList({ role, excludeSupplies = true }: ProductListProps) 
   const executeDeleteProduct = async () => {
     if (!deleteProductInfo) return;
     setLoading(true);
-    const res = await deleteProduct(role, deleteProductInfo.id);
+    const res = await deleteProduct(deleteProductInfo.id);
     if (res.success) {
       toast.success(`Producto "${deleteProductInfo.name}" eliminado con éxito.`);
       await fetchProductsList();
@@ -101,7 +101,7 @@ export function ProductList({ role, excludeSupplies = true }: ProductListProps) 
     const nextState = !currentPublic;
     // Actualización optimista local
     setProducts(prev => prev.map(p => p.id === productId ? { ...p, is_public: nextState } : p));
-    const res = await toggleProductVisibility(role, productId, nextState);
+    const res = await toggleProductVisibility(productId, nextState);
     if (!res.success) {
       // Revertir en caso de falla
       setProducts(prev => prev.map(p => p.id === productId ? { ...p, is_public: currentPublic } : p));
@@ -243,7 +243,7 @@ export function ProductList({ role, excludeSupplies = true }: ProductListProps) 
     switch (type) {
       case 'bottle':
         return (
-          <span className="inline-flex items-center gap-1 rounded-md bg-violet-50 px-2 py-1 text-xs font-semibold text-violet-700 dark:bg-[#D0A96B]/10 dark:text-[#D0A96B]">
+          <span className="inline-flex items-center gap-1 rounded-md bg-violet-50 px-2 py-1 text-xs font-semibold text-violet-700 dark:bg-erp-gold/10 dark:text-erp-gold">
             <ShoppingBag className="h-3 w-3" /> Botella Sellada
           </span>
         );
@@ -266,7 +266,7 @@ export function ProductList({ role, excludeSupplies = true }: ProductListProps) 
     <div className="space-y-6">
       
       {/* BARRA DE FILTROS Y BÚSQUEDA */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between bg-white dark:bg-[#13261E] p-4 rounded-xl border border-slate-200 dark:border-[#1B362A] shadow-sm">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between bg-white dark:bg-erp-surface p-4 rounded-xl border border-slate-200 dark:border-erp-border shadow-sm">
         
         {/* Input de Búsqueda */}
         <div className="relative flex-1 max-w-md">
@@ -335,7 +335,7 @@ export function ProductList({ role, excludeSupplies = true }: ProductListProps) 
             size="sm"
             onClick={handleExportCsv}
             disabled={isExportingCsv || filteredProducts.length === 0}
-            className="border-[#1B362A] bg-[#13261E] text-emerald-400 hover:bg-emerald-950/40 hover:text-emerald-300 font-bold text-xs cursor-pointer flex items-center gap-1.5 shadow-sm"
+            className="border-erp-border bg-erp-surface text-emerald-400 hover:bg-emerald-950/40 hover:text-emerald-300 font-bold text-xs cursor-pointer flex items-center gap-1.5 shadow-sm"
             title="Exportar stock actual a planilla Excel / CSV"
           >
             <FileSpreadsheet className="h-3.5 w-3.5" />
@@ -347,7 +347,7 @@ export function ProductList({ role, excludeSupplies = true }: ProductListProps) 
             size="sm"
             onClick={handleExportPdf}
             disabled={isExportingPdf || filteredProducts.length === 0}
-            className="border-[#1B362A] bg-[#13261E] text-rose-400 hover:bg-rose-950/40 hover:text-rose-300 font-bold text-xs cursor-pointer flex items-center gap-1.5 shadow-sm"
+            className="border-erp-border bg-erp-surface text-rose-400 hover:bg-rose-950/40 hover:text-rose-300 font-bold text-xs cursor-pointer flex items-center gap-1.5 shadow-sm"
             title="Descargar reporte oficial de inventario en PDF vectorial"
           >
             {isExportingPdf ? (
@@ -369,7 +369,7 @@ export function ProductList({ role, excludeSupplies = true }: ProductListProps) 
               onClick={() => setIsCatalogModalOpen(true)}
               className="bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs cursor-pointer shadow-md animate-in fade-in duration-200"
             >
-              <Crown className="mr-1.5 h-4 w-4 text-[#D0A96B]" />
+              <Crown className="mr-1.5 h-4 w-4 text-erp-gold" />
               Generar Catálogo ({selectedProductIds.length})
             </Button>
           )}
@@ -379,9 +379,9 @@ export function ProductList({ role, excludeSupplies = true }: ProductListProps) 
             <Button
               variant="outline"
               onClick={() => setIsOlfactoryModalOpen(true)}
-              className="border-[#1B362A] bg-[#13261E] text-zinc-200 hover:bg-zinc-800 font-bold text-xs cursor-pointer"
+              className="border-erp-border bg-erp-surface text-zinc-200 hover:bg-zinc-800 font-bold text-xs cursor-pointer"
             >
-              <Sparkles className="mr-1.5 h-3.5 w-3.5 text-[#D0A96B]" />
+              <Sparkles className="mr-1.5 h-3.5 w-3.5 text-erp-gold" />
               Gestor Olfativo
             </Button>
           )}
@@ -390,7 +390,7 @@ export function ProductList({ role, excludeSupplies = true }: ProductListProps) 
           {role === 'admin' && (
             <Button 
               onClick={handleCreateClick} 
-              className="bg-[#D0A96B] hover:bg-[#E5C158] text-[#08130E] font-extrabold shadow-md shadow-[#D0A96B]/20 cursor-pointer text-xs"
+              className="bg-erp-gold hover:bg-erp-gold-hover text-erp-bg font-extrabold shadow-md shadow-erp-gold/20 cursor-pointer text-xs"
             >
               <Plus className="mr-1.5 h-4 w-4" /> Agregar Producto
             </Button>
@@ -412,11 +412,11 @@ export function ProductList({ role, excludeSupplies = true }: ProductListProps) 
       )}
 
       {/* CONTENEDOR DE LA TABLA */}
-      <Card className="border-slate-200 dark:border-[#1B362A]">
+      <Card className="border-slate-200 dark:border-erp-border">
         <CardContent className="p-0 overflow-x-auto">
           {loading ? (
             <div className="flex flex-col items-center justify-center py-20 gap-3">
-              <RefreshCw className="h-8 w-8 animate-spin text-[#D0A96B] dark:text-[#D0A96B]" />
+              <RefreshCw className="h-8 w-8 animate-spin text-erp-gold dark:text-erp-gold" />
               <span className="text-sm font-medium text-slate-500 dark:text-zinc-400">Cargando catálogo de productos...</span>
             </div>
           ) : error ? (
@@ -436,7 +436,7 @@ export function ProductList({ role, excludeSupplies = true }: ProductListProps) 
                 No se encontraron productos que coincidan con la búsqueda o la categoría seleccionada.
               </p>
               {role === 'admin' && (
-                <Button onClick={handleCreateClick} className="mt-2 bg-[#D0A96B] hover:bg-[#E5C158] text-[#08130E] font-extrabold shadow-md shadow-[#D0A96B]/20 dark:bg-violet-500 dark:hover:bg-[#D0A96B] text-[#08130E]">
+                <Button onClick={handleCreateClick} className="mt-2 bg-erp-gold hover:bg-erp-gold-hover text-erp-bg font-extrabold shadow-md shadow-erp-gold/20 dark:bg-violet-500 dark:hover:bg-erp-gold text-erp-bg">
                   Crear primer producto
                 </Button>
               )}
@@ -444,13 +444,13 @@ export function ProductList({ role, excludeSupplies = true }: ProductListProps) 
           ) : (
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="border-b border-slate-200 dark:border-[#1B362A] bg-slate-50/50 dark:bg-[#13261E]/40 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400">
+                <tr className="border-b border-slate-200 dark:border-erp-border bg-slate-50/50 dark:bg-erp-surface/40 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400">
                   <th className="p-4 pl-4 text-center w-10">
                     <input
                       type="checkbox"
                       checked={filteredProducts.length > 0 && selectedProductIds.length === filteredProducts.length}
                       onChange={toggleSelectAll}
-                      className="rounded border-[#1B362A] bg-[#08130E] text-[#D0A96B] focus:ring-[#D0A96B] cursor-pointer"
+                      className="rounded border-erp-border bg-erp-bg text-erp-gold focus:ring-erp-gold cursor-pointer"
                       title="Seleccionar todos para el catálogo"
                     />
                   </th>
@@ -459,7 +459,7 @@ export function ProductList({ role, excludeSupplies = true }: ProductListProps) 
                   <th className="p-4">Producto</th>
                   <th className="p-4">Stock</th>
                   {role === 'admin' && (
-                    <th className="p-4 text-[#D0A96B] dark:text-[#D0A96B]">Costo (ARS)</th>
+                    <th className="p-4 text-erp-gold dark:text-erp-gold">Costo (ARS)</th>
                   )}
                   <th className="p-4">Precio (ARS)</th>
                   <th className="p-4 text-indigo-600 dark:text-indigo-400">Precio Ref (USD)</th>
@@ -473,8 +473,8 @@ export function ProductList({ role, excludeSupplies = true }: ProductListProps) 
                 {filteredProducts.map((product) => (
                   <tr 
                     key={product.id} 
-                    className={`hover:bg-slate-50/60 dark:hover:bg-[#13261E]/30 transition-colors ${
-                      selectedProductIds.includes(product.id) ? 'bg-[#13261E]/50' : ''
+                    className={`hover:bg-slate-50/60 dark:hover:bg-erp-surface/30 transition-colors ${
+                      selectedProductIds.includes(product.id) ? 'bg-erp-surface/50' : ''
                     }`}
                   >
                     {/* CHECKBOX SELECCIÓN */}
@@ -483,7 +483,7 @@ export function ProductList({ role, excludeSupplies = true }: ProductListProps) 
                         type="checkbox"
                         checked={selectedProductIds.includes(product.id)}
                         onChange={() => toggleSelectProduct(product.id)}
-                        className="rounded border-[#1B362A] bg-[#08130E] text-[#D0A96B] focus:ring-[#D0A96B] cursor-pointer"
+                        className="rounded border-erp-border bg-erp-bg text-erp-gold focus:ring-erp-gold cursor-pointer"
                       />
                     </td>
 
@@ -527,7 +527,7 @@ export function ProductList({ role, excludeSupplies = true }: ProductListProps) 
                             <Droplet className="h-3.5 w-3.5 text-cyan-600 dark:text-cyan-400 shrink-0" />
                             <span>{product.stock_quantity} ml</span>
                           </div>
-                          <div className="text-[10px] text-cyan-700/80 dark:text-cyan-300/70 font-normal mt-0.5">
+                          <div className="text-[11px] text-cyan-700/80 dark:text-cyan-300/70 font-normal mt-0.5">
                             Granel en depósito
                           </div>
                         </div>
@@ -538,7 +538,7 @@ export function ProductList({ role, excludeSupplies = true }: ProductListProps) 
                             uds
                           </span>
                           {product.volume_ml && (
-                            <div className="text-[10px] text-slate-400 font-normal">
+                            <div className="text-[11px] text-slate-400 font-normal">
                               Capacidad: {product.volume_ml} ml
                             </div>
                           )}
@@ -548,14 +548,14 @@ export function ProductList({ role, excludeSupplies = true }: ProductListProps) 
 
                     {/* Costo Adquisición (Solo Admin) */}
                     {role === 'admin' && (
-                      <td className="p-4 font-mono font-medium text-[#D0A96B] dark:text-[#D0A96B]">
+                      <td className="p-4 font-mono font-medium text-erp-gold dark:text-erp-gold">
                         {product.type === 'decant_liquid' ? (
                           <div>
                             <div className="flex items-baseline gap-1">
                               <span>{formatArs(product.base_cost_ars)}</span>
-                              <span className="text-[10px] text-slate-400 font-normal">/ ml</span>
+                              <span className="text-[11px] text-slate-400 font-normal">/ ml</span>
                             </div>
-                            <div className="text-[10px] text-slate-400 font-normal mt-0.5">
+                            <div className="text-[11px] text-slate-400 font-normal mt-0.5">
                               Total: {formatArs((Number(product.stock_quantity) || 0) * (Number(product.base_cost_ars) || 0))}
                             </div>
                           </div>
@@ -574,10 +574,10 @@ export function ProductList({ role, excludeSupplies = true }: ProductListProps) 
                             <span className="text-[11px] font-normal text-slate-400">/ ml</span>
                           </div>
                           <div className="flex flex-wrap gap-1 mt-1">
-                            <span className="inline-block px-1.5 py-0.5 text-[9px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 rounded">
+                            <span className="inline-block px-1.5 py-0.5 text-xs font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 rounded">
                               5ml: {formatArs(product.base_price_ars * 5)}
                             </span>
-                            <span className="inline-block px-1.5 py-0.5 text-[9px] font-bold bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 rounded">
+                            <span className="inline-block px-1.5 py-0.5 text-xs font-bold bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 rounded">
                               10ml: {formatArs(product.base_price_ars * 10)}
                             </span>
                           </div>
@@ -601,7 +601,7 @@ export function ProductList({ role, excludeSupplies = true }: ProductListProps) 
                           className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold transition-all cursor-pointer border ${
                             product.is_public !== false
                               ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20'
-                              : 'bg-zinc-800 text-zinc-500 border-[#1B362A] hover:bg-zinc-700 hover:text-zinc-300'
+                              : 'bg-zinc-800 text-zinc-500 border-erp-border hover:bg-zinc-700 hover:text-zinc-300'
                           }`}
                           title="Alternar visibilidad en la vidriera digital pública B2C"
                         >
@@ -616,7 +616,7 @@ export function ProductList({ role, excludeSupplies = true }: ProductListProps) 
                           )}
                         </button>
                       ) : (
-                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${product.is_public !== false ? 'text-emerald-400' : 'text-zinc-500'}`}>
+                        <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${product.is_public !== false ? 'text-emerald-400' : 'text-zinc-500'}`}>
                           {product.is_public !== false ? 'Público' : 'Oculto'}
                         </span>
                       )}

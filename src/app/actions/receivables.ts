@@ -5,7 +5,8 @@ import { UserRole } from '@/types';
 import { revalidatePath } from 'next/cache';
 import { requireAuth } from '@/lib/auth-checks';
 import { receivablePaymentSchema } from '@/lib/client-validation';
-import { depositToAccount, getTreasuryAccounts } from '@/app/actions/treasury';
+import { getTreasuryAccounts } from '@/app/actions/treasury';
+import { depositToAccount } from '@/lib/treasury-ops';
 
 export interface AccountReceivable {
   id: string;
@@ -110,7 +111,7 @@ export async function registerDebtPayment(
   receivableId: string,
   amountPaid: number,
   notes?: string
-): Promise<{ success: boolean; newPaid?: number; status?: string; error?: string }> {
+): Promise<{ success: boolean; newPaid?: number; status?: string; warning?: string; error?: string }> {
   try {
     await requireAuth();
 
@@ -197,15 +198,20 @@ export async function registerDebtPayment(
     }
 
     // 2c. IMPACTAR INGRESO EN TESORERÍA (Emparejando cuenta Efectivo)
+    let treasuryWarning: string | null = null;
     const resAcc = await getTreasuryAccounts();
     if (resAcc.success && resAcc.data && resAcc.data.length > 0) {
       const targetAcc = resAcc.data.find(a => a.account_type === 'cash' || a.account_name.toLowerCase().includes('efectivo')) || resAcc.data[0];
-      await depositToAccount(
+      const depositOk = await depositToAccount(
         targetAcc.id,
         Number(clean.amount_paid),
         `Cobro Cta Cte - Cliente: ${clientName} (Deuda #${clean.receivable_id.split('-')[0].toUpperCase()})`,
         receivable.sale_id || clean.receivable_id
       );
+      if (!depositOk) {
+        console.error('[RECEIVABLE_TREASURY_DEPOSIT_FAILED]: deuda', clean.receivable_id, '- monto', clean.amount_paid);
+        treasuryWarning = 'El cobro fue registrado pero NO pudo acreditarse en la cuenta de tesorería. Verificá el saldo manualmente.';
+      }
     }
 
     // 3. REGISTRO EN CAJA FÍSICA ACTIVA (cash_movements)
@@ -238,7 +244,7 @@ export async function registerDebtPayment(
     revalidatePath('/admin/finanzas/tesoreria');
     revalidatePath('/caja');
     revalidatePath('/clientes');
-    return { success: true, newPaid, status: newStatus };
+    return { success: true, newPaid, status: newStatus, warning: treasuryWarning || undefined };
   } catch (error: unknown) {
     console.error('Error al registrar pago de deuda:', error);
     const msg = error instanceof Error ? error.message : 'Error al procesar el abono';

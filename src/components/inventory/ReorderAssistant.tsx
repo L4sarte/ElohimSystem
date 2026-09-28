@@ -20,7 +20,7 @@ interface ReorderAssistantProps {
 }
 
 export function ReorderAssistant({ role: propRole }: ReorderAssistantProps) {
-  const { role: storeRole } = useUserStore();
+  const storeRole = useUserStore((state) => state.role);
   const role = propRole || storeRole;
   const { rate: rawExchangeRate } = useExchangeRate();
   const exchangeRate = rawExchangeRate || 1250;
@@ -186,9 +186,9 @@ export function ReorderAssistant({ role: propRole }: ReorderAssistantProps) {
     <div className="space-y-6">
       
       {/* CABECERA DEL ASISTENTE */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 bg-[#13261E]/80 border border-[#1B362A] p-6 rounded-2xl shadow-xl">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 bg-erp-surface/80 border border-erp-border p-6 rounded-2xl shadow-xl">
         <div>
-          <div className="flex items-center gap-2 text-xs font-semibold text-[#D0A96B] uppercase tracking-wider mb-1">
+          <div className="flex items-center gap-2 text-xs font-semibold text-erp-gold uppercase tracking-wider mb-1">
             <Sparkles className="h-3.5 w-3.5" />
             <span>Planificación Inteligente de Compras & Abastecimiento</span>
           </div>
@@ -206,7 +206,7 @@ export function ReorderAssistant({ role: propRole }: ReorderAssistantProps) {
             onClick={fetchAlerts}
             variant="outline"
             disabled={loading}
-            className="bg-[#08130E] border-[#1B362A] text-zinc-300 hover:text-white text-xs h-9"
+            className="bg-erp-bg border-erp-border text-zinc-300 hover:text-white text-xs h-9"
           >
             <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${loading ? 'animate-spin' : ''}`} />
             Actualizar
@@ -215,14 +215,14 @@ export function ReorderAssistant({ role: propRole }: ReorderAssistantProps) {
           <Button
             onClick={handleExportReorderCsv}
             variant="outline"
-            className="bg-[#08130E] border-[#1B362A] text-zinc-300 hover:text-white text-xs h-9"
+            className="bg-erp-bg border-erp-border text-zinc-300 hover:text-white text-xs h-9"
           >
             <Download className="h-3.5 w-3.5 mr-1.5" />
             Exportar CSV
           </Button>
 
           <Link href="/compras">
-            <Button className="bg-[#D0A96B] hover:bg-[#c29b5c] text-[#08130E] text-xs font-bold h-9 shadow-md">
+            <Button className="bg-erp-gold hover:bg-erp-gold/80 text-erp-bg text-xs font-bold h-9 shadow-md">
               <ShoppingBag className="h-3.5 w-3.5 mr-1.5" />
               Ir al PO Builder en Compras
             </Button>
@@ -232,41 +232,41 @@ export function ReorderAssistant({ role: propRole }: ReorderAssistantProps) {
 
       {/* KPIS DE URGENCIA Y REPOSICIÓN */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <div className="p-4 rounded-xl bg-[#13261E]/60 border border-[#1B362A] space-y-1">
-          <span className="text-[10px] text-zinc-400 uppercase font-semibold">Total Ítems en Alerta</span>
+        <div className="p-4 rounded-xl bg-erp-surface/60 border border-erp-border space-y-1">
+          <span className="text-[11px] text-zinc-400 uppercase font-semibold">Total Ítems en Alerta</span>
           <div className="text-2xl font-bold text-white font-mono">{summaryKpis.totalAlerts}</div>
-          <span className="text-[10px] text-zinc-500">Por debajo del stock mínimo</span>
+          <span className="text-[11px] text-zinc-500">Por debajo del stock mínimo</span>
         </div>
 
         <div className="p-4 rounded-xl bg-rose-950/20 border border-rose-800/30 space-y-1">
-          <span className="text-[10px] text-rose-400 uppercase font-semibold flex items-center gap-1">
+          <span className="text-[11px] text-rose-400 uppercase font-semibold flex items-center gap-1">
             <AlertTriangle className="h-3 w-3" /> Agotados (Stock 0)
           </span>
           <div className="text-2xl font-bold text-rose-400 font-mono">{summaryKpis.outCount}</div>
-          <span className="text-[10px] text-rose-400/70">Quiebre total de stock</span>
+          <span className="text-[11px] text-rose-400/70">Quiebre total de stock</span>
         </div>
 
         <div className="p-4 rounded-xl bg-amber-950/20 border border-amber-800/30 space-y-1">
-          <span className="text-[10px] text-amber-400 uppercase font-semibold flex items-center gap-1">
+          <span className="text-[11px] text-amber-400 uppercase font-semibold flex items-center gap-1">
             <Archive className="h-3 w-3" /> Insumos Packaging
           </span>
           <div className="text-2xl font-bold text-amber-300 font-mono">{summaryKpis.suppliesCount}</div>
-          <span className="text-[10px] text-amber-400/70">Frascos y atomizadores críticos</span>
+          <span className="text-[11px] text-amber-400/70">Frascos y atomizadores críticos</span>
         </div>
 
-        <div className="p-4 rounded-xl bg-[#13261E]/60 border border-[#1B362A] space-y-1">
-          <span className="text-[10px] text-[#D0A96B] uppercase font-semibold">Inversión Estimada Reposición</span>
-          <div className="text-2xl font-bold text-[#D0A96B] font-mono">
+        <div className="p-4 rounded-xl bg-erp-surface/60 border border-erp-border space-y-1">
+          <span className="text-[11px] text-erp-gold uppercase font-semibold">Inversión Estimada Reposición</span>
+          <div className="text-2xl font-bold text-erp-gold font-mono">
             ${summaryKpis.totalEstimatedInvestment.toLocaleString('es-AR')}
           </div>
-          <span className="text-[10px] text-zinc-500">
+          <span className="text-[11px] text-zinc-500">
             ≈ USD ${(exchangeRate > 0 ? (summaryKpis.totalEstimatedInvestment / exchangeRate).toFixed(0) : '0')}
           </span>
         </div>
       </div>
 
       {/* FILTROS Y BÚSQUEDA */}
-      <div className="p-4 rounded-2xl bg-[#13261E]/60 border border-[#1B362A] space-y-3">
+      <div className="p-4 rounded-2xl bg-erp-surface/60 border border-erp-border space-y-3">
         <div className="flex flex-col md:flex-row items-center gap-3">
           
           <div className="relative flex-1 w-full">
@@ -276,7 +276,7 @@ export function ReorderAssistant({ role: propRole }: ReorderAssistantProps) {
               placeholder="Buscar producto por nombre, diseñador o código SKU..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full bg-[#08130E] border border-[#1B362A] rounded-xl pl-10 pr-4 py-2 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-[#D0A96B] transition-colors"
+              className="w-full bg-erp-bg border border-erp-border rounded-xl pl-10 pr-4 py-2 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-erp-gold transition-colors"
             />
             {searchTerm && (
               <button 
@@ -292,7 +292,7 @@ export function ReorderAssistant({ role: propRole }: ReorderAssistantProps) {
             <select
               value={filterType}
               onChange={(e) => setFilterType(e.target.value)}
-              className="w-full bg-[#08130E] border border-[#1B362A] rounded-xl px-3 py-2 text-xs text-zinc-300 focus:outline-none focus:border-[#D0A96B] cursor-pointer"
+              className="w-full bg-erp-bg border border-erp-border rounded-xl px-3 py-2 text-xs text-zinc-300 focus:outline-none focus:border-erp-gold cursor-pointer"
             >
               <option value="ALL">📦 Todas las Categorías</option>
               <option value="bottle">🌸 Perfumes Sellados</option>
@@ -305,7 +305,7 @@ export function ReorderAssistant({ role: propRole }: ReorderAssistantProps) {
             <select
               value={filterUrgency}
               onChange={(e) => setFilterUrgency(e.target.value as any)}
-              className="w-full bg-[#08130E] border border-[#1B362A] rounded-xl px-3 py-2 text-xs text-zinc-300 focus:outline-none focus:border-[#D0A96B] cursor-pointer"
+              className="w-full bg-erp-bg border border-erp-border rounded-xl px-3 py-2 text-xs text-zinc-300 focus:outline-none focus:border-erp-gold cursor-pointer"
             >
               <option value="ALL">🚨 Todas las Urgencias</option>
               <option value="OUT">🔴 Agotados (Stock 0)</option>
@@ -318,11 +318,11 @@ export function ReorderAssistant({ role: propRole }: ReorderAssistantProps) {
       </div>
 
       {/* TABLA DE PRODUCTOS PARA REORDEN */}
-      <div className="rounded-2xl border border-[#1B362A] bg-[#13261E]/80 overflow-hidden shadow-2xl">
+      <div className="rounded-2xl border border-erp-border bg-erp-surface/80 overflow-hidden shadow-2xl">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs border-collapse">
             <thead>
-              <tr className="border-b border-[#1B362A] bg-[#0A1812] text-zinc-400 text-[11px] uppercase tracking-wider font-semibold">
+              <tr className="border-b border-erp-border bg-erp-table text-zinc-400 text-[11px] uppercase tracking-wider font-semibold">
                 <th className="py-3.5 px-4">Estado Urgencia</th>
                 <th className="py-3.5 px-4">Producto & SKU</th>
                 <th className="py-3.5 px-4 text-center">Stock Actual</th>
@@ -333,12 +333,12 @@ export function ReorderAssistant({ role: propRole }: ReorderAssistantProps) {
                 <th className="py-3.5 px-4 text-right">Acción Rápida</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#1B362A]">
+            <tbody className="divide-y divide-erp-border">
               {loading ? (
                 <tr>
                   <td colSpan={8} className="py-16 text-center text-zinc-500">
                     <div className="flex flex-col items-center justify-center gap-2">
-                      <RefreshCw className="h-6 w-6 animate-spin text-[#D0A96B]" />
+                      <RefreshCw className="h-6 w-6 animate-spin text-erp-gold" />
                       <span className="text-xs">Analizando catálogo de inventario y alertas...</span>
                     </div>
                   </td>
@@ -359,22 +359,22 @@ export function ReorderAssistant({ role: propRole }: ReorderAssistantProps) {
                 filteredProducts.map((p) => {
                   const unitLabel = p.type === 'decant_liquid' ? 'ml' : 'uds';
                   return (
-                    <tr key={p.id} className="hover:bg-[#1B362A]/40 transition-colors group">
+                    <tr key={p.id} className="hover:bg-secondary/40 transition-colors group">
                       
                       {/* Estado Urgencia */}
                       <td className="py-3.5 px-4 whitespace-nowrap">
                         {p.urgency === 'OUT' ? (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-rose-950/60 text-rose-400 border border-rose-800/50">
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-extrabold bg-rose-950/60 text-rose-400 border border-rose-800/50">
                             <span className="h-1.5 w-1.5 rounded-full bg-rose-500 animate-pulse" />
                             AGOTADO
                           </span>
                         ) : p.urgency === 'CRITICAL' ? (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-950/60 text-amber-300 border border-amber-800/50">
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-950/60 text-amber-300 border border-amber-800/50">
                             <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
                             CRÍTICO
                           </span>
                         ) : (
-                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-semibold bg-yellow-950/40 text-yellow-300 border border-yellow-800/40">
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-yellow-950/40 text-yellow-300 border border-yellow-800/40">
                             <span className="h-1.5 w-1.5 rounded-full bg-yellow-400" />
                             STOCK BAJO
                           </span>
@@ -383,13 +383,13 @@ export function ReorderAssistant({ role: propRole }: ReorderAssistantProps) {
 
                       {/* Producto & SKU */}
                       <td className="py-3.5 px-4">
-                        <div className="font-bold text-white group-hover:text-[#D0A96B] transition-colors">
+                        <div className="font-bold text-white group-hover:text-erp-gold transition-colors">
                           {p.name}
                         </div>
-                        <div className="flex items-center gap-2 text-[10px] text-zinc-400 mt-0.5">
+                        <div className="flex items-center gap-2 text-[11px] text-zinc-400 mt-0.5">
                           {p.brand && <span>{p.brand}</span>}
                           {p.sku && (
-                            <span className="font-mono bg-[#08130E] px-1.5 py-0.2 rounded border border-[#1B362A] text-zinc-300">
+                            <span className="font-mono bg-erp-bg px-1.5 py-0.2 rounded border border-erp-border text-zinc-300">
                               {p.sku}
                             </span>
                           )}
@@ -423,7 +423,7 @@ export function ReorderAssistant({ role: propRole }: ReorderAssistantProps) {
                       </td>
 
                       {/* Inversión Estimada */}
-                      <td className="py-3.5 px-4 text-right whitespace-nowrap font-mono font-bold text-[#D0A96B]">
+                      <td className="py-3.5 px-4 text-right whitespace-nowrap font-mono font-bold text-erp-gold">
                         ${p.estimatedCostArs.toLocaleString('es-AR')}
                       </td>
 
@@ -461,7 +461,7 @@ export function ReorderAssistant({ role: propRole }: ReorderAssistantProps) {
         </div>
 
         {/* PIE DE TABLA */}
-        <div className="p-4 border-t border-[#1B362A] bg-[#0A1812] flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-zinc-500">
+        <div className="p-4 border-t border-erp-border bg-erp-table flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-zinc-500">
           <span>Mostrando {filteredProducts.length} productos con necesidad de reposición</span>
           <span className="font-mono text-[11px]">Asistente de Reorden Automatizado • Elohim Import</span>
         </div>

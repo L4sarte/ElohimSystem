@@ -4,6 +4,15 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* ==============================================================================
+   SISTEMA DE DESIGN TOKENS — Paleta Verde-Oro de Elohim Import (dark-only)
+   ==============================================================================
+   La identidad real de la aplicación es el modo oscuro verde-oro. Los valores
+   semánticos (:root y .dark, unificados) alimentan TODAS las utilidades
+   shadcn/tailwind (bg-background, bg-card, bg-primary, border-border,
+   text-muted-foreground, ring, etc.) y las primitivas de src/components/ui/.
+   ============================================================================== */
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -46,73 +55,89 @@
   --radius-2xl: calc(var(--radius) * 1.8);
 }
 
-:root {
-  --background: oklch(0.12 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.16 0.01 285);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.16 0.01 285);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.55 0.28 290);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.22 0.02 285);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.22 0.02 285);
-  --muted-foreground: oklch(0.7 0.02 285);
-  --accent: oklch(0.24 0.03 290);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.26 0.02 285 / 70%);
-  --input: oklch(0.26 0.02 285 / 80%);
-  --ring: oklch(0.55 0.28 290 / 60%);
-  --chart-1: oklch(0.55 0.28 290);
-  --chart-2: oklch(0.65 0.22 250);
-  --chart-3: oklch(0.7 0.2 160);
-  --chart-4: oklch(0.75 0.22 70);
-  --chart-5: oklch(0.65 0.25 15);
-  --radius: 0.875rem;
-  --sidebar: oklch(0.14 0.01 285);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.55 0.28 290);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.22 0.02 285);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(0.26 0.02 285 / 70%);
-  --sidebar-ring: oklch(0.55 0.28 290 / 60%);
+/* Tokens dedicados de la escala verde-oro para la migración gradual de las
+   clases hex hardcodeadas (bg-[#08130E] -> bg-erp-bg, text-[#D0A96B] -> text-erp-gold, etc.) */
+@theme {
+  --color-erp-bg: #08130e;
+  --color-erp-surface: #13261e;
+  --color-erp-border: #1b362a;
+  --color-erp-table: #0a1812;
+  --color-erp-gold: #d0a96b;
+  --color-erp-gold-hover: #e5c158;
+  --color-erp-cream: #f4f1ea;
 }
 
-.dark {
-  --background: oklch(0.12 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.16 0.01 285);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.16 0.01 285);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.55 0.28 290);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.22 0.02 285);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.22 0.02 285);
-  --muted-foreground: oklch(0.7 0.02 285);
-  --accent: oklch(0.24 0.03 290);
-  --accent-foreground: oklch(0.985 0 0);
+:root {
+  --background: #08130e;
+  --foreground: #fafafa;
+  --card: #13261e;
+  --card-foreground: #fafafa;
+  --popover: #13261e;
+  --popover-foreground: #fafafa;
+  --primary: #d0a96b;
+  --primary-foreground: #08130e;
+  --secondary: #1b362a;
+  --secondary-foreground: #f4f1ea;
+  --muted: #1b362a;
+  --muted-foreground: #a1a1aa;
+  --accent: #1b362a;
+  --accent-foreground: #f4f1ea;
   --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.26 0.02 285 / 70%);
-  --input: oklch(0.26 0.02 285 / 80%);
-  --ring: oklch(0.55 0.28 290 / 60%);
-  --chart-1: oklch(0.55 0.28 290);
-  --chart-2: oklch(0.65 0.22 250);
-  --chart-3: oklch(0.7 0.2 160);
-  --chart-4: oklch(0.75 0.22 70);
-  --chart-5: oklch(0.65 0.25 15);
-  --sidebar: oklch(0.14 0.01 285);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.55 0.28 290);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.22 0.02 285);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(0.26 0.02 285 / 70%);
-  --sidebar-ring: oklch(0.55 0.28 290 / 60%);
+  --border: #1b362a;
+  --input: #1b362a;
+  --ring: #d0a96b99;
+  --chart-1: #2e5c47;
+  --chart-2: #d0a96b;
+  --chart-3: #10b981;
+  --chart-4: #e5c158;
+  --chart-5: #6b9e78;
+  --radius: 0.875rem;
+  --sidebar: #13261e;
+  --sidebar-foreground: #fafafa;
+  --sidebar-primary: #d0a96b;
+  --sidebar-primary-foreground: #08130e;
+  --sidebar-accent: #1b362a;
+  --sidebar-accent-foreground: #f4f1ea;
+  --sidebar-border: #1b362a;
+  --sidebar-ring: #d0a96b99;
+}
+
+/* La app es dark-only de facto: .dark (activada en el root layout) replica los
+   mismos valores para que todas las variantes dark: de los componentes operen
+   y el tema sea consistente ante cualquier estado del atributo class. */
+.dark {
+  --background: #08130e;
+  --foreground: #fafafa;
+  --card: #13261e;
+  --card-foreground: #fafafa;
+  --popover: #13261e;
+  --popover-foreground: #fafafa;
+  --primary: #d0a96b;
+  --primary-foreground: #08130e;
+  --secondary: #1b362a;
+  --secondary-foreground: #f4f1ea;
+  --muted: #1b362a;
+  --muted-foreground: #a1a1aa;
+  --accent: #1b362a;
+  --accent-foreground: #f4f1ea;
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: #1b362a;
+  --input: #1b362a;
+  --ring: #d0a96b99;
+  --chart-1: #2e5c47;
+  --chart-2: #d0a96b;
+  --chart-3: #10b981;
+  --chart-4: #e5c158;
+  --chart-5: #6b9e78;
+  --radius: 0.875rem;
+  --sidebar: #13261e;
+  --sidebar-foreground: #fafafa;
+  --sidebar-primary: #d0a96b;
+  --sidebar-primary-foreground: #08130e;
+  --sidebar-accent: #1b362a;
+  --sidebar-accent-foreground: #f4f1ea;
+  --sidebar-border: #1b362a;
+  --sidebar-ring: #d0a96b99;
 }
 
 @layer base {
@@ -128,19 +153,6 @@
   h1, h2, h3, .font-display {
     font-family: var(--font-serif);
   }
-}
-
-/* Efectos de brillo y micro-interacciones */
-.glass-header {
-  @apply sticky top-0 z-40 w-full border-b border-[#1B362A] bg-[#08130E]/80 backdrop-blur-md;
-}
-
-.glow-card {
-  @apply bg-[#13261E]/90 border border-[#1B362A] rounded-2xl shadow-xl transition-all duration-300 hover:border-[#D0A96B]/30 hover:shadow-violet-500/5;
-}
-
-.btn-primary-glow {
-  @apply bg-[#D0A96B] hover:bg-[#E5C158] text-[#08130E] font-extrabold shadow-md shadow-[#D0A96B]/20 active:scale-95 text-white font-bold transition-all duration-200 shadow-md shadow-violet-600/25 hover:shadow-lg hover:shadow-violet-600/40 cursor-pointer;
 }
 
 /* Forzar impresión a blanco y negro sin interferencia del modo oscuro ni notificaciones toast */

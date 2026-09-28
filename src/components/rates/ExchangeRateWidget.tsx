@@ -91,10 +91,10 @@ export function ExchangeRateWidget({ role, onRateChange }: ExchangeRateWidgetPro
         onClick={() => role === 'admin' && setIsOpen(!isOpen)}
         className={cn(
           "flex items-center gap-2.5 rounded-full border px-3.5 py-1.5 transition-all select-none backdrop-blur-sm",
-          role === 'admin' ? "cursor-pointer hover:border-slate-300 dark:hover:border-[#1B362A] hover:bg-slate-50/50 dark:hover:bg-[#13261E]/50" : "",
+          role === 'admin' ? "cursor-pointer hover:border-slate-300 dark:hover:border-erp-border hover:bg-slate-50/50 dark:hover:bg-erp-surface/50" : "",
           isManual 
             ? "border-amber-200 bg-amber-50/30 text-amber-800 dark:border-amber-900/30 dark:bg-amber-950/15 dark:text-amber-400"
-            : "border-slate-200 bg-slate-50/30 text-slate-700 dark:border-[#1B362A] dark:bg-[#13261E]/30 dark:text-zinc-300"
+            : "border-slate-200 bg-slate-50/30 text-slate-700 dark:border-erp-border dark:bg-erp-surface/30 dark:text-zinc-300"
         )}
       >
         <span className={cn(
@@ -103,7 +103,7 @@ export function ExchangeRateWidget({ role, onRateChange }: ExchangeRateWidgetPro
         )} />
         
         <div className="flex flex-col text-left leading-none">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-500">
+          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-500">
             Dólar Blue
           </span>
           <span className="text-sm font-black tracking-tight mt-0.5">
@@ -119,9 +119,9 @@ export function ExchangeRateWidget({ role, onRateChange }: ExchangeRateWidgetPro
           </span>
         </div>
 
-        <div className="flex items-center gap-1.5 pl-1.5 border-l border-slate-200 dark:border-[#1B362A]">
+        <div className="flex items-center gap-1.5 pl-1.5 border-l border-slate-200 dark:border-erp-border">
           <span className={cn(
-            "text-[9px] font-bold uppercase px-1.5 py-0.5 rounded",
+            "text-xs font-bold uppercase px-1.5 py-0.5 rounded",
             isManual 
               ? "bg-amber-100 text-amber-800 dark:bg-amber-500/10 dark:text-amber-400"
               : "bg-emerald-100 text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-400"
@@ -137,15 +137,15 @@ export function ExchangeRateWidget({ role, onRateChange }: ExchangeRateWidgetPro
 
       {/* PANEL POPUP DE AJUSTE (Solo Admin) */}
       {isOpen && role === 'admin' && (
-        <div className="absolute right-0 mt-2.5 w-72 z-50 rounded-xl border border-slate-200 bg-white p-4 shadow-xl dark:border-[#1B362A] dark:bg-[#08130E] animate-in fade-in slide-in-from-top-2 duration-200">
+        <div className="absolute right-0 mt-2.5 w-72 z-50 rounded-xl border border-slate-200 bg-white p-4 shadow-xl dark:border-erp-border dark:bg-erp-bg animate-in fade-in slide-in-from-top-2 duration-200">
           <form onSubmit={handleOverride} className="space-y-4">
             
             <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-zinc-900">
               <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-white flex items-center gap-1.5">
-                <Sliders className="h-3.5 w-3.5 text-[#D0A96B]" />
+                <Sliders className="h-3.5 w-3.5 text-erp-gold" />
                 Ajuste cambiario
               </h4>
-              <span className="text-[10px] rounded bg-violet-100 px-1.5 py-0.5 font-bold text-violet-800 dark:bg-[#D0A96B]/10 dark:text-[#D0A96B] uppercase">
+              <span className="text-[11px] rounded bg-violet-100 px-1.5 py-0.5 font-bold text-violet-800 dark:bg-erp-gold/10 dark:text-erp-gold uppercase">
                 Admin
               </span>
             </div>
@@ -158,7 +158,7 @@ export function ExchangeRateWidget({ role, onRateChange }: ExchangeRateWidgetPro
             )}
 
             <div className="space-y-1.5">
-              <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400">
+              <label className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400">
                 Cotización Manual (ARS)
               </label>
               <div className="relative">
@@ -173,7 +173,7 @@ export function ExchangeRateWidget({ role, onRateChange }: ExchangeRateWidgetPro
                   disabled={saving}
                 />
               </div>
-              <p className="text-[10px] text-slate-400 leading-normal">
+              <p className="text-[11px] text-slate-400 leading-normal">
                 Esta cotización congelará el cálculo del dólar de referencia en todo el sistema.
               </p>
             </div>
@@ -183,7 +183,7 @@ export function ExchangeRateWidget({ role, onRateChange }: ExchangeRateWidgetPro
                 type="submit"
                 disabled={saving}
                 size="sm"
-                className="w-full bg-[#D0A96B] hover:bg-[#E5C158] text-[#08130E] font-extrabold shadow-md shadow-[#D0A96B]/20 dark:bg-violet-500 dark:hover:bg-[#D0A96B] text-[#08130E] cursor-pointer justify-center text-xs font-semibold"
+                className="w-full bg-erp-gold hover:bg-erp-gold-hover text-erp-bg font-extrabold shadow-md shadow-erp-gold/20 dark:bg-violet-500 dark:hover:bg-erp-gold text-erp-bg cursor-pointer justify-center text-xs font-semibold"
               >
                 {saving ? (
                   <RefreshCw className="mr-1.5 h-3.5 w-3.5 animate-spin" />
@@ -200,7 +200,7 @@ export function ExchangeRateWidget({ role, onRateChange }: ExchangeRateWidgetPro
                   disabled={saving}
                   onClick={handleRelease}
                   size="sm"
-                  className="w-full text-xs font-semibold justify-center cursor-pointer border-slate-200 hover:bg-slate-50 dark:border-[#1B362A] dark:hover:bg-[#13261E]"
+                  className="w-full text-xs font-semibold justify-center cursor-pointer border-slate-200 hover:bg-slate-50 dark:border-erp-border dark:hover:bg-erp-surface"
                 >
                   <Globe className="mr-1.5 h-3.5 w-3.5 text-emerald-500" />
                   Volver a Dólar en Vivo

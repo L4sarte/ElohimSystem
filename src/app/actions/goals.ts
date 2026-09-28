@@ -1,7 +1,8 @@
 'use server';
 
 import { getServiceSupabase } from '@/lib/supabase';
-import { UserRole } from '@/types';
+import { requireAdmin } from '@/lib/auth-checks';
+import { businessMonthRange } from '@/lib/date-utils';
 import { revalidatePath } from 'next/cache';
 import { getFinancialReport } from '@/app/actions/analytics';
 
@@ -36,7 +37,6 @@ const MONTH_NAMES = [
  * Obtener la proyección matemática del periodo seleccionado y su meta correspondiente en monthly_goals.
  */
 export async function getMonthlyProjection(
-  role: UserRole,
   startDate?: string,
   endDate?: string
 ): Promise<{
@@ -45,9 +45,8 @@ export async function getMonthlyProjection(
   error?: string;
 }> {
   try {
-    if (role !== 'admin') {
-      throw new Error('Operación no autorizada. Se requiere rol de Administrador.');
-    }
+    // Seguridad: el rol SIEMPRE se deriva de la sesión autenticada (nunca de parámetros del cliente)
+    const adminUser = await requireAdmin();
 
     const supabase = getServiceSupabase();
     const today = new Date();
@@ -84,32 +83,41 @@ export async function getMonthlyProjection(
       remainingDays = Math.max(0, totalDaysInMonth - currentDay);
     }
 
-    // Rango ISO completo para el mes objetivo
-    const dateStartString = `${targetYear}-${String(monthNum).padStart(2, '0')}-01`;
-    const dateEndString = `${targetYear}-${String(monthNum).padStart(2, '0')}-${String(totalDaysInMonth).padStart(2, '0')}`;
-    
-    const isoStart = new Date(targetYear, targetMonth0, 1, 0, 0, 0).toISOString();
-    const isoEnd = new Date(targetYear, targetMonth0, totalDaysInMonth, 23, 59, 59).toISOString();
+    // Rango de negocio ART del mes objetivo (consistente intra-llamada:
+    // la query de ventas y el P&L usan EXACTAMENTE el mismo rango de negocio)
+    const monthRange = businessMonthRange(targetYear, targetMonth0);
+    const isoStart = monthRange.start.toISOString();
+    const isoEnd = monthRange.end.toISOString();
 
-    // 1. Consultar ventas reales del periodo objetivo
-    const { data: sales, error: salesError } = await supabase
-      .from('sales')
-      .select('total_ars')
-      .gte('created_at', isoStart)
-      .lte('created_at', isoEnd)
-      .neq('status', 'voided')
-      .neq('status', 'pending_payment');
+    // 1. Consultas CONCURRENTES: ventas del mes + P&L del mes (mismo rango de negocio ART)
+    const [salesRes, reportRes] = await Promise.all([
+      supabase
+        .from('sales')
+        .select('total_ars')
+        .gte('created_at', isoStart)
+        .lte('created_at', isoEnd)
+        .neq('status', 'voided')
+        .neq('status', 'pending_payment'),
+      getFinancialReport(adminUser.role, 'custom', monthRange.startDay, monthRange.endDay),
+    ]);
 
-    if (salesError) throw salesError;
+    if (salesRes.error) throw salesRes.error;
+    const sales = salesRes.data;
 
     let currentRevenueArs = 0;
     (sales || []).forEach((s: any) => {
       currentRevenueArs += Number(s.total_ars || 0);
     });
-
-    // 2. Obtener Ganancia Neta real del periodo objetivo desde analytics
-    const reportRes = await getFinancialReport(role, 'custom', dateStartString, dateEndString);
-    const currentNetProfitArs = reportRes.data ? reportRes.data.netProfit : Math.round(currentRevenueArs * 0.35);
+    // 2. Ganancia Neta REAL del periodo objetivo (si el P&L falla NO se inventa ganancia:
+    // se retorna error explícito, nunca números ficticios)
+    if (!reportRes.success || !reportRes.data) {
+      console.error('[MONTHLY_PROJECTION_PNL_FAILED]:', reportRes.error);
+      return {
+        success: false,
+        error: 'No se pudo calcular el Estado de Resultados del período. No se generan proyecciones sobre datos estimados; revisá los datos de ventas e inténtalo nuevamente.',
+      };
+    }
+    const currentNetProfitArs = reportRes.data.netProfit;
 
     // 3. Consultar meta guardada en monthly_goals para este mes y año específico
     let revenueGoalArs = 5000000;
@@ -185,15 +193,13 @@ export async function getMonthlyProjection(
  * Establecer o actualizar la meta para un mes y año específico en monthly_goals.
  */
 export async function setMonthlyGoal(
-  role: UserRole,
   periodMonth: string,
   revenueGoalArs: number,
   netProfitGoalArs: number
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    if (role !== 'admin') {
-      throw new Error('Operación no autorizada. Se requiere rol de Administrador.');
-    }
+    // Seguridad: el rol SIEMPRE se deriva de la sesión autenticada (nunca de parámetros del cliente)
+    await requireAdmin();
 
     if (!periodMonth || isNaN(revenueGoalArs) || isNaN(netProfitGoalArs)) {
       throw new Error('Parámetros de meta mensual inválidos.');

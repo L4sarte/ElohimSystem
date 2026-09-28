@@ -35,7 +35,7 @@ export function RecipeBuilderModal({
   allProducts,
   onRecipeSaved
 }: RecipeBuilderModalProps) {
-  const { role } = useUserStore();
+  const role = useUserStore((state) => state.role);
   const [sizeMl, setSizeMl] = useState<number>(5);
   const [recipeName, setRecipeName] = useState('');
   const [items, setItems] = useState<RecipeItemInput[]>([]);
@@ -144,12 +144,12 @@ export function RecipeBuilderModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 overflow-y-auto">
-      <div className="relative w-full max-w-4xl bg-[#08130E] border border-[#1B362A] rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+      <div className="relative w-full max-w-4xl bg-erp-bg border border-erp-border rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
         
         {/* CABECERA MODAL */}
-        <div className="p-6 border-b border-[#1B362A] bg-[#13261E]/50 flex items-center justify-between">
+        <div className="p-6 border-b border-erp-border bg-erp-surface/50 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#D0A96B]/10 border border-[#D0A96B]/30 text-[#D0A96B]">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-erp-gold/10 border border-erp-gold/30 text-erp-gold">
               <Calculator className="h-5 w-5" />
             </div>
             <div>
@@ -157,7 +157,7 @@ export function RecipeBuilderModal({
                 Ensamblado BOM & Costeo Dinámico
               </h2>
               <p className="text-xs text-zinc-400 font-mono">
-                Producto Final: <span className="text-[#D0A96B] font-bold">{targetProduct.name}</span> ({targetProduct.sku})
+                Producto Final: <span className="text-erp-gold font-bold">{targetProduct.name}</span> ({targetProduct.sku})
               </p>
             </div>
           </div>
@@ -173,12 +173,12 @@ export function RecipeBuilderModal({
         <div className="p-6 overflow-y-auto space-y-6 flex-1">
           
           {/* SELECCIÓN DE MEDIDA DEL DECANT */}
-          <div className="bg-[#13261E]/70 border border-[#1B362A] rounded-xl p-3 flex flex-wrap items-center justify-between gap-3">
+          <div className="bg-erp-surface/70 border border-erp-border rounded-xl p-3 flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2">
-              <span className="text-xs font-bold uppercase tracking-wider text-[#D0A96B]">
+              <span className="text-xs font-bold uppercase tracking-wider text-erp-gold">
                 Presentación / Medida:
               </span>
-              <div className="flex items-center gap-1.5 bg-[#08130E] p-1 rounded-lg border border-[#1B362A]">
+              <div className="flex items-center gap-1.5 bg-erp-bg p-1 rounded-lg border border-erp-border">
                 {[5, 10].map(size => (
                   <button
                     key={size}
@@ -186,7 +186,7 @@ export function RecipeBuilderModal({
                     onClick={() => setSizeMl(size)}
                     className={`px-3 py-1 rounded-md text-xs font-bold transition-all cursor-pointer ${
                       sizeMl === size
-                        ? 'bg-[#D0A96B] text-[#08130E] shadow'
+                        ? 'bg-erp-gold text-erp-bg shadow'
                         : 'text-zinc-400 hover:text-white'
                     }`}
                   >
@@ -217,7 +217,7 @@ export function RecipeBuilderModal({
                 type="text"
                 value={recipeName}
                 onChange={e => setRecipeName(e.target.value)}
-                className="w-full bg-[#13261E] border border-[#1B362A] rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-[#D0A96B]"
+                className="w-full bg-erp-surface border border-erp-border rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-erp-gold"
                 placeholder="Ej. Receta Decant 10ml Aventus"
               />
             </div>
@@ -227,7 +227,7 @@ export function RecipeBuilderModal({
                 id="autoUpdateCost"
                 checked={autoUpdateCost}
                 onChange={e => setAutoUpdateCost(e.target.checked)}
-                className="rounded border-[#1B362A] bg-[#13261E] text-[#D0A96B] focus:ring-0 cursor-pointer h-4 w-4"
+                className="rounded border-erp-border bg-erp-surface text-erp-gold focus:ring-0 cursor-pointer h-4 w-4"
               />
               <label htmlFor="autoUpdateCost" className="text-xs text-zinc-300 cursor-pointer font-medium">
                 Actualizar automáticamente el <span className="text-emerald-400 font-bold">Costo Base</span> del producto.
@@ -237,9 +237,9 @@ export function RecipeBuilderModal({
 
           {/* LISTA DE INSUMOS DE LA RECETA (DETALLE BOM) */}
           <div className="space-y-3">
-            <div className="flex items-center justify-between border-b border-[#1B362A] pb-2">
+            <div className="flex items-center justify-between border-b border-erp-border pb-2">
               <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                <Layers className="h-4 w-4 text-[#D0A96B]" />
+                <Layers className="h-4 w-4 text-erp-gold" />
                 Insumos & Componentes de la Receta
               </h3>
               <div className="flex items-center gap-2">
@@ -247,7 +247,7 @@ export function RecipeBuilderModal({
                   size="sm"
                   variant="outline"
                   onClick={() => handleAddItem('liquid')}
-                  className="border-[#D0A96B]/30 bg-[#13261E] text-[#D0A96B] hover:bg-zinc-800 text-xs h-8 cursor-pointer"
+                  className="border-erp-gold/30 bg-erp-surface text-erp-gold hover:bg-zinc-800 text-xs h-8 cursor-pointer"
                 >
                   <Droplet className="h-3.5 w-3.5 mr-1" />
                   + Perfume Líquido
@@ -256,7 +256,7 @@ export function RecipeBuilderModal({
                   size="sm"
                   variant="outline"
                   onClick={() => handleAddItem('bottle_frasco')}
-                  className="border-[#1B362A] bg-[#13261E] text-zinc-300 hover:bg-zinc-800 text-xs h-8 cursor-pointer"
+                  className="border-erp-border bg-erp-surface text-zinc-300 hover:bg-zinc-800 text-xs h-8 cursor-pointer"
                 >
                   <Plus className="h-3.5 w-3.5 mr-1" />
                   + Insumo Packaging
@@ -266,7 +266,7 @@ export function RecipeBuilderModal({
 
             <div className="space-y-2">
               {items.length === 0 ? (
-                <div className="p-8 text-center border border-dashed border-[#1B362A] rounded-xl text-zinc-500 text-xs">
+                <div className="p-8 text-center border border-dashed border-erp-border rounded-xl text-zinc-500 text-xs">
                   No has agregado insumos a esta receta. Haz clic arriba para añadir líquido o packaging.
                 </div>
               ) : (
@@ -279,14 +279,14 @@ export function RecipeBuilderModal({
                   return (
                     <div
                       key={index}
-                      className="grid grid-cols-1 md:grid-cols-12 gap-3 p-3 bg-[#13261E] border border-[#1B362A] rounded-xl items-center"
+                      className="grid grid-cols-1 md:grid-cols-12 gap-3 p-3 bg-erp-surface border border-erp-border rounded-xl items-center"
                     >
                       {/* TIPO DE COMPONENTE */}
                       <div className="md:col-span-3">
                         <select
                           value={item.component_type}
                           onChange={e => handleItemChange(index, 'component_type', e.target.value as ComponentType)}
-                          className="w-full bg-[#08130E] border border-[#1B362A] rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none"
+                          className="w-full bg-erp-bg border border-erp-border rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none"
                         >
                           <option value="liquid">💧 Perfume Líquido</option>
                           <option value="bottle_frasco">🧪 Frasco Vacío</option>
@@ -302,7 +302,7 @@ export function RecipeBuilderModal({
                         <select
                           value={item.ingredient_product_id}
                           onChange={e => handleItemChange(index, 'ingredient_product_id', e.target.value)}
-                          className="w-full bg-[#08130E] border border-[#1B362A] rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none"
+                          className="w-full bg-erp-bg border border-erp-border rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none"
                         >
                           <option value="">-- Seleccionar Insumo --</option>
                           {availableOptions.map(p => (
@@ -321,7 +321,7 @@ export function RecipeBuilderModal({
                           min="0.1"
                           value={item.quantity}
                           onChange={e => handleItemChange(index, 'quantity', parseFloat(e.target.value) || 0)}
-                          className="w-full bg-[#08130E] border border-[#1B362A] rounded-lg px-2.5 py-1.5 text-xs text-white font-mono text-right focus:outline-none"
+                          className="w-full bg-erp-bg border border-erp-border rounded-lg px-2.5 py-1.5 text-xs text-white font-mono text-right focus:outline-none"
                         />
                         <span className="text-[11px] font-bold text-zinc-400 min-w-[30px]">
                           {isLiquid ? 'ml' : 'un.'}
@@ -346,62 +346,62 @@ export function RecipeBuilderModal({
           </div>
 
           {/* TARJETA DE COSTEO EN TIEMPO REAL (WIDGET DE MARGEN & PROYECCIÓN) */}
-          <div className="p-4 bg-[#08130E] border border-[#1B362A] rounded-2xl space-y-4">
+          <div className="p-4 bg-erp-bg border border-erp-border rounded-2xl space-y-4">
             <div className="flex items-center justify-between">
-              <h4 className="text-xs font-bold uppercase tracking-wider text-[#D0A96B] flex items-center gap-2">
-                <Sparkles className="h-4 w-4 text-[#D0A96B]" />
+              <h4 className="text-xs font-bold uppercase tracking-wider text-erp-gold flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-erp-gold" />
                 Simulación de Costeo y Rentabilidad Proyectada
               </h4>
-              {calculating && <RefreshCw className="h-3.5 w-3.5 animate-spin text-[#D0A96B]" />}
+              {calculating && <RefreshCw className="h-3.5 w-3.5 animate-spin text-erp-gold" />}
             </div>
 
             {calcResult ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
                 
                 {/* 1. COSTO LÍQUIDO */}
-                <div className="p-3 bg-[#13261E] rounded-xl border border-[#1B362A]">
-                  <p className="text-[10px] uppercase font-bold text-amber-400">Costo Líquido (Fragancia)</p>
+                <div className="p-3 bg-erp-surface rounded-xl border border-erp-border">
+                  <p className="text-[11px] uppercase font-bold text-amber-400">Costo Líquido (Fragancia)</p>
                   <p className="text-lg font-black text-amber-400 font-mono mt-1">
                     ${calcResult.liquid_cost_ars.toLocaleString('es-AR')} ARS
                   </p>
-                  <p className="text-[10px] text-zinc-500 font-mono">
+                  <p className="text-[11px] text-zinc-500 font-mono">
                     ~USD ${(calcResult.liquid_cost_ars / calcResult.exchange_rate_used).toFixed(2)}
                   </p>
                 </div>
 
                 {/* 2. COSTO PACKAGING */}
-                <div className="p-3 bg-[#13261E] rounded-xl border border-[#1B362A]">
-                  <p className="text-[10px] uppercase font-bold text-indigo-400">Costo Packaging & Insumos</p>
+                <div className="p-3 bg-erp-surface rounded-xl border border-erp-border">
+                  <p className="text-[11px] uppercase font-bold text-indigo-400">Costo Packaging & Insumos</p>
                   <p className="text-lg font-black text-indigo-400 font-mono mt-1">
                     ${calcResult.packaging_cost_ars.toLocaleString('es-AR')} ARS
                   </p>
-                  <p className="text-[10px] text-zinc-500 font-mono">
+                  <p className="text-[11px] text-zinc-500 font-mono">
                     ~USD ${(calcResult.packaging_cost_ars / calcResult.exchange_rate_used).toFixed(2)}
                   </p>
                 </div>
 
                 {/* 3. COSTO TOTAL CALCULADO */}
-                <div className="p-3 bg-[#13261E] rounded-xl border border-[#1B362A]">
-                  <p className="text-[10px] uppercase font-bold text-emerald-400">Costo Total Receta (ARS)</p>
+                <div className="p-3 bg-erp-surface rounded-xl border border-erp-border">
+                  <p className="text-[11px] uppercase font-bold text-emerald-400">Costo Total Receta (ARS)</p>
                   <p className="text-xl font-black text-emerald-400 font-mono mt-1">
                     ${calcResult.total_cost_ars.toLocaleString('es-AR')} ARS
                   </p>
-                  <p className="text-[10px] text-zinc-400 font-mono">
+                  <p className="text-[11px] text-zinc-400 font-mono">
                     USD ${calcResult.total_cost_usd} @ ${calcResult.exchange_rate_used}
                   </p>
                 </div>
 
                 {/* 4. MARGEN PROYECTADO DE VENTA */}
-                <div className={`p-3 bg-[#13261E] rounded-xl border ${
+                <div className={`p-3 bg-erp-surface rounded-xl border ${
                   calcResult.projected_margin_percent >= 40 ? 'border-emerald-500/40' : 'border-amber-500/40'
                 }`}>
-                  <p className="text-[10px] uppercase font-bold text-zinc-400">Margen Proyectado</p>
+                  <p className="text-[11px] uppercase font-bold text-zinc-400">Margen Proyectado</p>
                   <p className={`text-xl font-black font-mono mt-1 ${
                     calcResult.projected_margin_percent >= 40 ? 'text-emerald-400' : 'text-amber-400'
                   }`}>
                     {calcResult.projected_margin_percent}%
                   </p>
-                  <p className="text-[10px] text-zinc-400 font-mono">
+                  <p className="text-[11px] text-zinc-400 font-mono">
                     Precio Venta: ${calcResult.target_price_ars.toLocaleString('es-AR')} ARS
                   </p>
                 </div>
@@ -417,18 +417,18 @@ export function RecipeBuilderModal({
         </div>
 
         {/* PIE DEL MODAL (BOTÓN GUARDAR) */}
-        <div className="p-4 border-t border-[#1B362A] bg-[#13261E]/50 flex items-center justify-between">
+        <div className="p-4 border-t border-erp-border bg-erp-surface/50 flex items-center justify-between">
           <Button
             variant="outline"
             onClick={onClose}
-            className="border-[#1B362A] text-zinc-400 hover:text-white text-xs cursor-pointer"
+            className="border-erp-border text-zinc-400 hover:text-white text-xs cursor-pointer"
           >
             Cancelar
           </Button>
           <Button
             onClick={handleSave}
             disabled={loading || items.length === 0}
-            className="bg-[#D0A96B] hover:bg-[#E5C158] text-[#08130E] font-bold text-xs h-9 px-6 cursor-pointer flex items-center gap-2"
+            className="bg-erp-gold hover:bg-erp-gold-hover text-erp-bg font-bold text-xs h-9 px-6 cursor-pointer flex items-center gap-2"
           >
             {loading ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
             <span>Guardar Receta y Actualizar Costo</span>

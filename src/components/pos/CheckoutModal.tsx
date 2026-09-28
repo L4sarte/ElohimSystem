@@ -1,25 +1,25 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { UserRole } from '@/types';
 import { CartItem } from '@/hooks/use-pos-store';
 import { getClients, createSaleTransaction, ClientRecord } from '@/app/actions/sales';
 import { getTreasuryAccounts, TreasuryAccount } from '@/app/actions/treasury';
 import { getSupplies } from '@/app/actions/products';
 import { useFeesStore } from '@/hooks/use-fees-store';
-import { PaymentMethodConfig } from '@/app/actions/fees';
-import { ReceiptTicket, ReceiptTicketProps } from '@/components/pos/ReceiptTicket';
+import { DiscountType } from '@/lib/discount-calculations';
+import { Modal } from '@/components/ui/modal';
 import { CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { X, DollarSign, CreditCard, Landmark, CheckCircle, RefreshCw, AlertCircle, Sparkles, Percent, Printer, ShoppingBag, ShieldCheck, MessageSquare, Package, ChevronDown, ChevronUp, Plus, Trash2, Download, Tag, TrendingDown, BadgePercent } from 'lucide-react';
-import {
-  DiscountType,
-  DiscountCalculationResult,
-  calculateDiscount,
-  convertDiscountValueBetweenModes
-} from '@/lib/discount-calculations';
+import { AlertCircle, CheckCircle, X, RefreshCw, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
+import { DiscountSection } from './checkout/DiscountSection';
+import { PackagingSelector } from './checkout/PackagingSelector';
+import { PaymentSplitter } from './checkout/PaymentSplitter';
+import { SuccessReceipt } from './checkout/SuccessReceipt';
+import { calculateCheckoutTotals } from './checkout/checkout-calculations';
+import { buildSaleItems, buildDecants, buildPaymentMethodsPayload, buildReceiptItems } from './checkout/sale-payload';
+import { CompletedSaleData, PackagingSupplyOption, PackagingUsedItem } from './checkout/types';
 
 interface CheckoutModalProps {
   isOpen: boolean;
@@ -31,6 +31,12 @@ interface CheckoutModalProps {
   cartItems: CartItem[];
 }
 
+/**
+ * Orquestador conciso del checkout bimonetario: gestiona la primitiva Modal,
+ * la carga de datos, los cálculos puros (checkout/checkout-calculations.ts) y
+ * el envío de la transacción (checkout/sale-payload.ts). Los controles de cobro
+ * viven en los submódulos de checkout/.
+ */
 export function CheckoutModal({
   isOpen,
   onClose,
@@ -70,17 +76,11 @@ export function CheckoutModal({
   const [discountInputValue, setDiscountInputValue] = useState<string>('');
 
   // Insumos de Packaging Utilizados en la Venta
-  const [availableSupplies, setAvailableSupplies] = useState<any[]>([]);
-  const [selectedPackaging, setSelectedPackaging] = useState<Array<{ packaging_id: string; name: string; quantity_used: number; available_stock: number }>>([]);
-  const [isPackagingOpen, setIsPackagingOpen] = useState(false);
-  const [selectedSupplyToAdd, setSelectedSupplyToAdd] = useState<string>('');
+  const [availableSupplies, setAvailableSupplies] = useState<PackagingSupplyOption[]>([]);
+  const [selectedPackaging, setSelectedPackaging] = useState<PackagingUsedItem[]>([]);
 
   // Venta completada para impresión de ticket
-  const [completedSaleData, setCompletedSaleData] = useState<any | null>(null);
-
-  // Referencia para exportación de ticket a imagen PNG
-  const ticketRef = useRef<HTMLDivElement>(null);
-  const [isDownloading, setIsDownloading] = useState(false);
+  const [completedSaleData, setCompletedSaleData] = useState<CompletedSaleData | null>(null);
 
   // Cargar lista de clientes, pasarela de cuotas y cuentas de tesorería al abrir el modal
   useEffect(() => {
@@ -93,7 +93,7 @@ export function CheckoutModal({
       const [resClients, resAcc, resSupplies] = await Promise.all([
         getClients(role),
         getTreasuryAccounts(),
-        getSupplies(role),
+        getSupplies(),
         fetchActiveMethods()
       ]);
 
@@ -118,7 +118,7 @@ export function CheckoutModal({
     }
 
     loadData();
-    // Limpiar inputs al abrir
+    // Limpiar inputs al abrir (los submódulos remontan con estado fresco)
     setStep('checkout');
     setCashArs('');
     setDigitalArs('');
@@ -130,8 +130,6 @@ export function CheckoutModal({
     setAmountPaidTodayInput('');
     setUseVibePoints(false);
     setSelectedPackaging([]);
-    setIsPackagingOpen(false);
-    setSelectedSupplyToAdd('');
     setCompletedSaleData(null);
   }, [isOpen, role]);
 
@@ -140,176 +138,36 @@ export function CheckoutModal({
   // Cliente seleccionado
   const selectedClient = clients.find(c => c.id === clientId);
   const clientPoints = selectedClient?.points_balance || 0;
-
-  // Valores parseados
-  const valCashArs = parseFloat(cashArs) || 0;
-  const valDigitalArs = parseFloat(digitalArs) || 0;
-  const valCashUsd = parseFloat(cashUsd) || 0;
-
-  // Conversión de USD a ARS
-  const usdInArs = Math.round(valCashUsd * exchangeRate);
-
-  // Método de pago seleccionado
-  const selectedMethod: PaymentMethodConfig | undefined = activeMethods.find(m => m.id === selectedMethodId);
-  
-  const feePercent = selectedMethod ? Number(selectedMethod.fee_percentage !== undefined ? selectedMethod.fee_percentage : (selectedMethod.surcharge_percent || 0)) : 0;
-  const fixedFeeArs = selectedMethod ? Number(selectedMethod.fixed_fee_ars || 0) : 0;
-  const passFeeToCustomer = selectedMethod ? Boolean(selectedMethod.pass_fee_to_customer) : false;
-
-  // Subtotal base original directo del carrito
-  const subtotalOriginalArs = totalArs;
-
-  // Cálculo del Descuento con Decimal.js
-  const discountResult: DiscountCalculationResult = calculateDiscount(
-    subtotalOriginalArs,
-    discountType,
-    discountInputValue
-  );
-
-  // Validación de tope de vendedor (máx 20%)
-  const isSellerOverLimit = role !== 'admin' && discountResult.discountPercentage > 20;
-
-  // Subtotal neto tras aplicar descuento
-  const subtotalAfterDiscountArs = discountResult.totalArs;
-
-  // Costo total del carrito para alerta de margen negativo
-  const totalCartCogs = cartItems.reduce((sum, item) => {
-    let itemCost = Number(item.product.base_cost_ars || 0);
-    if (item.product.type === 'decant_liquid' && item.decantMl) {
-      itemCost = Number(item.product.base_cost_ars || 0) * item.decantMl;
-    }
-    return sum + (itemCost * item.quantity);
-  }, 0);
-
-  const isBelowCogs = discountResult.discountAmountArs > 0 && subtotalAfterDiscountArs < totalCartCogs;
-
-  // Subtotal base sin recargos (mantiene subtotalArs para retrocompatibilidad interna)
-  const subtotalArs = subtotalOriginalArs;
-
-  // Base imponible para el cálculo de comisiones/recargos de pasarela
-  // Si se ingresó efectivo o dólares (pago mixto), el recargo solo aplica sobre la porción digital
-  const isMixedPayment = valCashArs > 0 || valCashUsd > 0;
-  const feeTaxableBaseArs = isMixedPayment ? valDigitalArs : (valDigitalArs > 0 ? valDigitalArs : subtotalAfterDiscountArs);
-
-  // Comisión calculada de la pasarela sobre la porción correspondiente
-  const calculatedGatewayFeeArs = (feePercent > 0 || fixedFeeArs > 0) && feeTaxableBaseArs > 0
-    ? Math.round(feeTaxableBaseArs * (feePercent / 100) + fixedFeeArs)
-    : 0;
-
-  let totalSurchargeArs = 0;
-  let finalTotalArsToCharge = subtotalAfterDiscountArs;
-  let netReceivedArs = subtotalAfterDiscountArs;
-
-  if (calculatedGatewayFeeArs > 0) {
-    if (passFeeToCustomer) {
-      // Recargo transferido al cliente (se le suma al total a pagar)
-      totalSurchargeArs = calculatedGatewayFeeArs;
-      finalTotalArsToCharge = subtotalAfterDiscountArs + totalSurchargeArs;
-      netReceivedArs = subtotalAfterDiscountArs;
-    } else {
-      // Elohim absorbe la comisión (el cliente paga el subtotal con descuento)
-      totalSurchargeArs = 0;
-      finalTotalArsToCharge = subtotalAfterDiscountArs;
-      netReceivedArs = Math.max(0, subtotalAfterDiscountArs - calculatedGatewayFeeArs);
-    }
-  }
-
-  // Canje de VibePoints (1 pt = 10 ARS descuento)
-  const maxDiscountArs = clientPoints * 10;
-  const vibePointsDiscountArs = (useVibePoints && clientPoints > 0)
-    ? Math.min(maxDiscountArs, Math.max(0, finalTotalArsToCharge - 1))
-    : 0;
-  const vibePointsCountUsed = Math.ceil(vibePointsDiscountArs / 10);
-
-  // Total a pagar neto aplicando el canje de VibePoints
-  const effectiveTotalArsToPay = Math.max(0, finalTotalArsToCharge - vibePointsDiscountArs);
-
-  // Monto Abonado Hoy y Saldo Pendiente (Pagos Parciales / Fiado)
-  const rawAmountPaidToday = amountPaidTodayInput !== '' ? parseFloat(amountPaidTodayInput) : effectiveTotalArsToPay;
-  const amountPaidToday = isNaN(rawAmountPaidToday) ? effectiveTotalArsToPay : Math.max(0, rawAmountPaidToday);
-  const amountDueArs = Math.max(0, Math.round(effectiveTotalArsToPay - amountPaidToday));
-  const paymentStatus = amountDueArs > 0 ? 'partial' : 'paid';
-
-  // Total abonado por el usuario en desglose
-  const digitalFinalArs = valDigitalArs;
-  const totalPaidArs = valCashArs + usdInArs + digitalFinalArs;
-  const differenceArs = totalPaidArs - amountPaidToday;
-
-  const isCovered = totalPaidArs >= amountPaidToday - 0.01;
   const isRegisteredClient = clientId !== 'default' && clientId !== '';
-  const canProceed = !isSellerOverLimit && discountResult.isValid && (isCovered || (amountDueArs > 0 && isRegisteredClient));
 
-  const totalUsd = effectiveTotalArsToPay / exchangeRate;
-
-  // Handlers para cambio de modo y botones rápidos de porcentaje
-  const handleModeChange = (newMode: DiscountType) => {
-    if (newMode === discountType) return;
-    if (newMode === 'none') {
-      setDiscountType('none');
-      setDiscountInputValue('');
-      return;
-    }
-
-    const converted = convertDiscountValueBetweenModes(
-      discountResult,
-      newMode,
-      subtotalOriginalArs
-    );
-    setDiscountType(newMode);
-    setDiscountInputValue(converted);
-  };
-
-  const handleQuickPercent = (pct: number) => {
-    setDiscountType('percentage');
-    setDiscountInputValue(pct.toString());
-  };
-
-  // Funciones auxiliares para la gestión de Insumos de Packaging
-  const handleAddPackagingItem = () => {
-    if (!selectedSupplyToAdd) return;
-    const supply = availableSupplies.find(s => s.id === selectedSupplyToAdd);
-    if (!supply) return;
-
-    const existingIndex = selectedPackaging.findIndex(p => p.packaging_id === supply.id);
-    if (existingIndex >= 0) {
-      const updated = [...selectedPackaging];
-      updated[existingIndex].quantity_used += 1;
-      setSelectedPackaging(updated);
-    } else {
-      setSelectedPackaging(prev => [
-        ...prev,
-        {
-          packaging_id: supply.id,
-          name: supply.name,
-          quantity_used: 1,
-          available_stock: supply.stock_quantity || 0
-        }
-      ]);
-    }
-    setSelectedSupplyToAdd('');
-  };
-
-  const handleUpdatePackagingQty = (packaging_id: string, qty: number) => {
-    if (qty <= 0) {
-      handleRemovePackagingItem(packaging_id);
-      return;
-    }
-    setSelectedPackaging(prev => prev.map(p => p.packaging_id === packaging_id ? { ...p, quantity_used: qty } : p));
-  };
-
-  const handleRemovePackagingItem = (packaging_id: string) => {
-    setSelectedPackaging(prev => prev.filter(p => p.packaging_id !== packaging_id));
-  };
+  // Motor de cálculo puro del checkout bimonetario
+  const totals = calculateCheckoutTotals({
+    role,
+    totalArs,
+    exchangeRate,
+    cartItems,
+    activeMethods,
+    selectedMethodId,
+    cashArs,
+    digitalArs,
+    cashUsd,
+    discountType,
+    discountInputValue,
+    amountPaidTodayInput,
+    useVibePoints,
+    clientPoints,
+    isRegisteredClient,
+  });
 
   const handleCheckout = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!isCovered) {
+    if (!totals.isCovered) {
       if (!isRegisteredClient) {
         setError('El total pagado debe cubrir la venta. Para fiar o ingresar señas a Cuenta Corriente, debes seleccionar un cliente registrado.');
         return;
       }
-      if (totalPaidArs <= 0) {
+      if (totals.totalPaidArs <= 0) {
         setError('Debes ingresar al menos una seña o pago inicial para cerrar la venta a cuenta corriente.');
         return;
       }
@@ -319,137 +177,30 @@ export function CheckoutModal({
     setError(null);
 
     try {
-      // 1. Mapear ítems del carrito
-      const items = cartItems.map(item => {
-        let priceArs = item.product.base_price_ars;
-        if (item.product.type === 'decant_liquid' && item.decantMl) {
-          const supplyPrice = Number(item.selectedSupplyPrice ?? 0);
-          priceArs = (item.product.base_price_ars * item.decantMl) + supplyPrice;
-        }
-
-        return {
-          product_id: item.product.id,
-          quantity: item.quantity,
-          price_ars: priceArs,
-          price_usd: priceArs / exchangeRate
-        };
-      });
-
-      // 2. Extraer decants para consumo JIT
-      const decants = cartItems
-        .filter(item => item.product.type === 'decant_liquid' && item.decantMl && item.selectedSupplyId)
-        .map(item => {
-          return {
-            decant_liquid_id: item.product.id,
-            ml_quantity: (item.decantMl || 0) * item.quantity,
-            supply_id: item.selectedSupplyId!
-          };
-        });
-
-      // Mapear insumos de packaging seleccionados
+      // Mapear ítems, decants JIT, packaging y metadata de métodos de pago
+      const items = buildSaleItems(cartItems, exchangeRate);
+      const decants = buildDecants(cartItems);
       const packaging_supplies = selectedPackaging.map(p => ({
         packaging_id: p.packaging_id,
         quantity_used: p.quantity_used
       }));
+      const paymentMethodsPayload = buildPaymentMethodsPayload(totals, selectedTreasuryAccountId);
 
-      // 3. Estructurar metadata JSONB de métodos de pago y desgloses
-      const methodName = selectedMethod ? (selectedMethod.method_name || selectedMethod.name || 'Digital') : 'Efectivo / Directo';
-      
-      const breakdown = [];
-
-      if (discountResult.discountAmountArs > 0) {
-        breakdown.push({
-          method_name: `Descuento Comercial (${discountResult.discountPercentage}%)`,
-          amount_base: discountResult.discountAmountArs,
-          surcharge_applied: 0,
-          final_amount: -discountResult.discountAmountArs
-        });
-      }
-
-      if (valCashArs > 0) {
-        breakdown.push({
-          method_name: 'Efectivo ARS',
-          amount_base: valCashArs,
-          surcharge_applied: 0,
-          final_amount: valCashArs
-        });
-      }
-
-      if (valCashUsd > 0) {
-        breakdown.push({
-          method_name: 'Dólares Billete',
-          amount_base: usdInArs,
-          surcharge_applied: 0,
-          final_amount: usdInArs,
-          amount_usd: valCashUsd
-        });
-      }
-
-      if (valDigitalArs > 0) {
-        breakdown.push({
-          method_name: methodName,
-          amount_base: valDigitalArs,
-          surcharge_applied: totalSurchargeArs,
-          gateway_fee_ars: calculatedGatewayFeeArs,
-          net_received_ars: netReceivedArs,
-          final_amount: digitalFinalArs
-        });
-      }
-
-      if (vibePointsDiscountArs > 0) {
-        breakdown.push({
-          method_name: 'VibePoints (Canje)',
-          amount_base: vibePointsDiscountArs,
-          surcharge_applied: 0,
-          final_amount: vibePointsDiscountArs,
-          points_redeemed: vibePointsCountUsed
-        });
-      }
-
-      const paymentMethodsPayload: any = {
-        cash_ars: valCashArs > 0 ? valCashArs : 0,
-        digital_ars: valDigitalArs > 0 ? valDigitalArs : 0,
-        cash_usd: valCashUsd > 0 ? valCashUsd : 0,
-        exchange_rate_usd: exchangeRate,
-        surcharge_applied_ars: totalSurchargeArs,
-        gateway_fee_ars: calculatedGatewayFeeArs,
-        net_received_ars: netReceivedArs,
-        pass_fee_to_customer: passFeeToCustomer,
-        fee_percentage: feePercent,
-        fixed_fee_ars: fixedFeeArs,
-        selected_method_id: selectedMethod ? selectedMethod.id : null,
-        selected_method_name: methodName,
-        vibepoints_used: vibePointsDiscountArs > 0 ? {
-          points: vibePointsCountUsed,
-          discount_ars: vibePointsDiscountArs
-        } : null,
-        discount: discountResult.discountAmountArs > 0 ? {
-          type: discountResult.discountType,
-          value: discountResult.discountValue,
-          amount_ars: discountResult.discountAmountArs,
-          percentage: discountResult.discountPercentage,
-          subtotal_ars: discountResult.subtotalArs,
-          final_ars: discountResult.totalArs
-        } : null,
-        treasury_account_id: selectedTreasuryAccountId,
-        breakdown
-      };
-
-      // 4. Enviar transacción con el TOTAL FINAL, subtotal, descuento, abonado hoy, saldo pendiente y packaging
+      // Enviar transacción con el TOTAL FINAL, subtotal, descuento, abonado hoy, saldo pendiente y packaging
       const res = await createSaleTransaction(role, {
         client_id: clientId === 'default' ? null : clientId,
         seller_id: null,
-        subtotal_ars: subtotalOriginalArs,
-        discount_type: discountResult.discountType,
-        discount_value: discountResult.discountValue,
-        discount_amount_ars: discountResult.discountAmountArs,
-        discount_percentage: discountResult.discountPercentage,
-        total_ars: effectiveTotalArsToPay,
-        total_usd_equivalent: totalUsd,
+        subtotal_ars: totals.subtotalOriginalArs,
+        discount_type: totals.discountResult.discountType,
+        discount_value: totals.discountResult.discountValue,
+        discount_amount_ars: totals.discountResult.discountAmountArs,
+        discount_percentage: totals.discountResult.discountPercentage,
+        total_ars: totals.effectiveTotalArsToPay,
+        total_usd_equivalent: totals.totalUsd,
         exchange_rate_used: exchangeRate,
-        amount_paid_today: amountPaidToday,
-        amount_due_ars: amountDueArs,
-        payment_status: paymentStatus,
+        amount_paid_today: totals.amountPaidToday,
+        amount_due_ars: totals.amountDueArs,
+        payment_status: totals.paymentStatus,
         payment_methods: paymentMethodsPayload,
         items,
         decants,
@@ -459,52 +210,23 @@ export function CheckoutModal({
       if (!res.success) {
         throw new Error(res.error || 'Error al procesar la venta en la base de datos');
       }
+      if (res.warning) {
+        toast.warning(res.warning);
+      }
 
-      // 5. Mapear objeto de venta completada para el ticket
+      // Mapear objeto de venta completada para el ticket
       const selectedClientObj = clients.find(c => c.id === clientId);
-      const receiptItems = cartItems.map(item => {
-        let priceArs = item.product.base_price_ars;
-        if (item.product.type === 'decant_liquid' && item.decantMl) {
-          const supplyPrice = Number(item.selectedSupplyPrice ?? 0);
-          priceArs = (item.product.base_price_ars * item.decantMl) + supplyPrice;
-        }
-
-        let nameDisplay = item.product.name;
-        if (item.product.type === 'decant_liquid' && item.decantMl) {
-          nameDisplay = `Decant ${item.product.name} (${item.decantMl}ml)`;
-        }
-
-        return {
-          name: nameDisplay,
-          brand: item.product.brand,
-          quantity: item.quantity,
-          priceArs,
-          totalArs: priceArs * item.quantity
-        };
-      });
-
-      // Incluir insumos de packaging en la lista impresa del ticket
-      selectedPackaging.forEach(p => {
-        receiptItems.push({
-          name: `Packaging: ${p.name}`,
-          brand: 'Elohim Packaging',
-          quantity: p.quantity_used,
-          priceArs: 0,
-          totalArs: 0
-        });
-      });
-
       setCompletedSaleData({
         saleId: res.saleId || 'TICK-NUEVO',
         createdAt: new Date(),
         clientName: selectedClientObj ? selectedClientObj.name : 'Consumidor Final',
-        items: receiptItems,
-        subtotalArs: subtotalOriginalArs,
-        discountAmountArs: discountResult.discountAmountArs,
-        discountPercentage: discountResult.discountPercentage,
-        surchargeArs: totalSurchargeArs,
-        totalArs: finalTotalArsToCharge,
-        totalUsd,
+        items: buildReceiptItems(cartItems, selectedPackaging),
+        subtotalArs: totals.subtotalOriginalArs,
+        discountAmountArs: totals.discountResult.discountAmountArs,
+        discountPercentage: totals.discountResult.discountPercentage,
+        surchargeArs: totals.totalSurchargeArs,
+        totalArs: totals.finalTotalArsToCharge,
+        totalUsd: totals.totalUsd,
         exchangeRate,
         paymentMethods: paymentMethodsPayload
       });
@@ -518,837 +240,197 @@ export function CheckoutModal({
     }
   };
 
-  const downloadAsImage = async () => {
-    if (!ticketRef.current || !completedSaleData) return;
-    try {
-      setIsDownloading(true);
-
-      // Delay safeguard para garantizar la carga completa del DOM y recursos de imagen
-      await new Promise((resolve) => setTimeout(resolve, 300));
-
-      // Importación dinámica de html-to-image para compatibilidad con SSR en Next.js App Router / Vercel
-      const { toPng } = await import('html-to-image');
-
-      const filter = (node: HTMLElement) => {
-        if (node.tagName === 'IMG') {
-          const img = node as HTMLImageElement;
-          if (!img.complete || img.naturalWidth === 0 || img.style.display === 'none') {
-            return false;
-          }
-        }
-        return true;
-      };
-
-      const dataUrl = await toPng(ticketRef.current, {
-        cacheBust: true,
-        backgroundColor: '#FFFFFF',
-        style: { margin: '0' },
-        filter: filter
-      });
-
-      const ticketNum = completedSaleData.saleId
-        ? completedSaleData.saleId.split('-')[0].toUpperCase()
-        : 'TICKET';
-      const link = document.createElement('a');
-      link.href = dataUrl;
-      link.download = `ticket-${ticketNum}.png`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      toast.success('Imagen de ticket descargada');
-    } catch (error) {
-      console.error('[ERROR_EXPORTACION_VERCEL]:', error);
-      toast.error('Error al generar el archivo. Revisa la consola (F12).');
-    } finally {
-      setIsDownloading(false);
-    }
-  };
-
-  const handlePrintTicket = () => {
-    setTimeout(() => {
-      window.print();
-    }, 200);
-  };
-
-  const handleSendWhatsApp = () => {
-    if (!completedSaleData) return;
-
-    const itemsSummary = completedSaleData.items
-      .map((it: any) => `${it.quantity}x ${it.name}`)
-      .join(', ');
-
-    const rawMessage = `¡Hola! Gracias por tu compra en Elohim. Tu resumen: ${itemsSummary}. Total pagado: $${completedSaleData.totalArs.toLocaleString('es-AR')} ARS. ¡Que lo disfrutes!`;
-
-    const rawPhone = selectedClient?.contact_whatsapp || selectedClient?.phone || '';
-    const clientPhoneClean = rawPhone ? rawPhone.replace(/\D/g, '') : '';
-    const encodedText = encodeURIComponent(rawMessage);
-
-    const whatsappUrl = clientPhoneClean 
-      ? `https://wa.me/${clientPhoneClean}?text=${encodedText}`
-      : `https://wa.me/?text=${encodedText}`;
-
-    window.open(whatsappUrl, '_blank');
-  };
-
-  const handleFinishNewSale = () => {
-    onSuccess();
-    onClose();
-  };
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200 overflow-y-auto print:bg-transparent print:p-0 print:overflow-visible print:static">
-      <div className="w-[95vw] sm:max-w-lg bg-[#13261E] border border-[#1B362A] rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 my-auto print:overflow-visible print:bg-transparent print:border-none print:shadow-none print:w-full print:max-w-none print:my-0">
-        
-        {step === 'checkout' ? (
-          <form onSubmit={handleCheckout}>
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      maxWidth="max-w-lg"
+      className="w-[95vw] sm:max-w-lg overflow-hidden my-auto print:overflow-visible print:bg-transparent print:border-none print:shadow-none print:w-full print:max-w-none print:my-0"
+      overlayClassName="print:static print:bg-transparent print:p-0 print:overflow-visible"
+    >
+      {step === 'checkout' ? (
+        <form onSubmit={handleCheckout}>
+          
+          <CardHeader className="border-b border-erp-border pb-4">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-lg font-bold text-white font-serif flex items-center gap-2">
+                <CheckCircle className="h-5.5 w-5.5 text-erp-gold" />
+                Registrar Cobro Bimonetario
+              </CardTitle>
+              <button
+                type="button"
+                onClick={onClose}
+                className="text-zinc-400 hover:text-white transition-colors cursor-pointer"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <CardDescription className="text-xs text-zinc-400 mt-1">
+              Selecciona el cliente, el medio digital de cuotas y desglosa los montos recibidos.
+            </CardDescription>
+          </CardHeader>
+
+          <CardContent className="space-y-4 p-6 max-h-[65dvh] overflow-y-auto">
             
-            <CardHeader className="border-b border-[#1B362A] pb-4">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-lg font-bold text-white font-serif flex items-center gap-2">
-                  <CheckCircle className="h-5.5 w-5.5 text-[#D0A96B]" />
-                  Registrar Cobro Bimonetario
-                </CardTitle>
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="text-zinc-400 hover:text-white transition-colors cursor-pointer"
-                >
-                  <X className="h-5 w-5" />
-                </button>
+            {error && (
+              <div className="flex gap-2.5 rounded-lg bg-rose-500/10 border border-rose-500/30 p-3 text-xs text-rose-400">
+                <AlertCircle className="h-4 w-4 shrink-0" />
+                <span className="font-medium">{error}</span>
               </div>
-              <CardDescription className="text-xs text-zinc-400 mt-1">
-                Selecciona el cliente, el medio digital de cuotas y desglosa los montos recibidos.
-              </CardDescription>
-            </CardHeader>
+            )}
 
-            <CardContent className="space-y-4 p-6 max-h-[65vh] overflow-y-auto">
-              
-              {error && (
-                <div className="flex gap-2.5 rounded-lg bg-rose-500/10 border border-rose-500/30 p-3 text-xs text-rose-400">
-                  <AlertCircle className="h-4 w-4 shrink-0" />
-                  <span className="font-medium">{error}</span>
+            {/* SELECCIÓN DE CLIENTE + BADGE Y CANJE DE VIBEPOINTS */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold uppercase tracking-wider text-zinc-300">
+                Cliente de la Venta
+              </label>
+              {loadingClients ? (
+                <div className="flex items-center text-xs text-zinc-400 gap-1.5 py-1">
+                  <RefreshCw className="h-3.5 w-3.5 animate-spin text-erp-gold" />
+                  Cargando clientes...
                 </div>
-              )}
-
-              {/* SELECCIÓN DE CLIENTE */}
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold uppercase tracking-wider text-zinc-300">
-                  Cliente de la Venta
-                </label>
-                {loadingClients ? (
-                  <div className="flex items-center text-xs text-zinc-400 gap-1.5 py-1">
-                    <RefreshCw className="h-3.5 w-3.5 animate-spin text-[#D0A96B]" />
-                    Cargando clientes...
-                  </div>
-                ) : (
-                  <select
-                    value={clientId}
-                    onChange={(e) => setClientId(e.target.value)}
-                    className="flex h-9 w-full rounded-lg border border-[#1B362A] bg-[#08130E] px-3 py-1 text-xs text-white focus:outline-none focus:ring-1 focus:ring-[#D0A96B]"
-                  >
-                    <option value="default">👤 Consumidor Final (General)</option>
-                    {clients.map(client => (
-                      <option key={client.id} value={client.id}>
-                        👤 {client.name} {client.points_balance !== undefined ? `(${client.points_balance} pts VibePoints)` : ''}
-                      </option>
-                    ))}
-                  </select>
-                )}
-
-                {/* BADGE Y CANJE DE VIBEPOINTS */}
-                {selectedClient && clientPoints > 0 && (
-                  <div className="p-3 rounded-xl bg-[#D0A96B]/10 border border-[#D0A96B]/30 text-xs text-[#E5C158] space-y-2 mt-2">
-                    <div className="flex items-center justify-between">
-                      <div className="font-bold flex items-center gap-1.5 text-[#D0A96B]">
-                        <Sparkles className="h-4 w-4 text-[#D0A96B]" />
-                        <span>VibePoints Disponibles: <strong>{clientPoints} pts</strong></span>
-                      </div>
-                      <span className="text-[10px] font-mono text-zinc-400">
-                        Equiv. ${clientPoints * 10} ARS
-                      </span>
-                    </div>
-
-                    <label className="flex items-center gap-2 cursor-pointer pt-1 text-xs text-white">
-                      <input
-                        type="checkbox"
-                        checked={useVibePoints}
-                        onChange={(e) => setUseVibePoints(e.target.checked)}
-                        className="h-4 w-4 rounded border-[#1B362A] bg-[#13261E] text-[#D0A96B] focus:ring-[#D0A96B] cursor-pointer"
-                      />
-                      <span className="font-semibold">Canjear VibePoints como descuento en esta compra</span>
-                    </label>
-
-                    {useVibePoints && vibePointsDiscountArs > 0 && (
-                      <div className="text-[11px] font-mono text-emerald-400 bg-emerald-500/10 p-2 rounded-lg border border-emerald-500/20">
-                        ✔ Descuento aplicado: <strong>-${vibePointsDiscountArs.toLocaleString('es-AR')} ARS</strong> ({vibePointsCountUsed} pts canjeados)
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* ================================================================= */}
-              {/* AJUSTE DE PRECIO / DESCUENTOS EN VENTA POS                         */}
-              {/* ================================================================= */}
-              <div className="rounded-xl bg-[#08130E] border border-[#1B362A] p-3.5 space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-[#D0A96B]">
-                    <Tag className="h-3.5 w-3.5" />
-                    <span>Ajuste de Precio / Descuento</span>
-                  </div>
-                  {role !== 'admin' ? (
-                    <span className="text-[10px] font-semibold text-zinc-400 bg-[#13261E] px-2 py-0.5 rounded border border-[#1B362A]">
-                      Tope vendedor: 20%
-                    </span>
-                  ) : (
-                    <span className="text-[10px] font-semibold text-[#D0A96B] bg-[#D0A96B]/10 px-2 py-0.5 rounded border border-[#D0A96B]/30">
-                      Administrador (Sin tope)
-                    </span>
-                  )}
-                </div>
-
-                {/* SELECTOR DE MODOS (Pills / Segmented Control) */}
-                <div className="grid grid-cols-5 gap-1 bg-[#13261E] p-1 rounded-lg border border-[#1B362A] text-[11px] font-medium">
-                  <button
-                    type="button"
-                    onClick={() => handleModeChange('none')}
-                    className={`py-1 rounded text-center transition-all cursor-pointer ${
-                      discountType === 'none'
-                        ? 'bg-[#D0A96B] text-[#08130E] font-bold shadow-sm'
-                        : 'text-zinc-400 hover:text-white'
-                    }`}
-                  >
-                    Sin desc.
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleModeChange('percentage')}
-                    className={`py-1 rounded text-center transition-all cursor-pointer ${
-                      discountType === 'percentage'
-                        ? 'bg-[#D0A96B] text-[#08130E] font-bold shadow-sm'
-                        : 'text-zinc-400 hover:text-white'
-                    }`}
-                  >
-                    Desc. %
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleModeChange('fixed')}
-                    className={`py-1 rounded text-center transition-all cursor-pointer ${
-                      discountType === 'fixed'
-                        ? 'bg-[#D0A96B] text-[#08130E] font-bold shadow-sm'
-                        : 'text-zinc-400 hover:text-white'
-                    }`}
-                  >
-                    Desc. $
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleModeChange('target_amount')}
-                    className={`py-1 rounded text-center transition-all cursor-pointer ${
-                      discountType === 'target_amount'
-                        ? 'bg-[#D0A96B] text-[#08130E] font-bold shadow-sm'
-                        : 'text-zinc-400 hover:text-white'
-                    }`}
-                  >
-                    Cobrar $
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleModeChange('target_percentage')}
-                    className={`py-1 rounded text-center transition-all cursor-pointer ${
-                      discountType === 'target_percentage'
-                        ? 'bg-[#D0A96B] text-[#08130E] font-bold shadow-sm'
-                        : 'text-zinc-400 hover:text-white'
-                    }`}
-                  >
-                    Cobrar %
-                  </button>
-                </div>
-
-                {/* BOTONES RÁPIDOS DE PORCENTAJE (CHIPS) */}
-                <div className="flex items-center gap-1.5 flex-wrap">
-                  <span className="text-[10px] text-zinc-400 font-mono">Rápidos:</span>
-                  {[5, 10, 15, 20, 25].map((pct) => {
-                    const isExceedingSeller = role !== 'admin' && pct > 20;
-                    return (
-                      <button
-                        key={pct}
-                        type="button"
-                        onClick={() => handleQuickPercent(pct)}
-                        disabled={isExceedingSeller}
-                        className={`px-2 py-0.5 rounded text-[11px] font-mono font-bold transition-all cursor-pointer ${
-                          discountType === 'percentage' && Number(discountInputValue) === pct
-                            ? 'bg-[#D0A96B] text-[#08130E]'
-                            : isExceedingSeller
-                            ? 'bg-[#13261E]/40 text-zinc-600 border border-zinc-800 cursor-not-allowed'
-                            : 'bg-[#13261E] text-zinc-300 hover:text-white hover:bg-[#1B362A] border border-[#1B362A]'
-                        }`}
-                        title={isExceedingSeller ? 'Excede el límite del 20% para vendedores' : `Aplicar ${pct}%`}
-                      >
-                        {pct}%
-                      </button>
-                    );
-                  })}
-                  {discountType !== 'none' && (
-                    <button
-                      type="button"
-                      onClick={() => handleModeChange('none')}
-                      className="text-[10px] text-rose-400 hover:text-rose-300 ml-auto underline cursor-pointer"
-                    >
-                      Quitar descuento
-                    </button>
-                  )}
-                </div>
-
-                {/* INPUT CONDICIONAL SEGÚN EL MODO SELECCIONADO */}
-                {discountType !== 'none' && (
-                  <div className="space-y-1.5">
-                    <div className="relative">
-                      <span className="absolute left-3 top-2 text-xs font-bold text-zinc-400">
-                        {discountType === 'percentage' && '% Descuento:'}
-                        {discountType === 'fixed' && '$ Descuento:'}
-                        {discountType === 'target_amount' && '$ Cobrar:'}
-                        {discountType === 'target_percentage' && '% Cobrar:'}
-                      </span>
-                      <Input
-                        type="number"
-                        step={discountType === 'percentage' || discountType === 'target_percentage' ? '0.1' : '1'}
-                        min="0"
-                        max={discountType === 'percentage' || discountType === 'target_percentage' ? '100' : subtotalOriginalArs.toString()}
-                        value={discountInputValue}
-                        onChange={(e) => setDiscountInputValue(e.target.value)}
-                        placeholder={
-                          discountType === 'percentage'
-                            ? 'Ej. 10'
-                            : discountType === 'fixed'
-                            ? 'Ej. 5000'
-                            : discountType === 'target_amount'
-                            ? `Ej. ${Math.round(subtotalOriginalArs * 0.9)}`
-                            : 'Ej. 90'
-                        }
-                        className="pl-28 bg-[#13261E] border-[#1B362A] text-white font-mono font-bold text-sm h-8"
-                      />
-                    </div>
-
-                    {/* ERROR DE VALIDACIÓN DEL MOTOR O TOPE DE VENDEDOR */}
-                    {(!discountResult.isValid || isSellerOverLimit) && (
-                      <div className="text-[11px] text-rose-400 bg-rose-500/10 p-2 rounded-lg border border-rose-500/20 font-medium">
-                        {isSellerOverLimit
-                          ? `⚠️ Límite superado: Los vendedores solo pueden aplicar hasta un 20% de descuento (solicitado: ${discountResult.discountPercentage}%). Se requiere autorización de un Administrador.`
-                          : discountResult.errorMessage}
-                      </div>
-                    )}
-
-                    {/* ALERTA DE MARGEN NEGATIVO (SUBTOTAL < COGS) */}
-                    {isBelowCogs && (
-                      <div className="text-[11px] text-amber-400 bg-amber-500/10 p-2 rounded-lg border border-amber-500/20 font-medium flex items-center gap-1.5">
-                        <AlertCircle className="h-4 w-4 shrink-0 text-amber-400" />
-                        <span>
-                          ⚠️ <strong>Alerta de Margen:</strong> El precio final (${subtotalAfterDiscountArs.toLocaleString('es-AR')}) está por debajo del costo de reposición estimado (${Math.round(totalCartCogs).toLocaleString('es-AR')}).
-                        </span>
-                      </div>
-                    )}
-
-                    {/* RESUMEN EN TIEMPO REAL DEL DESCUENTO */}
-                    {discountResult.isValid && discountResult.discountAmountArs > 0 && !isSellerOverLimit && (
-                      <div className="grid grid-cols-3 gap-2 p-2 rounded-lg bg-[#13261E]/60 border border-[#1B362A] text-[11px] font-mono">
-                        <div>
-                          <span className="text-zinc-500 block text-[9px] uppercase">Descuento</span>
-                          <span className="text-emerald-400 font-bold">
-                            -${discountResult.discountAmountArs.toLocaleString('es-AR')}
-                          </span>
-                        </div>
-                        <div>
-                          <span className="text-zinc-500 block text-[9px] uppercase">Equiv. %</span>
-                          <span className="text-emerald-400 font-bold">
-                            {discountResult.discountPercentage}%
-                          </span>
-                        </div>
-                        <div>
-                          <span className="text-zinc-500 block text-[9px] uppercase">Nuevo Subtotal</span>
-                          <span className="text-white font-bold">
-                            ${subtotalAfterDiscountArs.toLocaleString('es-AR')}
-                          </span>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* SELECCIÓN DE CUENTA DE DESTINO EN TESORERÍA */}
-              <div className="space-y-1.5 pt-1">
-                <label className="text-xs font-bold uppercase tracking-wider text-[#D0A96B] flex items-center justify-between">
-                  <span className="flex items-center gap-1.5">
-                    <Landmark className="h-3.5 w-3.5" /> Cuenta de Destino en Tesorería *
-                  </span>
-                </label>
+              ) : (
                 <select
-                  value={selectedTreasuryAccountId}
-                  onChange={(e) => setSelectedTreasuryAccountId(e.target.value)}
-                  className="flex h-9 w-full rounded-lg border border-[#1B362A] bg-[#08130E] px-3 py-1 text-xs font-bold text-white focus:outline-none focus:ring-1 focus:ring-[#D0A96B]"
+                  value={clientId}
+                  onChange={(e) => setClientId(e.target.value)}
+                  className="flex h-9 w-full rounded-lg border border-erp-border bg-erp-bg px-3 py-1 text-xs text-white focus:outline-none focus:ring-1 focus:ring-erp-gold"
                 >
-                  {treasuryAccounts.map(acc => (
-                    <option key={acc.id} value={acc.id}>
-                      🏦 {acc.account_name} (${acc.balance_ars.toLocaleString('es-AR')} ARS)
+                  <option value="default">👤 Consumidor Final (General)</option>
+                  {clients.map(client => (
+                    <option key={client.id} value={client.id}>
+                      👤 {client.name} {client.points_balance !== undefined ? `(${client.points_balance} pts VibePoints)` : ''}
                     </option>
                   ))}
                 </select>
-              </div>
+              )}
 
-              {/* SELECCIÓN DE PASARELA / MÉTODO DIGITAL DINÁMICO */}
-              <div className="space-y-1.5 pt-1">
-                <label className="text-xs font-bold uppercase tracking-wider text-zinc-300 flex items-center justify-between">
-                  <span>Pasarela Digital / Cuotas</span>
-                  {selectedMethod && (feePercent > 0 || fixedFeeArs > 0) && (
-                    <span className="text-[#D0A96B] font-extrabold text-[10px]">
-                      {passFeeToCustomer ? `+${feePercent}% Recargo Cliente` : `-${feePercent}% Retención MP`}
+              {/* BADGE Y CANJE DE VIBEPOINTS */}
+              {selectedClient && clientPoints > 0 && (
+                <div className="p-3 rounded-xl bg-erp-gold/10 border border-erp-gold/30 text-xs text-erp-gold-hover space-y-2 mt-2">
+                  <div className="flex items-center justify-between">
+                    <div className="font-bold flex items-center gap-1.5 text-erp-gold">
+                      <Sparkles className="h-4 w-4 text-erp-gold" />
+                      <span>VibePoints Disponibles: <strong>{clientPoints} pts</strong></span>
+                    </div>
+                    <span className="text-[11px] font-mono text-zinc-400">
+                      Equiv. ${clientPoints * 10} ARS
                     </span>
-                  )}
-                </label>
-
-                <select
-                  value={selectedMethodId}
-                  onChange={(e) => setSelectedMethodId(e.target.value)}
-                  className="flex h-9 w-full rounded-lg border border-[#1B362A] bg-[#08130E] px-3 py-1 text-xs font-bold text-white focus:outline-none focus:ring-1 focus:ring-[#D0A96B]"
-                >
-                  <option value="">💳 Cobro Directo / Efectivo / Transferencia (0% Recargo)</option>
-                  {activeMethods.map(m => {
-                    const mFee = m.fee_percentage !== undefined ? m.fee_percentage : (m.surcharge_percent || 0);
-                    const name = m.method_name || m.name || '';
-                    const passText = m.pass_fee_to_customer ? 'Recargo Cliente' : 'Absorbe Elohim';
-                    return (
-                      <option key={m.id} value={m.id}>
-                        💳 {name} {mFee > 0 ? `(${mFee}% - ${passText})` : '(0% Recargo)'}
-                      </option>
-                    );
-                  })}
-                </select>
-              </div>
-
-              {/* SECCIÓN DE INSUMOS DE PACKAGING UTILIZADOS (OPCIONAL) */}
-              <div className="border border-[#1B362A] rounded-xl bg-[#08130E] overflow-hidden transition-all pt-1">
-                <button
-                  type="button"
-                  onClick={() => setIsPackagingOpen(!isPackagingOpen)}
-                  className="w-full flex items-center justify-between p-3 text-left hover:bg-[#13261E]/50 transition-colors cursor-pointer"
-                >
-                  <div className="flex items-center gap-2">
-                    <Package className="h-4 w-4 text-[#D0A96B]" />
-                    <span className="text-xs font-bold text-white">📦 Insumos de Packaging Utilizados</span>
-                    <span className="text-[10px] text-zinc-400 font-mono">(Opcional)</span>
-                    {selectedPackaging.length > 0 && (
-                      <span className="ml-2 bg-[#D0A96B] text-[#08130E] px-2 py-0.5 rounded-full text-[10px] font-extrabold font-mono">
-                        {selectedPackaging.reduce((sum, item) => sum + item.quantity_used, 0)} insumos
-                      </span>
-                    )}
-                  </div>
-                  {isPackagingOpen ? (
-                    <ChevronUp className="h-4 w-4 text-zinc-400" />
-                  ) : (
-                    <ChevronDown className="h-4 w-4 text-zinc-400" />
-                  )}
-                </button>
-
-                {isPackagingOpen && (
-                  <div className="p-3 border-t border-[#1B362A] bg-[#13261E]/40 space-y-3">
-                    <div className="flex items-center gap-2">
-                      <select
-                        value={selectedSupplyToAdd}
-                        onChange={(e) => setSelectedSupplyToAdd(e.target.value)}
-                        className="flex-1 h-8 rounded-lg border border-[#1B362A] bg-[#08130E] px-2 text-xs font-bold text-white focus:outline-none focus:ring-1 focus:ring-[#D0A96B]"
-                      >
-                        <option value="">-- Seleccionar Insumo (Bolsa, Cajas, Frascos) --</option>
-                        {availableSupplies.map(sup => (
-                          <option key={sup.id} value={sup.id}>
-                            {sup.name} (Stock disp: {sup.stock_quantity || 0})
-                          </option>
-                        ))}
-                      </select>
-                      <Button
-                        type="button"
-                        size="sm"
-                        onClick={handleAddPackagingItem}
-                        disabled={!selectedSupplyToAdd}
-                        className="h-8 bg-[#D0A96B] hover:bg-[#E5C158] text-[#08130E] font-bold text-xs px-3 cursor-pointer"
-                      >
-                        <Plus className="h-3.5 w-3.5 mr-1" /> Agregar
-                      </Button>
-                    </div>
-
-                    {selectedPackaging.length > 0 ? (
-                      <div className="space-y-1.5 pt-1">
-                        {selectedPackaging.map(item => (
-                          <div key={item.packaging_id} className="flex items-center justify-between p-2 rounded-lg bg-[#08130E] border border-[#1B362A] text-xs">
-                            <div className="flex flex-col">
-                              <span className="font-bold text-zinc-200">{item.name}</span>
-                              <span className="text-[10px] text-zinc-500 font-mono">Stock disponible: {item.available_stock}</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <div className="flex items-center border border-[#1B362A] rounded-md bg-[#13261E]">
-                                <button
-                                  type="button"
-                                  onClick={() => handleUpdatePackagingQty(item.packaging_id, item.quantity_used - 1)}
-                                  className="px-2 py-0.5 text-zinc-400 hover:text-white text-xs font-bold cursor-pointer"
-                                >
-                                  -
-                                </button>
-                                <span className="px-2 font-mono font-bold text-white text-xs">{item.quantity_used}</span>
-                                <button
-                                  type="button"
-                                  onClick={() => handleUpdatePackagingQty(item.packaging_id, item.quantity_used + 1)}
-                                  className="px-2 py-0.5 text-zinc-400 hover:text-white text-xs font-bold cursor-pointer"
-                                >
-                                  +
-                                </button>
-                              </div>
-                              <button
-                                type="button"
-                                onClick={() => handleRemovePackagingItem(item.packaging_id)}
-                                className="text-rose-400 hover:text-rose-300 p-1 cursor-pointer"
-                                title="Eliminar insumo"
-                              >
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-[11px] text-zinc-500 italic text-center py-1">
-                        No has añadido insumos de packaging adicionales a esta venta.
-                      </p>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* RESUMEN DE LA ORDEN CON SIMULADOR EN TIEMPO REAL */}
-              <div className="rounded-xl bg-[#08130E] p-4 border border-[#1B362A] space-y-2.5">
-                <div className="flex justify-between items-center text-xs text-zinc-400">
-                  <span>Subtotal Original ARS:</span>
-                  <span className="font-mono font-bold text-white">
-                    ${subtotalOriginalArs.toLocaleString('es-AR')} ARS
-                  </span>
-                </div>
-
-                {discountResult.discountAmountArs > 0 && (
-                  <div className="flex justify-between items-center text-xs text-emerald-400 font-mono font-bold">
-                    <span className="flex items-center gap-1">
-                      <TrendingDown className="h-3.5 w-3.5" /> Descuento Comercial ({discountResult.discountPercentage}%):
-                    </span>
-                    <span>-${discountResult.discountAmountArs.toLocaleString('es-AR')} ARS</span>
-                  </div>
-                )}
-
-                {discountResult.discountAmountArs > 0 && (
-                  <div className="flex justify-between items-center text-xs text-zinc-300 font-mono">
-                    <span>Subtotal con Descuento:</span>
-                    <span className="font-bold text-white">${subtotalAfterDiscountArs.toLocaleString('es-AR')} ARS</span>
-                  </div>
-                )}
-
-                {/* DESGLOSE DINÁMICO DE COMISIÓN / RECARGO DE PASARELA */}
-                {calculatedGatewayFeeArs > 0 && passFeeToCustomer && (
-                  <div className="p-2.5 rounded-lg bg-[#D0A96B]/10 border border-[#D0A96B]/30 text-xs text-[#D0A96B] font-mono font-bold space-y-1">
-                    <div className="flex items-center justify-between">
-                      <span className="flex items-center gap-1">
-                        <Percent className="h-3.5 w-3.5" /> Recargo Tarjeta ({feePercent}%):
-                      </span>
-                      <span>+${calculatedGatewayFeeArs.toLocaleString('es-AR')} ARS</span>
-                    </div>
-                    <div className="text-[10px] font-sans font-normal text-[#E5C158]">
-                      Base con Descuento: ${subtotalAfterDiscountArs.toLocaleString('es-AR')} | Recargo Tarjeta: +${calculatedGatewayFeeArs.toLocaleString('es-AR')} | Total a Cobrar: ${finalTotalArsToCharge.toLocaleString('es-AR')}
-                    </div>
-                  </div>
-                )}
-
-                {calculatedGatewayFeeArs > 0 && !passFeeToCustomer && (
-                  <div className="p-2.5 rounded-lg bg-blue-500/10 border border-blue-500/20 text-xs text-blue-400 font-mono font-bold space-y-1">
-                    <div className="flex items-center justify-between">
-                      <span className="flex items-center gap-1">
-                        <ShieldCheck className="h-3.5 w-3.5" /> Retención MP ({feePercent}%):
-                      </span>
-                      <span>-${calculatedGatewayFeeArs.toLocaleString('es-AR')} ARS</span>
-                    </div>
-                    <div className="text-[10px] font-sans font-normal text-blue-300">
-                      El cliente abona: ${subtotalAfterDiscountArs.toLocaleString('es-AR')} | Retención MP: -${calculatedGatewayFeeArs.toLocaleString('es-AR')} | Neto a tu cuenta: ${netReceivedArs.toLocaleString('es-AR')}
-                    </div>
-                  </div>
-                )}
-
-                <div className="flex justify-between items-center pt-2 border-t border-[#1B362A]">
-                  <div>
-                    <span className="text-[10px] font-extrabold uppercase tracking-widest text-zinc-500 block">
-                      Total Final a Cobrar (ARS)
-                    </span>
-                    <div className="text-2xl font-black text-white font-serif">
-                      ${finalTotalArsToCharge.toLocaleString('es-AR')}
-                    </div>
                   </div>
 
-                  <div className="text-right">
-                    <span className="text-[10px] font-extrabold uppercase tracking-widest text-zinc-500 block">
-                      Equiv. USD
-                    </span>
-                    <div className="text-xl font-black text-indigo-400 font-mono">
-                      u$s {totalUsd.toFixed(2)}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* INPUT MONTO ABONADO HOY & ADVERTENCIA PAGO PARCIAL */}
-              <div className="space-y-1.5 p-3.5 rounded-xl bg-[#08130E] border border-[#1B362A]">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-bold uppercase tracking-wider text-zinc-300">
-                    Monto Abonado Hoy (ARS)
+                  <label className="flex items-center gap-2 cursor-pointer pt-1 text-xs text-white">
+                    <input
+                      type="checkbox"
+                      checked={useVibePoints}
+                      onChange={(e) => setUseVibePoints(e.target.checked)}
+                      className="h-4 w-4 rounded border-erp-border bg-erp-surface text-erp-gold focus:ring-erp-gold cursor-pointer"
+                    />
+                    <span className="font-semibold">Canjear VibePoints como descuento en esta compra</span>
                   </label>
-                  <span className="text-[10px] text-zinc-400">
-                    (Default: ${finalTotalArsToCharge.toLocaleString('es-AR')})
-                  </span>
-                </div>
-                
-                <div className="relative">
-                  <span className="absolute left-3 top-2.5 text-xs font-bold text-zinc-500">$</span>
-                  <Input
-                    type="number"
-                    placeholder={`$${finalTotalArsToCharge.toLocaleString('es-AR')}`}
-                    value={amountPaidTodayInput}
-                    onChange={(e) => setAmountPaidTodayInput(e.target.value)}
-                    className="pl-7 bg-[#13261E] border-[#1B362A] text-white font-mono font-bold text-sm"
-                  />
-                </div>
 
-                {/* BADGE ESTILIZADO DE ADVERTENCIA DE SALDO PENDIENTE */}
-                {amountDueArs > 0 && (
-                  <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-xs text-amber-400 space-y-1 mt-2">
-                    <div className="font-bold flex items-center gap-1.5 text-[#D0A96B]">
-                      <AlertCircle className="h-4 w-4 text-[#D0A96B]" />
-                      <span>Saldo Pendiente: <strong>${amountDueArs.toLocaleString('es-AR')} ARS</strong></span>
+                  {useVibePoints && totals.vibePointsDiscountArs > 0 && (
+                    <div className="text-[11px] font-mono text-emerald-400 bg-emerald-500/10 p-2 rounded-lg border border-emerald-500/20">
+                      ✔ Descuento aplicado: <strong>-${totals.vibePointsDiscountArs.toLocaleString('es-AR')} ARS</strong> ({totals.vibePointsCountUsed} pts canjeados)
                     </div>
-                    <p className="text-[11px] text-zinc-300 leading-snug">
-                      ⚡ Se registrará la venta como <strong className="text-amber-400">PAGO PARCIAL</strong>. El saldo de <strong>${amountDueArs.toLocaleString('es-AR')} ARS</strong> se enviará a Cuentas por Cobrar.
-                    </p>
-                  </div>
-                )}
-              </div>
-
-              {/* ENTRADAS DE MÉTODOS DE PAGO */}
-              <div className="space-y-3">
-                <label className="text-xs font-bold uppercase tracking-wider text-zinc-300 block">
-                  Ingreso de Valores Recibidos
-                </label>
-                
-                <div className="grid grid-cols-3 gap-3">
-                  {/* EFECTIVO ARS */}
-                  <div className="space-y-1">
-                    <label className="flex items-center gap-1 text-[10px] font-semibold text-zinc-400">
-                      <DollarSign className="h-3.5 w-3.5 text-[#D0A96B]" />
-                      Efectivo ARS
-                    </label>
-                    <Input
-                      type="number"
-                      placeholder="ARS"
-                      value={cashArs}
-                      onChange={(e) => setCashArs(e.target.value)}
-                      className="bg-[#08130E] border-[#1B362A] text-white font-mono text-xs font-bold"
-                    />
-                  </div>
-
-                  {/* DIGITAL / TARJETA ARS */}
-                  <div className="space-y-1">
-                    <label className="flex items-center gap-1 text-[10px] font-semibold text-zinc-400">
-                      <Landmark className="h-3.5 w-3.5 text-indigo-400" />
-                      Digital / Tarjeta
-                    </label>
-                    <Input
-                      type="number"
-                      placeholder="ARS"
-                      value={digitalArs}
-                      onChange={(e) => setDigitalArs(e.target.value)}
-                      className="bg-[#08130E] border-[#1B362A] text-white font-mono text-xs font-bold"
-                    />
-                  </div>
-
-                  {/* EFECTIVO USD */}
-                  <div className="space-y-1">
-                    <label className="flex items-center gap-1 text-[10px] font-semibold text-zinc-400">
-                      <CreditCard className="h-3.5 w-3.5 text-emerald-400" />
-                      Dólares Billete
-                    </label>
-                    <Input
-                      type="number"
-                      placeholder="USD"
-                      value={cashUsd}
-                      onChange={(e) => setCashUsd(e.target.value)}
-                      className="bg-[#08130E] border-[#1B362A] text-white font-mono text-xs font-bold"
-                    />
-                  </div>
+                  )}
                 </div>
-              </div>
-
-              {/* ESTADO DEL COBRO Y SALDOS */}
-              <div className="rounded-xl border border-[#1B362A] bg-[#08130E] p-3 space-y-1.5 text-xs">
-                <div className="flex justify-between text-zinc-400">
-                  <span>Total Recibido (Pesos):</span>
-                  <span className="font-semibold text-white font-mono">
-                    ${totalPaidArs.toLocaleString('es-AR')} ARS
-                  </span>
-                </div>
-
-                <div className="border-t border-[#1B362A] pt-1.5 flex justify-between items-center">
-                  <span className="font-bold text-zinc-300">
-                    {differenceArs >= 0 ? 'Vuelto a Entregar:' : 'Saldo Pendiente (Fiado):'}
-                  </span>
-                  
-                  <div className="text-right">
-                    <div className={`text-base font-black font-mono ${differenceArs >= 0 ? 'text-emerald-400' : 'text-amber-400'}`}>
-                      ${Math.abs(differenceArs).toLocaleString('es-AR')} ARS
-                    </div>
-                    <div className="text-[10px] text-zinc-500">
-                      o u$s {Math.abs(differenceArs / exchangeRate).toFixed(2)} USD
-                    </div>
-                  </div>
-                </div>
-
-                {amountDueArs > 0 && isRegisteredClient && (
-                  <div className="p-3 rounded-xl bg-[#D0A96B]/10 border border-[#D0A96B]/30 text-xs text-[#E5C158] space-y-0.5">
-                    <div className="font-bold flex items-center gap-1 text-[#D0A96B]">
-                      <span>★ Saldo a Cuenta Corriente (Fiado / Seña)</span>
-                    </div>
-                    <p className="text-[11px] opacity-90">
-                      Se generará automáticamente una Cuenta por Cobrar de <strong>${Math.abs(differenceArs).toLocaleString('es-AR')} ARS</strong> a nombre del cliente seleccionado.
-                    </p>
-                  </div>
-                )}
-              </div>
-
-            </CardContent>
-
-            <CardFooter className="border-t border-[#1B362A] pt-4 flex justify-end gap-3 bg-[#08130E]/60 px-6 py-4">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={onClose}
-                disabled={loading}
-                className="border-[#1B362A] bg-[#13261E] text-zinc-300 hover:bg-zinc-800"
-              >
-                Cancelar
-              </Button>
-              <Button
-                type="submit"
-                disabled={loading || !canProceed}
-                className="bg-[#D0A96B] hover:bg-[#E5C158] text-[#08130E] font-extrabold text-xs shadow-md shadow-[#D0A96B]/20 cursor-pointer"
-              >
-                {loading ? (
-                  <>
-                    <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> Procesando Venta...
-                  </>
-                ) : (
-                  'Confirmar Venta'
-                )}
-              </Button>
-            </CardFooter>
-            
-          </form>
-        ) : (
-          /* ------------------ VISTA DE VENTA EXITOSA & TICKET ------------------ */
-          <div className="p-6 text-center space-y-6 animate-in zoom-in-95 duration-200 print:p-0 print:m-0">
-            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 mb-2 shadow-lg shadow-emerald-500/10 print:hidden">
-              <CheckCircle className="h-10 w-10" />
+              )}
             </div>
 
-            <div className="print:hidden">
-              <h2 className="text-2xl font-bold text-white font-serif">¡Venta Registrada con Éxito!</h2>
-              <p className="text-xs text-zinc-400 mt-1">
-                La transacción ha sido almacenada de forma atómica y el stock descontado.
-              </p>
-            </div>
+            {/* AJUSTE DE PRECIO / DESCUENTOS EN VENTA POS */}
+            <DiscountSection
+              role={role}
+              discountType={discountType}
+              discountInputValue={discountInputValue}
+              onTypeChange={setDiscountType}
+              onInputValueChange={setDiscountInputValue}
+              discountResult={totals.discountResult}
+              isSellerOverLimit={totals.isSellerOverLimit}
+              isBelowCogs={totals.isBelowCogs}
+              subtotalOriginalArs={totals.subtotalOriginalArs}
+              subtotalAfterDiscountArs={totals.subtotalAfterDiscountArs}
+              totalCartCogs={totals.totalCartCogs}
+            />
 
-            {completedSaleData && (
-              <div className="bg-[#08130E] p-4 rounded-xl border border-[#1B362A] space-y-2 text-left print:hidden">
-                <div className="flex justify-between text-xs text-zinc-400">
-                  <span>N° Transacción:</span>
-                  <span className="font-bold font-mono text-white">#{completedSaleData.saleId.split('-')[0].toUpperCase()}</span>
-                </div>
-                <div className="flex justify-between text-xs text-zinc-400">
-                  <span>Cliente:</span>
-                  <span className="font-semibold text-zinc-200">{completedSaleData.clientName}</span>
-                </div>
-                {completedSaleData.discountAmountArs > 0 && (
-                  <div className="flex justify-between text-xs text-emerald-400 font-mono font-medium">
-                    <span>Descuento Aplicado:</span>
-                    <span>-${completedSaleData.discountAmountArs.toLocaleString('es-AR')} ({completedSaleData.discountPercentage}%)</span>
-                  </div>
-                )}
-                <div className="flex justify-between text-sm font-bold pt-2 border-t border-[#1B362A]">
-                  <span>Total Cobrado:</span>
-                  <span className="font-mono text-[#D0A96B]">${completedSaleData.totalArs.toLocaleString('es-AR')} ARS</span>
-                </div>
-              </div>
-            )}
+            {/* COBRO BIMONETARIO: TESORERÍA, PASARELA, RESUMEN Y VUELTO */}
+            <PaymentSplitter
+              activeMethods={activeMethods}
+              selectedMethodId={selectedMethodId}
+              onMethodIdChange={setSelectedMethodId}
+              treasuryAccounts={treasuryAccounts}
+              selectedTreasuryAccountId={selectedTreasuryAccountId}
+              onTreasuryAccountIdChange={setSelectedTreasuryAccountId}
+              cashArs={cashArs}
+              onCashArsChange={setCashArs}
+              digitalArs={digitalArs}
+              onDigitalArsChange={setDigitalArs}
+              cashUsd={cashUsd}
+              onCashUsdChange={setCashUsd}
+              amountPaidTodayInput={amountPaidTodayInput}
+              onAmountPaidTodayChange={setAmountPaidTodayInput}
+              feePercent={totals.feePercent}
+              passFeeToCustomer={totals.passFeeToCustomer}
+              subtotalOriginalArs={totals.subtotalOriginalArs}
+              subtotalAfterDiscountArs={totals.subtotalAfterDiscountArs}
+              discountAmountArs={totals.discountResult.discountAmountArs}
+              discountPercentage={totals.discountResult.discountPercentage}
+              calculatedGatewayFeeArs={totals.calculatedGatewayFeeArs}
+              totalSurchargeArs={totals.totalSurchargeArs}
+              finalTotalArsToCharge={totals.finalTotalArsToCharge}
+              netReceivedArs={totals.netReceivedArs}
+              amountDueArs={totals.amountDueArs}
+              totalPaidArs={totals.totalPaidArs}
+              differenceArs={totals.differenceArs}
+              isRegisteredClient={isRegisteredClient}
+              exchangeRate={exchangeRate}
+              totalUsd={totals.totalUsd}
+            />
 
-            {/* CONTENEDOR OCULTO PARA CAPTURA HTML2CANVAS */}
-            {completedSaleData && (
-              <div className="overflow-hidden h-0 w-0 opacity-0 pointer-events-none absolute">
-                <div ref={ticketRef} className="bg-white p-4 text-slate-900 inline-block w-[380px]">
-                  <ReceiptTicket {...completedSaleData} />
-                </div>
-              </div>
-            )}
+            {/* INSUMOS DE PACKAGING UTILIZADOS (OPCIONAL) */}
+            <PackagingSelector
+              availableSupplies={availableSupplies}
+              selectedPackaging={selectedPackaging}
+              onSelectedPackagingChange={setSelectedPackaging}
+            />
 
-            {/* BANDERAS DE IMPRESIÓN Y TICKET RENDERIZADO AISLADO PARA EL MODAL */}
-            {completedSaleData && (
-              <div className="hidden print:block print:fixed print:inset-0 print:m-0 print:p-4 print:bg-white print:z-[99999] print:w-full print:h-full print:overflow-visible">
-                <ReceiptTicket {...completedSaleData} />
-              </div>
-            )}
+          </CardContent>
 
-            <div className="flex flex-wrap justify-center gap-3 pt-2 print:hidden">
-              <Button
-                onClick={handlePrintTicket}
-                variant="outline"
-                className="cursor-pointer border-[#1B362A] bg-[#08130E] font-bold text-zinc-300"
-              >
-                <Printer className="mr-2 h-4 w-4 text-[#D0A96B]" /> Imprimir Ticket
-              </Button>
-
-              <Button
-                type="button"
-                variant="outline"
-                onClick={downloadAsImage}
-                disabled={isDownloading}
-                className="cursor-pointer border-[#1B362A] bg-[#08130E] font-bold text-zinc-300 hover:bg-[#13261E] hover:text-white"
-              >
-                {isDownloading ? (
-                  <RefreshCw className="mr-2 h-4 w-4 animate-spin text-[#D0A96B]" />
-                ) : (
-                  <Download className="mr-2 h-4 w-4 text-[#D0A96B]" />
-                )}
-                Descargar Imagen
-              </Button>
-
-              <Button
-                onClick={handleSendWhatsApp}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs shadow-md shadow-emerald-600/20 cursor-pointer"
-              >
-                <MessageSquare className="mr-2 h-4 w-4" /> Enviar por WhatsApp
-              </Button>
-
-              <Button
-                onClick={handleFinishNewSale}
-                className="bg-[#D0A96B] hover:bg-[#E5C158] text-[#08130E] font-extrabold text-xs shadow-md shadow-[#D0A96B]/20 cursor-pointer"
-              >
-                <ShoppingBag className="mr-2 h-4 w-4" /> Nueva Venta
-              </Button>
-            </div>
-
-          </div>
-        )}
-
-      </div>
-    </div>
+          <CardFooter className="border-t border-erp-border pt-4 flex justify-end gap-3 bg-erp-bg/60 px-6 py-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onClose}
+              disabled={loading}
+              className="border-erp-border bg-erp-surface text-zinc-300 hover:bg-zinc-800"
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="submit"
+              disabled={loading || !totals.canProceed}
+              className="bg-erp-gold hover:bg-erp-gold-hover text-erp-bg font-extrabold text-xs shadow-md shadow-erp-gold/20 cursor-pointer"
+            >
+              {loading ? (
+                <>
+                  <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> Procesando Venta...
+                </>
+              ) : (
+                'Confirmar Venta'
+              )}
+            </Button>
+          </CardFooter>
+          
+        </form>
+      ) : (
+        /* ------------------ VISTA DE VENTA EXITOSA & TICKET ------------------ */
+        <SuccessReceipt
+          saleData={completedSaleData}
+          clientPhone={selectedClient?.contact_whatsapp || selectedClient?.phone || ''}
+          onFinishNewSale={() => {
+            onSuccess();
+            onClose();
+          }}
+        />
+      )}
+    </Modal>
   );
 }

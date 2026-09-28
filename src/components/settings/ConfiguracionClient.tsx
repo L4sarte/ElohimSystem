@@ -29,7 +29,7 @@ interface ConfiguracionClientProps {
 }
 
 export function ConfiguracionClient({ initialSettings = DEFAULT_SYSTEM_SETTINGS }: ConfiguracionClientProps) {
-  const { role } = useUserStore();
+  const role = useUserStore((state) => state.role);
   const { refresh: refreshRate } = useExchangeRate();
 
   const [activeTab, setActiveTab] = useState<'branding' | 'contact' | 'pos' | 'banking'>('branding');
@@ -114,13 +114,13 @@ export function ConfiguracionClient({ initialSettings = DEFAULT_SYSTEM_SETTINGS 
 
   if (role !== 'admin') {
     return (
-      <div className="min-h-screen bg-[#08130E] flex flex-col items-center justify-center text-center p-4">
+      <div className="min-h-screen bg-erp-bg flex flex-col items-center justify-center text-center p-4">
         <div className="p-6 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-400 max-w-md space-y-3 shadow-xl">
           <ShieldAlert className="h-10 w-10 mx-auto" />
           <h2 className="text-lg font-bold">Acceso Restringido</h2>
           <p className="text-xs text-zinc-400">La configuración del sistema es exclusiva para administradores.</p>
           <Link href="/">
-            <Button variant="outline" className="mt-2 border-[#1B362A] text-zinc-300">
+            <Button variant="outline" className="mt-2 border-erp-border text-zinc-300">
               Volver al Inicio
             </Button>
           </Link>
@@ -130,10 +130,10 @@ export function ConfiguracionClient({ initialSettings = DEFAULT_SYSTEM_SETTINGS 
   }
 
   return (
-    <div className="flex flex-col min-h-screen bg-[#08130E] text-zinc-50 transition-colors duration-300">
+    <div className="flex flex-col min-h-screen bg-erp-bg text-zinc-50 transition-colors duration-300">
       
       {/* NAVBAR GLASSMORPHISM */}
-      <header className="sticky top-0 z-40 w-full border-b border-[#1B362A] bg-[#08130E]/80 backdrop-blur-md">
+      <header className="sticky top-0 z-40 w-full border-b border-erp-border bg-erp-bg/80 backdrop-blur-md">
         <div className="container mx-auto flex h-16 items-center justify-between px-4 sm:px-6 max-w-6xl">
           <div className="flex items-center gap-4">
             <Link 
@@ -145,7 +145,7 @@ export function ConfiguracionClient({ initialSettings = DEFAULT_SYSTEM_SETTINGS 
             </Link>
             <span className="text-zinc-800">|</span>
             <div className="flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#13261E] border border-[#1B362A] text-zinc-300">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-erp-surface border border-erp-border text-zinc-300">
                 <Settings className="h-4.5 w-4.5" />
               </div>
               <span className="text-sm font-bold tracking-tight text-white uppercase font-serif">
@@ -165,9 +165,9 @@ export function ConfiguracionClient({ initialSettings = DEFAULT_SYSTEM_SETTINGS 
       <main className="flex-1 container mx-auto px-4 py-8 sm:px-6 max-w-5xl space-y-6">
         
         {/* ENCABEZADO */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-[#13261E] p-6 rounded-2xl border border-[#1B362A] shadow-xl">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-erp-surface p-6 rounded-2xl border border-erp-border shadow-xl">
           <div>
-            <span className="text-[10px] font-extrabold uppercase tracking-widest text-[#D0A96B] flex items-center gap-1">
+            <span className="text-[11px] font-extrabold uppercase tracking-widest text-erp-gold flex items-center gap-1">
               <Sparkles className="h-3.5 w-3.5" /> Parámetros Globales & Branding
             </span>
             <h1 className="text-2xl font-bold tracking-tight text-white font-serif mt-1">
@@ -181,7 +181,7 @@ export function ConfiguracionClient({ initialSettings = DEFAULT_SYSTEM_SETTINGS 
           <Button
             onClick={handleSubmit}
             disabled={saving}
-            className="bg-[#D0A96B] hover:bg-[#E5C158] text-[#08130E] font-black text-xs cursor-pointer shadow-lg shadow-[#D0A96B]/20 px-6 py-2.5 shrink-0 self-start sm:self-auto"
+            className="bg-erp-gold hover:bg-erp-gold-hover text-erp-bg font-black text-xs cursor-pointer shadow-lg shadow-erp-gold/20 px-6 py-2.5 shrink-0 self-start sm:self-auto"
           >
             {saving ? (
               <>
@@ -214,13 +214,13 @@ export function ConfiguracionClient({ initialSettings = DEFAULT_SYSTEM_SETTINGS 
         )}
 
         {/* SELECTOR DE PESTAÑAS */}
-        <div className="flex rounded-2xl bg-[#13261E] border border-[#1B362A] p-1.5 gap-1.5 overflow-x-auto text-xs font-bold">
+        <div className="flex rounded-2xl bg-erp-surface border border-erp-border p-1.5 gap-1.5 overflow-x-auto text-xs font-bold">
           <button
             type="button"
             onClick={() => setActiveTab('branding')}
             className={`flex items-center gap-2 px-4 py-2.5 rounded-xl transition-all cursor-pointer shrink-0 ${
               activeTab === 'branding'
-                ? 'bg-[#1B362A] text-[#D0A96B] border border-[#D0A96B]/40 shadow-sm'
+                ? 'bg-secondary text-erp-gold border border-erp-gold/40 shadow-sm'
                 : 'text-zinc-400 hover:text-white'
             }`}
           >
@@ -233,7 +233,7 @@ export function ConfiguracionClient({ initialSettings = DEFAULT_SYSTEM_SETTINGS 
             onClick={() => setActiveTab('contact')}
             className={`flex items-center gap-2 px-4 py-2.5 rounded-xl transition-all cursor-pointer shrink-0 ${
               activeTab === 'contact'
-                ? 'bg-[#1B362A] text-[#D0A96B] border border-[#D0A96B]/40 shadow-sm'
+                ? 'bg-secondary text-erp-gold border border-erp-gold/40 shadow-sm'
                 : 'text-zinc-400 hover:text-white'
             }`}
           >
@@ -246,7 +246,7 @@ export function ConfiguracionClient({ initialSettings = DEFAULT_SYSTEM_SETTINGS 
             onClick={() => setActiveTab('pos')}
             className={`flex items-center gap-2 px-4 py-2.5 rounded-xl transition-all cursor-pointer shrink-0 ${
               activeTab === 'pos'
-                ? 'bg-[#1B362A] text-[#D0A96B] border border-[#D0A96B]/40 shadow-sm'
+                ? 'bg-secondary text-erp-gold border border-erp-gold/40 shadow-sm'
                 : 'text-zinc-400 hover:text-white'
             }`}
           >
@@ -259,7 +259,7 @@ export function ConfiguracionClient({ initialSettings = DEFAULT_SYSTEM_SETTINGS 
             onClick={() => setActiveTab('banking')}
             className={`flex items-center gap-2 px-4 py-2.5 rounded-xl transition-all cursor-pointer shrink-0 ${
               activeTab === 'banking'
-                ? 'bg-[#1B362A] text-[#D0A96B] border border-[#D0A96B]/40 shadow-sm'
+                ? 'bg-secondary text-erp-gold border border-erp-gold/40 shadow-sm'
                 : 'text-zinc-400 hover:text-white'
             }`}
           >
@@ -273,10 +273,10 @@ export function ConfiguracionClient({ initialSettings = DEFAULT_SYSTEM_SETTINGS 
           
           {/* PESTAÑA 1: IDENTIDAD & BRANDING */}
           {activeTab === 'branding' && (
-            <Card className="border border-[#1B362A] bg-[#13261E]/90 rounded-2xl shadow-xl overflow-hidden animate-in fade-in duration-200">
-              <CardHeader className="border-b border-[#1B362A] p-6">
+            <Card className="border border-erp-border bg-erp-surface/90 rounded-2xl shadow-xl overflow-hidden animate-in fade-in duration-200">
+              <CardHeader className="border-b border-erp-border p-6">
                 <CardTitle className="text-lg font-bold text-white font-serif flex items-center gap-2">
-                  <Crown className="h-5 w-5 text-[#D0A96B]" />
+                  <Crown className="h-5 w-5 text-erp-gold" />
                   Identidad Corporativa y Logotipo
                 </CardTitle>
                 <CardDescription className="text-xs text-zinc-400">
@@ -287,16 +287,16 @@ export function ConfiguracionClient({ initialSettings = DEFAULT_SYSTEM_SETTINGS 
               <CardContent className="p-6 space-y-6">
                 
                 {/* UPLOADER DE LOGO CON PREVIEW */}
-                <div className="p-5 rounded-xl bg-[#08130E] border border-[#1B362A] space-y-4">
+                <div className="p-5 rounded-xl bg-erp-bg border border-erp-border space-y-4">
                   <label className="text-xs font-bold uppercase tracking-wider text-zinc-300 flex items-center gap-2">
-                    <ImageIcon className="h-4 w-4 text-[#D0A96B]" />
+                    <ImageIcon className="h-4 w-4 text-erp-gold" />
                     Logotipo Oficial de la Empresa (logo_url)
                   </label>
 
                   <div className="flex flex-col sm:flex-row items-center gap-6">
                     {/* CAJA PREVIEW DARK/LIGHT */}
                     <div className="flex items-center gap-4">
-                      <div className="h-20 w-36 rounded-xl bg-[#13261E] border border-[#1B362A] flex items-center justify-center p-2 overflow-hidden shadow-inner">
+                      <div className="h-20 w-36 rounded-xl bg-erp-surface border border-erp-border flex items-center justify-center p-2 overflow-hidden shadow-inner">
                         {settings.logo_url ? (
                           <img
                             src={settings.logo_url}
@@ -342,7 +342,7 @@ export function ConfiguracionClient({ initialSettings = DEFAULT_SYSTEM_SETTINGS 
                         variant="outline"
                         onClick={() => fileInputRef.current?.click()}
                         disabled={saving || uploadingLogo}
-                        className="border-[#D0A96B]/40 bg-[#13261E] text-xs font-bold text-[#E5C158] hover:bg-zinc-800 cursor-pointer"
+                        className="border-erp-gold/40 bg-erp-surface text-xs font-bold text-erp-gold-hover hover:bg-zinc-800 cursor-pointer"
                       >
                         {uploadingLogo ? (
                           <>
@@ -365,7 +365,7 @@ export function ConfiguracionClient({ initialSettings = DEFAULT_SYSTEM_SETTINGS 
                   {/* RAZÓN SOCIAL */}
                   <div className="space-y-2">
                     <label className="text-xs font-bold uppercase tracking-wider text-zinc-300 flex items-center gap-2">
-                      <Building className="h-4 w-4 text-[#D0A96B]" />
+                      <Building className="h-4 w-4 text-erp-gold" />
                       Razón Social / Empresa Legal (company_name) *
                     </label>
                     <Input
@@ -374,7 +374,7 @@ export function ConfiguracionClient({ initialSettings = DEFAULT_SYSTEM_SETTINGS 
                       value={settings.company_name}
                       onChange={(e) => handleChange('company_name', e.target.value)}
                       disabled={saving}
-                      className="bg-[#08130E] border-[#1B362A] text-white font-semibold focus:ring-1 focus:ring-[#D0A96B]"
+                      className="bg-erp-bg border-erp-border text-white font-semibold focus:ring-1 focus:ring-erp-gold"
                     />
                     <p className="text-[11px] text-zinc-400">
                       Nombre legal utilizado en encabezados contables y reportes impositivos.
@@ -384,7 +384,7 @@ export function ConfiguracionClient({ initialSettings = DEFAULT_SYSTEM_SETTINGS 
                   {/* NOMBRE COMERCIAL */}
                   <div className="space-y-2">
                     <label className="text-xs font-bold uppercase tracking-wider text-zinc-300 flex items-center gap-2">
-                      <Crown className="h-4 w-4 text-[#D0A96B]" />
+                      <Crown className="h-4 w-4 text-erp-gold" />
                       Nombre Comercial / Marca de Fantasía (trade_name) *
                     </label>
                     <Input
@@ -396,7 +396,7 @@ export function ConfiguracionClient({ initialSettings = DEFAULT_SYSTEM_SETTINGS 
                         handleChange('store_name', e.target.value);
                       }}
                       disabled={saving}
-                      className="bg-[#08130E] border-[#1B362A] text-white font-semibold focus:ring-1 focus:ring-[#D0A96B]"
+                      className="bg-erp-bg border-erp-border text-white font-semibold focus:ring-1 focus:ring-erp-gold"
                     />
                     <p className="text-[11px] text-zinc-400">
                       Nombre público visible en la cabecera de la tienda, POS y Sidebar.
@@ -414,7 +414,7 @@ export function ConfiguracionClient({ initialSettings = DEFAULT_SYSTEM_SETTINGS 
                       value={settings.slogan}
                       onChange={(e) => handleChange('slogan', e.target.value)}
                       disabled={saving}
-                      className="bg-[#08130E] border-[#1B362A] text-white focus:ring-1 focus:ring-[#D0A96B]"
+                      className="bg-erp-bg border-erp-border text-white focus:ring-1 focus:ring-erp-gold"
                     />
                   </div>
 
@@ -429,7 +429,7 @@ export function ConfiguracionClient({ initialSettings = DEFAULT_SYSTEM_SETTINGS 
                       value={settings.cuit_tax_id}
                       onChange={(e) => handleChange('cuit_tax_id', e.target.value)}
                       disabled={saving}
-                      className="bg-[#08130E] border-[#1B362A] text-white font-mono focus:ring-1 focus:ring-[#D0A96B]"
+                      className="bg-erp-bg border-erp-border text-white font-mono focus:ring-1 focus:ring-erp-gold"
                     />
                   </div>
                 </div>
@@ -440,10 +440,10 @@ export function ConfiguracionClient({ initialSettings = DEFAULT_SYSTEM_SETTINGS 
 
           {/* PESTAÑA 2: CONTACTO & SUCURSAL */}
           {activeTab === 'contact' && (
-            <Card className="border border-[#1B362A] bg-[#13261E]/90 rounded-2xl shadow-xl overflow-hidden animate-in fade-in duration-200">
-              <CardHeader className="border-b border-[#1B362A] p-6">
+            <Card className="border border-erp-border bg-erp-surface/90 rounded-2xl shadow-xl overflow-hidden animate-in fade-in duration-200">
+              <CardHeader className="border-b border-erp-border p-6">
                 <CardTitle className="text-lg font-bold text-white font-serif flex items-center gap-2">
-                  <MapPin className="h-5 w-5 text-[#D0A96B]" />
+                  <MapPin className="h-5 w-5 text-erp-gold" />
                   Datos de Contacto, Sucursal y Redes Sociales
                 </CardTitle>
                 <CardDescription className="text-xs text-zinc-400">
@@ -465,7 +465,7 @@ export function ConfiguracionClient({ initialSettings = DEFAULT_SYSTEM_SETTINGS 
                       value={settings.phone}
                       onChange={(e) => handleChange('phone', e.target.value)}
                       disabled={saving}
-                      className="bg-[#08130E] border-[#1B362A] text-white font-mono focus:ring-1 focus:ring-[#D0A96B]"
+                      className="bg-erp-bg border-erp-border text-white font-mono focus:ring-1 focus:ring-erp-gold"
                     />
                   </div>
 
@@ -481,14 +481,14 @@ export function ConfiguracionClient({ initialSettings = DEFAULT_SYSTEM_SETTINGS 
                       value={settings.email}
                       onChange={(e) => handleChange('email', e.target.value)}
                       disabled={saving}
-                      className="bg-[#08130E] border-[#1B362A] text-white focus:ring-1 focus:ring-[#D0A96B]"
+                      className="bg-erp-bg border-erp-border text-white focus:ring-1 focus:ring-erp-gold"
                     />
                   </div>
 
                   {/* DIRECCIÓN */}
                   <div className="space-y-2">
                     <label className="text-xs font-bold uppercase tracking-wider text-zinc-300 flex items-center gap-2">
-                      <MapPin className="h-4 w-4 text-[#D0A96B]" />
+                      <MapPin className="h-4 w-4 text-erp-gold" />
                       Dirección del Local / Showroom (address)
                     </label>
                     <Input
@@ -496,7 +496,7 @@ export function ConfiguracionClient({ initialSettings = DEFAULT_SYSTEM_SETTINGS 
                       value={settings.address}
                       onChange={(e) => handleChange('address', e.target.value)}
                       disabled={saving}
-                      className="bg-[#08130E] border-[#1B362A] text-white focus:ring-1 focus:ring-[#D0A96B]"
+                      className="bg-erp-bg border-erp-border text-white focus:ring-1 focus:ring-erp-gold"
                     />
                   </div>
 
@@ -511,7 +511,7 @@ export function ConfiguracionClient({ initialSettings = DEFAULT_SYSTEM_SETTINGS 
                       value={settings.city}
                       onChange={(e) => handleChange('city', e.target.value)}
                       disabled={saving}
-                      className="bg-[#08130E] border-[#1B362A] text-white focus:ring-1 focus:ring-[#D0A96B]"
+                      className="bg-erp-bg border-erp-border text-white focus:ring-1 focus:ring-erp-gold"
                     />
                   </div>
 
@@ -526,7 +526,7 @@ export function ConfiguracionClient({ initialSettings = DEFAULT_SYSTEM_SETTINGS 
                       value={settings.instagram_handle}
                       onChange={(e) => handleChange('instagram_handle', e.target.value)}
                       disabled={saving}
-                      className="bg-[#08130E] border-[#1B362A] text-white focus:ring-1 focus:ring-[#D0A96B]"
+                      className="bg-erp-bg border-erp-border text-white focus:ring-1 focus:ring-erp-gold"
                     />
                   </div>
 
@@ -537,10 +537,10 @@ export function ConfiguracionClient({ initialSettings = DEFAULT_SYSTEM_SETTINGS 
 
           {/* PESTAÑA 3: PUNTO DE VENTA & TICKETS */}
           {activeTab === 'pos' && (
-            <Card className="border border-[#1B362A] bg-[#13261E]/90 rounded-2xl shadow-xl overflow-hidden animate-in fade-in duration-200">
-              <CardHeader className="border-b border-[#1B362A] p-6">
+            <Card className="border border-erp-border bg-erp-surface/90 rounded-2xl shadow-xl overflow-hidden animate-in fade-in duration-200">
+              <CardHeader className="border-b border-erp-border p-6">
                 <CardTitle className="text-lg font-bold text-white font-serif flex items-center gap-2">
-                  <Receipt className="h-5 w-5 text-[#D0A96B]" />
+                  <Receipt className="h-5 w-5 text-erp-gold" />
                   Punto de Venta, Tickets y Reglas de Inventario
                 </CardTitle>
                 <CardDescription className="text-xs text-zinc-400">
@@ -553,7 +553,7 @@ export function ConfiguracionClient({ initialSettings = DEFAULT_SYSTEM_SETTINGS 
                 {/* ENCABEZADO DE TICKET */}
                 <div className="space-y-2">
                   <label className="text-xs font-bold uppercase tracking-wider text-zinc-300 flex items-center gap-2">
-                    <FileText className="h-4 w-4 text-[#D0A96B]" />
+                    <FileText className="h-4 w-4 text-erp-gold" />
                     Leyenda de Cabecera del Ticket (receipt_header)
                   </label>
                   <Input
@@ -561,7 +561,7 @@ export function ConfiguracionClient({ initialSettings = DEFAULT_SYSTEM_SETTINGS 
                     value={settings.receipt_header}
                     onChange={(e) => handleChange('receipt_header', e.target.value)}
                     disabled={saving}
-                    className="bg-[#08130E] border-[#1B362A] text-white font-semibold focus:ring-1 focus:ring-[#D0A96B]"
+                    className="bg-erp-bg border-erp-border text-white font-semibold focus:ring-1 focus:ring-erp-gold"
                   />
                   <p className="text-[11px] text-zinc-400">
                     Leyenda legal destacada en la cabecera del comprobante térmico.
@@ -583,7 +583,7 @@ export function ConfiguracionClient({ initialSettings = DEFAULT_SYSTEM_SETTINGS 
                       handleChange('receipt_footer_text', e.target.value);
                     }}
                     disabled={saving}
-                    className="w-full rounded-lg border border-[#1B362A] bg-[#08130E] p-3 text-xs text-white focus:outline-none focus:ring-1 focus:ring-[#D0A96B] leading-relaxed disabled:opacity-50"
+                    className="w-full rounded-lg border border-erp-border bg-erp-bg p-3 text-xs text-white focus:outline-none focus:ring-1 focus:ring-erp-gold leading-relaxed disabled:opacity-50"
                   />
                 </div>
 
@@ -601,7 +601,7 @@ export function ConfiguracionClient({ initialSettings = DEFAULT_SYSTEM_SETTINGS 
                       value={settings.warranty_policy_days}
                       onChange={(e) => handleChange('warranty_policy_days', parseInt(e.target.value, 10) || 0)}
                       disabled={saving}
-                      className="bg-[#08130E] border-[#1B362A] text-white font-mono focus:ring-1 focus:ring-[#D0A96B]"
+                      className="bg-erp-bg border-erp-border text-white font-mono focus:ring-1 focus:ring-erp-gold"
                     />
                     <p className="text-[11px] text-zinc-400">
                       Cantidad de días hábiles/corridos permitidos para cambios de mercadería.
@@ -621,7 +621,7 @@ export function ConfiguracionClient({ initialSettings = DEFAULT_SYSTEM_SETTINGS 
                       value={settings.default_min_stock_alert}
                       onChange={(e) => handleChange('default_min_stock_alert', parseInt(e.target.value, 10) || 0)}
                       disabled={saving}
-                      className="bg-[#08130E] border-[#1B362A] text-white font-mono focus:ring-1 focus:ring-[#D0A96B]"
+                      className="bg-erp-bg border-erp-border text-white font-mono focus:ring-1 focus:ring-erp-gold"
                     />
                     <p className="text-[11px] text-zinc-400">
                       Nivel de existencias a partir del cual el ERP marcará un SKU en Stock Crítico.
@@ -630,7 +630,7 @@ export function ConfiguracionClient({ initialSettings = DEFAULT_SYSTEM_SETTINGS 
                 </div>
 
                 {/* SWITCH DE ALERTAS AUTOMÁTICAS */}
-                <div className="p-4 rounded-xl bg-[#08130E] border border-[#1B362A] flex items-center justify-between gap-4">
+                <div className="p-4 rounded-xl bg-erp-bg border border-erp-border flex items-center justify-between gap-4">
                   <div className="space-y-1">
                     <div className="text-xs font-bold uppercase tracking-wider text-white flex items-center gap-2">
                       <Bell className="h-4 w-4 text-amber-400" />
@@ -663,10 +663,10 @@ export function ConfiguracionClient({ initialSettings = DEFAULT_SYSTEM_SETTINGS 
 
           {/* PESTAÑA 4: DATOS BANCARIOS (TRANSFERENCIAS) */}
           {activeTab === 'banking' && (
-            <Card className="border border-[#1B362A] bg-[#13261E]/90 rounded-2xl shadow-xl overflow-hidden animate-in fade-in duration-200">
-              <CardHeader className="border-b border-[#1B362A] p-6">
+            <Card className="border border-erp-border bg-erp-surface/90 rounded-2xl shadow-xl overflow-hidden animate-in fade-in duration-200">
+              <CardHeader className="border-b border-erp-border p-6">
                 <CardTitle className="text-lg font-bold text-white font-serif flex items-center gap-2">
-                  <Landmark className="h-5 w-5 text-[#D0A96B]" />
+                  <Landmark className="h-5 w-5 text-erp-gold" />
                   Cuentas Bancarias Oficiales para Cobros por Transferencia
                 </CardTitle>
                 <CardDescription className="text-xs text-zinc-400">
@@ -677,31 +677,31 @@ export function ConfiguracionClient({ initialSettings = DEFAULT_SYSTEM_SETTINGS 
               <CardContent className="p-6 space-y-6">
                 
                 {/* TARJETA INTERACTIVA DE PREVIEW BANCARIO */}
-                <div className="p-5 rounded-2xl bg-gradient-to-br from-[#1B362A] to-[#08130E] border border-[#D0A96B]/40 shadow-2xl space-y-4">
+                <div className="p-5 rounded-2xl bg-gradient-to-br from-erp-border to-erp-bg border border-erp-gold/40 shadow-2xl space-y-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <CreditCard className="h-5 w-5 text-[#D0A96B]" />
-                      <span className="text-xs font-bold tracking-widest text-[#D0A96B] uppercase font-serif">
+                      <CreditCard className="h-5 w-5 text-erp-gold" />
+                      <span className="text-xs font-bold tracking-widest text-erp-gold uppercase font-serif">
                         {settings.bank_name || 'Banco Galicia / Mercado Pago'}
                       </span>
                     </div>
-                    <span className="text-[10px] font-mono bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded border border-emerald-500/20 font-bold">
+                    <span className="text-[11px] font-mono bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded border border-emerald-500/20 font-bold">
                       Cuenta Verificada
                     </span>
                   </div>
 
                   <div className="space-y-1">
-                    <span className="text-[10px] text-zinc-400 uppercase tracking-wider block">Titular de la Cuenta:</span>
+                    <span className="text-[11px] text-zinc-400 uppercase tracking-wider block">Titular de la Cuenta:</span>
                     <span className="text-base font-black text-white font-serif block">
                       {settings.bank_account_holder || 'Elohim Import S.R.L.'}
                     </span>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-[#1B362A]">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-erp-border">
                     <div className="space-y-0.5">
-                      <span className="text-[10px] text-zinc-400 uppercase tracking-wider">Alias Bancario:</span>
+                      <span className="text-[11px] text-zinc-400 uppercase tracking-wider">Alias Bancario:</span>
                       <div className="flex items-center gap-2">
-                        <span className="text-sm font-mono font-bold text-[#E5C158]">
+                        <span className="text-sm font-mono font-bold text-erp-gold-hover">
                           {settings.bank_alias || 'ELOHIM.PERFUMES.ARS'}
                         </span>
                         <button
@@ -716,7 +716,7 @@ export function ConfiguracionClient({ initialSettings = DEFAULT_SYSTEM_SETTINGS 
                     </div>
 
                     <div className="space-y-0.5">
-                      <span className="text-[10px] text-zinc-400 uppercase tracking-wider">CBU / CVU:</span>
+                      <span className="text-[11px] text-zinc-400 uppercase tracking-wider">CBU / CVU:</span>
                       <div className="flex items-center gap-2">
                         <span className="text-xs font-mono font-bold text-zinc-200 truncate">
                           {settings.bank_cbu_cvu || '0070123400000012345678'}
@@ -738,7 +738,7 @@ export function ConfiguracionClient({ initialSettings = DEFAULT_SYSTEM_SETTINGS 
                   {/* NOMBRE BANCO */}
                   <div className="space-y-2">
                     <label className="text-xs font-bold uppercase tracking-wider text-zinc-300 flex items-center gap-2">
-                      <Landmark className="h-4 w-4 text-[#D0A96B]" />
+                      <Landmark className="h-4 w-4 text-erp-gold" />
                       Entidad Bancaria o Billetera (bank_name)
                     </label>
                     <Input
@@ -746,7 +746,7 @@ export function ConfiguracionClient({ initialSettings = DEFAULT_SYSTEM_SETTINGS 
                       value={settings.bank_name}
                       onChange={(e) => handleChange('bank_name', e.target.value)}
                       disabled={saving}
-                      className="bg-[#08130E] border-[#1B362A] text-white focus:ring-1 focus:ring-[#D0A96B]"
+                      className="bg-erp-bg border-erp-border text-white focus:ring-1 focus:ring-erp-gold"
                     />
                   </div>
 
@@ -761,7 +761,7 @@ export function ConfiguracionClient({ initialSettings = DEFAULT_SYSTEM_SETTINGS 
                       value={settings.bank_account_holder}
                       onChange={(e) => handleChange('bank_account_holder', e.target.value)}
                       disabled={saving}
-                      className="bg-[#08130E] border-[#1B362A] text-white focus:ring-1 focus:ring-[#D0A96B]"
+                      className="bg-erp-bg border-erp-border text-white focus:ring-1 focus:ring-erp-gold"
                     />
                   </div>
 
@@ -776,7 +776,7 @@ export function ConfiguracionClient({ initialSettings = DEFAULT_SYSTEM_SETTINGS 
                       value={settings.bank_cbu_cvu}
                       onChange={(e) => handleChange('bank_cbu_cvu', e.target.value)}
                       disabled={saving}
-                      className="bg-[#08130E] border-[#1B362A] text-white font-mono focus:ring-1 focus:ring-[#D0A96B]"
+                      className="bg-erp-bg border-erp-border text-white font-mono focus:ring-1 focus:ring-erp-gold"
                     />
                   </div>
 
@@ -791,7 +791,7 @@ export function ConfiguracionClient({ initialSettings = DEFAULT_SYSTEM_SETTINGS 
                       value={settings.bank_alias}
                       onChange={(e) => handleChange('bank_alias', e.target.value)}
                       disabled={saving}
-                      className="bg-[#08130E] border-[#1B362A] text-white font-mono font-bold focus:ring-1 focus:ring-[#D0A96B]"
+                      className="bg-erp-bg border-erp-border text-white font-mono font-bold focus:ring-1 focus:ring-erp-gold"
                     />
                   </div>
                 </div>
@@ -800,11 +800,11 @@ export function ConfiguracionClient({ initialSettings = DEFAULT_SYSTEM_SETTINGS 
             </Card>
           )}
 
-          <CardFooter className="border-t border-[#1B362A] p-6 bg-[#08130E]/60 flex items-center justify-end mt-4 rounded-2xl">
+          <CardFooter className="border-t border-erp-border p-6 bg-erp-bg/60 flex items-center justify-end mt-4 rounded-2xl">
             <Button
               type="submit"
               disabled={saving}
-              className="bg-[#D0A96B] hover:bg-[#E5C158] text-[#08130E] font-black text-xs cursor-pointer shadow-lg shadow-[#D0A96B]/20 px-6 py-2.5"
+              className="bg-erp-gold hover:bg-erp-gold-hover text-erp-bg font-black text-xs cursor-pointer shadow-lg shadow-erp-gold/20 px-6 py-2.5"
             >
               {saving ? (
                 <>

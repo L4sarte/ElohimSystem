@@ -117,20 +117,20 @@ export function ExchangeRatesWidget() {
   // SKELETON LOADER CON SHIMMER
   if (loading) {
     return (
-      <Card className="border border-[#1B362A] bg-[#13261E] rounded-2xl shadow-xl p-5 space-y-4 animate-pulse">
+      <Card className="border border-erp-border bg-erp-surface rounded-2xl shadow-xl p-5 space-y-4 animate-pulse">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-xl bg-[#1B362A]"></div>
-            <div className="h-5 w-40 rounded-md bg-[#1B362A]"></div>
+            <div className="h-8 w-8 rounded-xl bg-secondary"></div>
+            <div className="h-5 w-40 rounded-md bg-secondary"></div>
           </div>
-          <div className="h-8 w-24 rounded-lg bg-[#1B362A]"></div>
+          <div className="h-8 w-24 rounded-lg bg-secondary"></div>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           {[1, 2, 3].map(i => (
-            <div key={i} className="p-4 rounded-xl bg-[#08130E] border border-[#1B362A] space-y-2">
-              <div className="h-4 w-24 bg-[#1B362A] rounded"></div>
-              <div className="h-6 w-32 bg-[#1B362A] rounded"></div>
+            <div key={i} className="p-4 rounded-xl bg-erp-bg border border-erp-border space-y-2">
+              <div className="h-4 w-24 bg-secondary rounded"></div>
+              <div className="h-6 w-32 bg-secondary rounded"></div>
             </div>
           ))}
         </div>
@@ -139,12 +139,12 @@ export function ExchangeRatesWidget() {
   }
 
   return (
-    <Card className="border border-[#1B362A] bg-[#13261E] rounded-2xl shadow-xl overflow-hidden transition-all duration-300">
+    <Card className="border border-erp-border bg-erp-surface rounded-2xl shadow-xl overflow-hidden transition-all duration-300">
       
       {/* HEADER DEL WIDGET */}
-      <CardHeader className="pb-3 pt-4 px-5 flex flex-row items-center justify-between border-b border-[#1B362A]/60">
+      <CardHeader className="pb-3 pt-4 px-5 flex flex-row items-center justify-between border-b border-erp-border/60">
         <div className="flex items-center gap-2.5">
-          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#D0A96B]/10 border border-[#D0A96B]/30 text-[#D0A96B]">
+          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-erp-gold/10 border border-erp-gold/30 text-erp-gold">
             <TrendingUp className="h-4.5 w-4.5" />
           </div>
           <div>
@@ -156,7 +156,7 @@ export function ExchangeRatesWidget() {
               </span>
             </CardTitle>
             {lastUpdated && (
-              <p className="text-[10px] text-zinc-400 font-mono mt-0.5 flex items-center gap-1">
+              <p className="text-[11px] text-zinc-400 font-mono mt-0.5 flex items-center gap-1">
                 <Clock className="h-3 w-3 text-zinc-500" />
                 Actualizado {lastUpdated.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })} hs
               </p>
@@ -169,9 +169,9 @@ export function ExchangeRatesWidget() {
           size="sm"
           onClick={() => fetchRates(true)}
           disabled={refreshing}
-          className="h-8 text-xs font-bold border-[#1B362A] bg-[#08130E] text-zinc-300 hover:bg-zinc-800 hover:text-white cursor-pointer"
+          className="h-8 text-xs font-bold border-erp-border bg-erp-bg text-zinc-300 hover:bg-zinc-800 hover:text-white cursor-pointer"
         >
-          <RefreshCw className={`mr-1.5 h-3.5 w-3.5 text-[#D0A96B] ${refreshing ? 'animate-spin' : ''}`} />
+          <RefreshCw className={`mr-1.5 h-3.5 w-3.5 text-erp-gold ${refreshing ? 'animate-spin' : ''}`} />
           Actualizar
         </Button>
       </CardHeader>
@@ -181,79 +181,79 @@ export function ExchangeRatesWidget() {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
           
           {/* 1. DÓLAR BLUE */}
-          <div className="p-3.5 rounded-xl bg-[#08130E] border border-[#1B362A] hover:border-[#D0A96B]/40 transition-all">
-            <div className="flex items-center justify-between pb-2 border-b border-[#1B362A]/60">
+          <div className="p-3.5 rounded-xl bg-erp-bg border border-erp-border hover:border-erp-gold/40 transition-all">
+            <div className="flex items-center justify-between pb-2 border-b border-erp-border/60">
               <div className="flex items-center gap-2">
                 <div className="p-1 rounded bg-emerald-500/10 text-emerald-400">
                   <DollarSign className="h-4 w-4" />
                 </div>
                 <span className="text-xs font-bold text-white font-serif">Dólar Blue</span>
               </div>
-              <span className="text-[9px] font-extrabold px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 uppercase font-mono">
+              <span className="text-xs font-extrabold px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 uppercase font-mono">
                 Informal
               </span>
             </div>
 
             <div className="pt-2.5 space-y-1.5 font-mono text-xs">
               <div className="flex justify-between items-center text-zinc-400">
-                <span className="text-[10px] uppercase tracking-wider">Compra:</span>
+                <span className="text-[11px] uppercase tracking-wider">Compra:</span>
                 <span className="font-semibold text-zinc-300">{formatCurrency(rates.blue.compra)}</span>
               </div>
-              <div className="flex justify-between items-center text-[#D0A96B] font-bold text-sm">
-                <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#E5C158] font-sans">Venta (Ref):</span>
-                <span className="text-base text-[#D0A96B] font-black">{formatCurrency(rates.blue.venta)}</span>
+              <div className="flex justify-between items-center text-erp-gold font-bold text-sm">
+                <span className="text-[11px] font-extrabold uppercase tracking-wider text-erp-gold-hover font-sans">Venta (Ref):</span>
+                <span className="text-base text-erp-gold font-black">{formatCurrency(rates.blue.venta)}</span>
               </div>
             </div>
           </div>
 
           {/* 2. USDT BINANCE */}
-          <div className="p-3.5 rounded-xl bg-[#08130E] border border-[#1B362A] hover:border-[#D0A96B]/40 transition-all">
-            <div className="flex items-center justify-between pb-2 border-b border-[#1B362A]/60">
+          <div className="p-3.5 rounded-xl bg-erp-bg border border-erp-border hover:border-erp-gold/40 transition-all">
+            <div className="flex items-center justify-between pb-2 border-b border-erp-border/60">
               <div className="flex items-center gap-2">
                 <div className="p-1 rounded bg-amber-500/10 text-amber-400">
                   <Zap className="h-4 w-4" />
                 </div>
                 <span className="text-xs font-bold text-white font-serif">USDT Binance</span>
               </div>
-              <span className="text-[9px] font-extrabold px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 uppercase font-mono">
+              <span className="text-xs font-extrabold px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 uppercase font-mono">
                 P2P
               </span>
             </div>
 
             <div className="pt-2.5 space-y-1.5 font-mono text-xs">
               <div className="flex justify-between items-center text-zinc-400">
-                <span className="text-[10px] uppercase tracking-wider">Compra (Bid):</span>
+                <span className="text-[11px] uppercase tracking-wider">Compra (Bid):</span>
                 <span className="font-semibold text-zinc-300">{formatCurrency(rates.binance.compra)}</span>
               </div>
-              <div className="flex justify-between items-center text-[#D0A96B] font-bold text-sm">
-                <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#E5C158] font-sans">Venta (Ask):</span>
-                <span className="text-base text-[#D0A96B] font-black">{formatCurrency(rates.binance.venta)}</span>
+              <div className="flex justify-between items-center text-erp-gold font-bold text-sm">
+                <span className="text-[11px] font-extrabold uppercase tracking-wider text-erp-gold-hover font-sans">Venta (Ask):</span>
+                <span className="text-base text-erp-gold font-black">{formatCurrency(rates.binance.venta)}</span>
               </div>
             </div>
           </div>
 
           {/* 3. USDT LEMON CASH */}
-          <div className="p-3.5 rounded-xl bg-[#08130E] border border-[#1B362A] hover:border-[#D0A96B]/40 transition-all">
-            <div className="flex items-center justify-between pb-2 border-b border-[#1B362A]/60">
+          <div className="p-3.5 rounded-xl bg-erp-bg border border-erp-border hover:border-erp-gold/40 transition-all">
+            <div className="flex items-center justify-between pb-2 border-b border-erp-border/60">
               <div className="flex items-center gap-2">
                 <div className="p-1 rounded bg-lime-500/10 text-lime-400">
                   <Wallet className="h-4 w-4" />
                 </div>
                 <span className="text-xs font-bold text-white font-serif">USDT Lemon</span>
               </div>
-              <span className="text-[9px] font-extrabold px-1.5 py-0.5 rounded bg-lime-500/10 text-lime-400 uppercase font-mono">
+              <span className="text-xs font-extrabold px-1.5 py-0.5 rounded bg-lime-500/10 text-lime-400 uppercase font-mono">
                 Crypto Wallet
               </span>
             </div>
 
             <div className="pt-2.5 space-y-1.5 font-mono text-xs">
               <div className="flex justify-between items-center text-zinc-400">
-                <span className="text-[10px] uppercase tracking-wider">Compra (Bid):</span>
+                <span className="text-[11px] uppercase tracking-wider">Compra (Bid):</span>
                 <span className="font-semibold text-zinc-300">{formatCurrency(rates.lemon.compra)}</span>
               </div>
-              <div className="flex justify-between items-center text-[#D0A96B] font-bold text-sm">
-                <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#E5C158] font-sans">Venta (Ask):</span>
-                <span className="text-base text-[#D0A96B] font-black">{formatCurrency(rates.lemon.venta)}</span>
+              <div className="flex justify-between items-center text-erp-gold font-bold text-sm">
+                <span className="text-[11px] font-extrabold uppercase tracking-wider text-erp-gold-hover font-sans">Venta (Ask):</span>
+                <span className="text-base text-erp-gold font-black">{formatCurrency(rates.lemon.venta)}</span>
               </div>
             </div>
           </div>

@@ -3,6 +3,10 @@
 import { getServiceSupabase, isSupabaseConfigured } from '@/lib/supabase';
 import { UserRole } from '@/types';
 import { requireAdmin } from '@/lib/auth-checks';
+import { resolveItemUnitCost } from '@/lib/financial-calculations';
+import { buildRecipeFallbackMap } from '@/lib/recipe-fallback';
+import { resolveBusinessRange, businessNow, toBusinessInstant, businessDayKey } from '@/lib/date-utils';
+import Decimal from 'decimal.js';
 
 export interface AuditLogRecord {
   id: string;
@@ -23,18 +27,19 @@ export interface AuditLogRecord {
 export async function getAuditLogs(role?: UserRole): Promise<{
   success: boolean;
   data?: AuditLogRecord[];
+  total?: number;
   error?: string;
 }> {
   try {
     await requireAdmin();
 
     if (!isSupabaseConfigured()) {
-      return { success: true, data: [] };
+      return { success: true, data: [], total: 0 };
     }
 
     const supabase = getServiceSupabase();
     
-    const { data, error } = await supabase
+    const { data, error, count } = await supabase
       .from('audit_logs')
       .select(`
         id,
@@ -47,14 +52,15 @@ export async function getAuditLogs(role?: UserRole): Promise<{
           brand,
           sku
         )
-      `)
-      .order('created_at', { ascending: false });
+      `, { count: 'exact' })
+      .order('created_at', { ascending: false })
+      .limit(100);
 
     if (error) {
       throw error;
     }
 
-    return { success: true, data: (data || []) as unknown as AuditLogRecord[] };
+    return { success: true, data: (data || []) as unknown as AuditLogRecord[], total: count ?? 0 };
   } catch (error: unknown) {
     console.error('Error al obtener logs de auditoría:', error);
     const msg = error instanceof Error ? error.message : 'Error al obtener logs de auditoría';
@@ -87,6 +93,7 @@ export interface DashboardData {
   opexArs: number;
   estimatedProfitArs: number; // Ganancia Neta Real (Margen Bruto - OPEX - Comisiones)
   estimatedProfitUsd: number;
+  performanceWarning?: string | null;
   salesByDate: Array<{
     date: string;
     Ventas: number;
@@ -116,6 +123,7 @@ interface DbSaleRow {
 
 interface DbSaleItemRow {
   sale_id: string;
+  product_id: string;
   quantity: number;
   price_ars_at_moment: number;
   price_usd_at_moment: number;
@@ -164,18 +172,26 @@ export async function getDashboardData(
     }
 
     const supabase = getServiceSupabase();
-    const now = new Date();
 
-    const startOfMonth = new Date(Date.UTC(now.getFullYear(), now.getMonth(), 1, 0, 0, 0)).toISOString();
-    const endOfMonth = new Date(Date.UTC(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999)).toISOString();
-    const dateStartString = startOfMonth.split('T')[0];
-    const dateEndString = endOfMonth.split('T')[0];
+    // Rangos de negocio ART (zona horaria comercial) — consistentes en todo el sistema
+    const businessRange = resolveBusinessRange('current_month');
+    const startOfMonth = businessRange.start.toISOString();
+    const endOfMonth = businessRange.end.toISOString();
+    const dateStartString = businessRange.startDay;
+    const dateEndString = businessRange.endDay;
 
     // Fechas para cálculo histórico real del mes anterior (mismo día relativo)
-    const prevMonthYear = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
-    const prevMonthIndex = now.getMonth() === 0 ? 11 : now.getMonth() - 1;
-    const startOfPrevMonth = new Date(Date.UTC(prevMonthYear, prevMonthIndex, 1, 0, 0, 0)).toISOString();
-    const endOfPrevMonth = new Date(Date.UTC(prevMonthYear, prevMonthIndex + 1, 0, 23, 59, 59, 999)).toISOString();
+    const prevMonthRange = resolveBusinessRange('previous_month');
+    const startOfPrevMonth = prevMonthRange.start.toISOString();
+    const endOfPrevMonth = prevMonthRange.end.toISOString();
+
+    // Advertencia de rendimiento: el modo all_time agrega TODO el historial sin filtro de fechas
+    // (sin LIMIT deliberadamente: truncar rompería las SUMAS exactas de métricas)
+    let performanceWarning: string | null = null;
+    if (period === 'all_time') {
+      performanceWarning = 'El modo "Todo el historial" agrega todas las ventas sin filtro de fechas: puede demorar con alto volumen.';
+      console.warn('[DASHBOARD_PERF_WARN]:', performanceWarning);
+    }
 
     // 1. Obtener ventas activas según el período seleccionado
     let salesQuery = supabase
@@ -225,6 +241,7 @@ export async function getDashboardData(
         .from('sale_items')
         .select(`
           sale_id,
+          product_id,
           quantity,
           price_ars_at_moment,
           price_usd_at_moment,
@@ -294,31 +311,60 @@ export async function getDashboardData(
     if (recentError) throw recentError;
     const recentSalesDb = (recentData || []) as unknown as DbSaleRow[];
 
-    // --- Procesamiento canónico de métricas y COGS ---
-    const saleCogsMap: Record<string, number> = {};
+    // --- Procesamiento canónico de métricas y COGS (misma cadena que el P&L) ---
+    const saleCogsMap: Record<string, Decimal> = {};
+
+    // Detectar productos que requieren fallbacks de costo (sin congelado ni de catálogo)
+    const missingCostProductIds = new Set<string>();
+    saleItems.forEach((item) => {
+      const catCost = Number(item.products?.base_cost_ars || 0);
+      const momentCost = Number(item.unit_cost_at_moment || 0);
+      if (catCost <= 0 && momentCost <= 0 && item.product_id) {
+        missingCostProductIds.add(item.product_id);
+      }
+    });
+
+    // Fallback 4: último costo registrado en purchase_order_items
+    const poCostMap: Record<string, Decimal> = {};
+    if (missingCostProductIds.size > 0) {
+      const { data: poItems } = await supabase
+        .from('purchase_order_items')
+        .select('product_id, unit_cost, created_at')
+        .in('product_id', Array.from(missingCostProductIds))
+        .order('created_at', { ascending: false });
+
+      if (poItems) {
+        poItems.forEach((poItem: any) => {
+          if (!poCostMap[poItem.product_id] && Number(poItem.unit_cost) > 0) {
+            poCostMap[poItem.product_id] = new Decimal(poItem.unit_cost);
+          }
+        });
+      }
+    }
+
+    // Fallback 5: recetas BOM (tamaño real de muestra + costo de insumos) — sin constantes hardcodeadas
+    const recipeFallbackMap = await buildRecipeFallbackMap(missingCostProductIds);
 
     saleItems.forEach((item) => {
-      const qty = Number(item.quantity || 1);
-      const isDecant = item.products?.type === 'decant_liquid';
-      const mlCost = Number(item.products?.base_cost_ars || 0);
+      const qty = new Decimal(item.quantity || 1);
+      const recipeInfo = recipeFallbackMap[item.product_id];
 
-      // Costo unitario: Prioridad 1: unit_cost_at_moment congelado en la venta.
-      // Fallback: Si es decant, 5ml de perfume + envase ($559). Si es botella, costo base del catálogo.
-      let unitCost = 0;
-      if (item.unit_cost_at_moment !== undefined && item.unit_cost_at_moment !== null && Number(item.unit_cost_at_moment) > 0) {
-        unitCost = Number(item.unit_cost_at_moment);
-      } else if (isDecant) {
-        unitCost = (mlCost * 5) + 559;
-      } else {
-        unitCost = mlCost;
-      }
+      // Cadena canónica de resolución de costo unitario (idéntica a analytics.ts)
+      const costResolution = resolveItemUnitCost({
+        itemUnitCostAtMoment: item.unit_cost_at_moment,
+        productBaseCostArs: item.products?.base_cost_ars,
+        lastPurchaseOrderCostArs: poCostMap[item.product_id]?.toNumber(),
+        productType: item.products?.type,
+        decantMl: recipeInfo?.sizeMl ?? null,
+        supplyCostArs: recipeInfo?.supplyCostArs ?? null,
+      });
 
-      const itemCost = unitCost * qty;
+      const itemCost = new Decimal(costResolution.unitCost).times(qty);
 
       if (!saleCogsMap[item.sale_id]) {
-        saleCogsMap[item.sale_id] = 0;
+        saleCogsMap[item.sale_id] = new Decimal(0);
       }
-      saleCogsMap[item.sale_id] += itemCost;
+      saleCogsMap[item.sale_id] = saleCogsMap[item.sale_id].plus(itemCost);
     });
 
     let totalRevenueArs = 0;
@@ -329,11 +375,11 @@ export async function getDashboardData(
 
     sales.forEach((sale) => {
       const saleTotal = Number(sale.total_ars || 0);
-      const saleCogs = saleCogsMap[sale.id] || 0;
+      const saleCogs = (saleCogsMap[sale.id] || new Decimal(0)).toNumber();
       const saleFee = Number(sale.gateway_fee_ars || 0);
 
-      // Margen Bruto de la Venta (con descuento comercial ya descontado en total_ars)
-      const saleGrossMargin = Math.max(0, saleTotal - saleCogs);
+      // Margen Bruto de la Venta SIN clamp: las pérdidas individuales son reales (coincidir con el P&L)
+      const saleGrossMargin = saleTotal - saleCogs;
 
       totalRevenueArs += saleTotal;
       totalRevenueUsd += Number(sale.total_usd_equivalent || 0);
@@ -344,7 +390,7 @@ export async function getDashboardData(
     });
 
     const totalOpexArs = expenses.reduce((sum, e) => sum + Number(e.amount_ars || 0), 0);
-    const grossMarginArs = Math.max(0, totalRevenueArs - totalCogsArs);
+    const grossMarginArs = totalRevenueArs - totalCogsArs;
     const estimatedProfitArs = Math.round(grossMarginArs - totalOpexArs - totalGatewayFees);
 
     const grossMarginPercent = totalRevenueArs > 0
@@ -353,30 +399,31 @@ export async function getDashboardData(
 
     const estimatedProfitUsd = totalRevenueUsd * (totalRevenueArs > 0 ? (estimatedProfitArs / totalRevenueArs) : 0);
 
-    // Mapeo de ventas reales del mes anterior por día para comparativa histórica exacta
+    // Mapeo de ventas reales del mes anterior por día para comparativa histórica exacta (días de negocio ART)
     const prevMonthSalesByDay: Record<number, number> = {};
     prevSales.forEach((ps) => {
-      const pDate = new Date(ps.created_at);
-      const dayNum = pDate.getDate();
-      prevMonthSalesByDay[dayNum] = (prevMonthSalesByDay[dayNum] || 0) + Number(ps.total_ars || 0);
+      const pDate = toBusinessInstant(ps.created_at);
+      const dayNum = pDate ? pDate.getUTCDate() : 0;
+      if (dayNum > 0) {
+        prevMonthSalesByDay[dayNum] = (prevMonthSalesByDay[dayNum] || 0) + Number(ps.total_ars || 0);
+      }
     });
 
-    // Mapear gastos operativos (OPEX) por día
+    // Mapear gastos operativos (OPEX) por día (claves de día de negocio ART)
     const dailyOpexMap: Record<string, number> = {};
     expenses.forEach((e) => {
       if (e.expense_date) {
-        const [eY, eM, eD] = e.expense_date.split('-').map(Number);
-        const dateStr = `${String(eD).padStart(2, '0')}/${String(eM).padStart(2, '0')}`;
+        const dateStr = businessDayKey(e.expense_date);
         dailyOpexMap[dateStr] = (dailyOpexMap[dateStr] || 0) + Number(e.amount_ars || 0);
       }
     });
 
-    // Agrupar ventas para gráfico
+    // Agrupar ventas para gráfico (claves de día de negocio ART)
     const salesGrouped: Record<string, { total: number; profit: number; fees: number; dayNum: number }> = {};
     sales.forEach((sale) => {
-      const sDate = new Date(sale.created_at);
-      const dayNum = sDate.getDate();
-      const monthNum = sDate.getMonth() + 1;
+      const sDate = toBusinessInstant(sale.created_at);
+      const dayNum = sDate ? sDate.getUTCDate() : 0;
+      const monthNum = sDate ? sDate.getUTCMonth() + 1 : 0;
       const dateStr = `${String(dayNum).padStart(2, '0')}/${String(monthNum).padStart(2, '0')}`;
       const saleGross = saleProfitMap[sale.id] || 0;
       const saleFee = Number(sale.gateway_fee_ars || 0);
@@ -400,8 +447,10 @@ export async function getDashboardData(
     }> = [];
 
     if (period === 'current_month') {
-      const currentDayLimit = Math.max(1, now.getDate());
-      const currentMonthStr = String(now.getMonth() + 1).padStart(2, '0');
+      // Límite del eje X según el día ACTUAL de negocio (ART)
+      const nowB = businessNow();
+      const currentDayLimit = Math.max(1, nowB.getUTCDate());
+      const currentMonthStr = String(nowB.getUTCMonth() + 1).padStart(2, '0');
 
       for (let day = 1; day <= currentDayLimit; day++) {
         const dayStr = String(day).padStart(2, '0');
@@ -471,6 +520,7 @@ export async function getDashboardData(
           total_ars: Number(sale.total_ars),
           client_name: sale.clients?.name || 'Consumidor Final',
         })),
+        performanceWarning,
       },
     };
   } catch (error: unknown) {
@@ -543,16 +593,13 @@ export async function getRetailKPIs(
     }
 
     const supabase = getServiceSupabase();
-    const now = new Date();
-
-    let isoStart = new Date(Date.UTC(now.getFullYear(), now.getMonth(), 1, 0, 0, 0)).toISOString();
-    let isoEnd = new Date(Date.UTC(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999)).toISOString();
+    let isoStart = resolveBusinessRange('current_month').start.toISOString();
+    let isoEnd = resolveBusinessRange('current_month').end.toISOString();
 
     if (startDate && endDate) {
-      const [sY, sM, sD] = startDate.split('-').map(Number);
-      const [eY, eM, eD] = endDate.split('-').map(Number);
-      isoStart = new Date(Date.UTC(sY, sM - 1, sD, 0, 0, 0)).toISOString();
-      isoEnd = new Date(Date.UTC(eY, eM - 1, eD, 23, 59, 59, 999)).toISOString();
+      const customRange = resolveBusinessRange('custom', startDate, endDate);
+      isoStart = customRange.start.toISOString();
+      isoEnd = customRange.end.toISOString();
     }
 
     // 1. Consultar ventas completadas del período
@@ -620,18 +667,52 @@ export async function getRetailKPIs(
       const items = (itemsData || []) as unknown as DbRetailItemRow[];
       const productGroupMap: Record<string, BestSellerProduct> = {};
 
+      // Detectar productos que requieren fallbacks de costo (sin congelado ni de catálogo)
+      const missingCostProductIds = new Set<string>();
+      items.forEach((item) => {
+        const catCost = Number(item.products?.base_cost_ars || 0);
+        const momentCost = Number(item.unit_cost_at_moment || 0);
+        if (catCost <= 0 && momentCost <= 0 && item.product_id) {
+          missingCostProductIds.add(item.product_id);
+        }
+      });
+
+      // Fallbacks canónicos: último costo de compra + recetas BOM (sin constantes hardcodeadas)
+      const poCostMap: Record<string, Decimal> = {};
+      if (missingCostProductIds.size > 0) {
+        const { data: poItems } = await supabase
+          .from('purchase_order_items')
+          .select('product_id, unit_cost, created_at')
+          .in('product_id', Array.from(missingCostProductIds))
+          .order('created_at', { ascending: false });
+
+        if (poItems) {
+          poItems.forEach((poItem: any) => {
+            if (!poCostMap[poItem.product_id] && Number(poItem.unit_cost) > 0) {
+              poCostMap[poItem.product_id] = new Decimal(poItem.unit_cost);
+            }
+          });
+        }
+      }
+      const recipeFallbackMap = await buildRecipeFallbackMap(missingCostProductIds);
+
       items.forEach((item) => {
         const pId = item.product_id;
         const qty = Number(item.quantity || 0);
         const unitPrice = Number(item.price_ars_at_moment || 0);
         const pInfo = item.products;
-        const isDecant = pInfo?.type === 'decant_liquid';
-        const rawCost = Number(pInfo?.base_cost_ars || 0);
+        const recipeInfo = recipeFallbackMap[pId];
 
-        // Costo canónico: Prioridad 1 unit_cost_at_moment congelado, fallback decant (5ml + frasco) o base_cost_ars
-        const unitCost = (item.unit_cost_at_moment !== undefined && item.unit_cost_at_moment !== null && Number(item.unit_cost_at_moment) > 0)
-          ? Number(item.unit_cost_at_moment)
-          : (isDecant ? (rawCost * 5) + 559 : rawCost);
+        // Cadena canónica de resolución de costo unitario (idéntica al P&L)
+        const costResolution = resolveItemUnitCost({
+          itemUnitCostAtMoment: item.unit_cost_at_moment,
+          productBaseCostArs: pInfo?.base_cost_ars,
+          lastPurchaseOrderCostArs: poCostMap[pId]?.toNumber(),
+          productType: pInfo?.type,
+          decantMl: recipeInfo?.sizeMl ?? null,
+          supplyCostArs: recipeInfo?.supplyCostArs ?? null,
+        });
+        const unitCost = costResolution.unitCost;
 
         const revenue = qty * unitPrice;
         const cost = qty * unitCost;
@@ -655,9 +736,9 @@ export async function getRetailKPIs(
         productGroupMap[pId].total_cost_ars += cost;
       });
 
-      // Calcular márgenes por producto
+      // Calcular márgenes por producto SIN clamp: los deficitarios reflejan su pérdida real (coincidir con el P&L)
       Object.values(productGroupMap).forEach((p) => {
-        p.net_margin_ars = Math.max(0, p.total_revenue_ars - p.total_cost_ars);
+        p.net_margin_ars = p.total_revenue_ars - p.total_cost_ars;
         p.margin_percent = p.total_revenue_ars > 0
           ? Number(((p.net_margin_ars / p.total_revenue_ars) * 100).toFixed(1))
           : 0;

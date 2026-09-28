@@ -12,7 +12,7 @@ import {
 import Link from 'next/link';
 
 export function StockAlertWidget() {
-  const { role } = useUserStore();
+  const role = useUserStore((state) => state.role);
   const [alertProducts, setAlertProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -38,9 +38,9 @@ export function StockAlertWidget() {
   if (role !== 'admin') return null;
 
   return (
-    <Card className="border border-[#1B362A] bg-[#13261E]/90 rounded-2xl shadow-xl overflow-hidden">
+    <Card className="border border-erp-border bg-erp-surface/90 rounded-2xl shadow-xl overflow-hidden">
       
-      <CardHeader className="border-b border-[#1B362A] pb-4">
+      <CardHeader className="border-b border-erp-border pb-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <div className="relative flex h-8 w-8 items-center justify-center rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400">
@@ -101,22 +101,22 @@ export function StockAlertWidget() {
               return (
                 <div 
                   key={p.id}
-                  className="flex items-center justify-between p-3 rounded-xl bg-[#08130E] border border-amber-900/30 hover:border-amber-500/40 transition-colors"
+                  className="flex items-center justify-between p-3 rounded-xl bg-erp-bg border border-amber-900/30 hover:border-amber-500/40 transition-colors"
                 >
                   <div className="space-y-0.5 max-w-[60%]">
                     <div className="flex items-center gap-1.5">
                       <span className="font-bold text-xs text-white truncate font-serif">{p.name}</span>
                       {isDecant ? (
-                        <span className="text-[9px] font-extrabold px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                        <span className="text-xs font-extrabold px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
                           Decant
                         </span>
                       ) : (
-                        <span className="text-[9px] font-extrabold px-1.5 py-0.5 rounded bg-[#D0A96B]/10 text-[#E5C158] border border-[#D0A96B]/30">
+                        <span className="text-xs font-extrabold px-1.5 py-0.5 rounded bg-erp-gold/10 text-erp-gold-hover border border-erp-gold/30">
                           Botella
                         </span>
                       )}
                     </div>
-                    <div className="text-[10px] text-zinc-400">
+                    <div className="text-[11px] text-zinc-400">
                       {p.brand} • <code className="text-zinc-500">{p.sku}</code>
                     </div>
                   </div>
@@ -126,7 +126,7 @@ export function StockAlertWidget() {
                       <div className="text-xs font-black text-amber-400">
                         {p.stock_quantity} {isDecant ? 'ml' : 'uds'}
                       </div>
-                      <div className="text-[9px] text-zinc-500">
+                      <div className="text-xs text-zinc-500">
                         Min: {minLimit} {isDecant ? 'ml' : 'uds'}
                       </div>
                     </div>

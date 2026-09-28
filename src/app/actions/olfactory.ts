@@ -1,7 +1,7 @@
 'use server';
 
 import { getServiceSupabase } from '@/lib/supabase';
-import { UserRole } from '@/types';
+import { requireAdmin } from '@/lib/auth-checks';
 import { revalidatePath } from 'next/cache';
 
 export interface OlfactoryFamilyItem {
@@ -74,11 +74,10 @@ export async function getOlfactoryNotes(): Promise<{ success: boolean; data: str
 /**
  * Crear una nueva familia olfativa.
  */
-export async function createOlfactoryFamily(role: UserRole, familyName: string): Promise<{ success: boolean; data?: string[]; error?: string }> {
+export async function createOlfactoryFamily(familyName: string): Promise<{ success: boolean; data?: string[]; error?: string }> {
   try {
-    if (role !== 'admin') {
-      throw new Error('Solo administradores pueden modificar el catálogo olfativo.');
-    }
+    // Seguridad: el rol SIEMPRE se deriva de la sesión autenticada (nunca de parámetros del cliente)
+    await requireAdmin();
 
     const trimmed = familyName.trim();
     if (!trimmed) throw new Error('El nombre de la familia no puede estar vacío.');
@@ -89,7 +88,7 @@ export async function createOlfactoryFamily(role: UserRole, familyName: string):
       .insert([{ name: trimmed }]);
 
     if (error) {
-      console.warn('Advertencia al insertar en DB, continuando con catálogo:', error.message);
+      throw error;
     }
 
     revalidatePath('/productos');
@@ -102,11 +101,10 @@ export async function createOlfactoryFamily(role: UserRole, familyName: string):
 /**
  * Crear una nueva nota olfativa.
  */
-export async function createOlfactoryNote(role: UserRole, noteName: string): Promise<{ success: boolean; error?: string }> {
+export async function createOlfactoryNote(noteName: string): Promise<{ success: boolean; error?: string }> {
   try {
-    if (role !== 'admin') {
-      throw new Error('Solo administradores pueden modificar el catálogo olfativo.');
-    }
+    // Seguridad: el rol SIEMPRE se deriva de la sesión autenticada (nunca de parámetros del cliente)
+    await requireAdmin();
 
     const trimmed = noteName.trim();
     if (!trimmed) throw new Error('El nombre de la nota no puede estar vacío.');
@@ -117,7 +115,7 @@ export async function createOlfactoryNote(role: UserRole, noteName: string): Pro
       .insert([{ name: trimmed }]);
 
     if (error) {
-      console.warn('Advertencia al insertar nota en DB:', error.message);
+      throw error;
     }
 
     revalidatePath('/productos');

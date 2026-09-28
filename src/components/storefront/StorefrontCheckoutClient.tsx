@@ -20,14 +20,16 @@ import { toast } from 'sonner';
 
 interface StorefrontCheckoutClientProps {
   settings?: SystemSettingsData;
+  exchangeRate?: number;
 }
 
-export function StorefrontCheckoutClient({ settings = DEFAULT_SYSTEM_SETTINGS }: StorefrontCheckoutClientProps) {
+export function StorefrontCheckoutClient({ settings = DEFAULT_SYSTEM_SETTINGS, exchangeRate = 1250 }: StorefrontCheckoutClientProps) {
   const router = useRouter();
-  const { items, getSubtotalArs, clearCart } = useCartStore();
+  const items = useCartStore((state) => state.items);
+  const getSubtotalArs = useCartStore((state) => state.getSubtotalArs);
+  const clearCart = useCartStore((state) => state.clearCart);
 
   const subtotalArs = getSubtotalArs();
-  const exchangeRate = 1200;
   const subtotalUsd = (subtotalArs / exchangeRate).toFixed(1);
 
   // Formulario del cliente
@@ -87,7 +89,6 @@ export function StorefrontCheckoutClient({ settings = DEFAULT_SYSTEM_SETTINGS }:
           product_id: i.productId,
           quantity: i.quantity,
           format: i.format,
-          unit_price_ars: i.priceArs,
         })),
       };
 
@@ -119,7 +120,7 @@ export function StorefrontCheckoutClient({ settings = DEFAULT_SYSTEM_SETTINGS }:
   };
 
   return (
-    <div className="min-h-screen bg-[#08130E] text-zinc-100 flex flex-col font-sans selection:bg-[#D0A96B]/30 selection:text-[#E5C158]">
+    <div className="min-h-screen bg-erp-bg text-zinc-100 flex flex-col font-sans selection:bg-erp-gold/30 selection:text-erp-gold-hover">
       
       {/* HEADER */}
       <StorefrontHeader settings={settings} />
@@ -131,19 +132,19 @@ export function StorefrontCheckoutClient({ settings = DEFAULT_SYSTEM_SETTINGS }:
         <div className="flex items-center justify-between">
           <Link
             href="/tienda"
-            className="inline-flex items-center gap-2 text-xs font-bold text-zinc-400 hover:text-[#D0A96B] transition-colors"
+            className="inline-flex items-center gap-2 text-xs font-bold text-zinc-400 hover:text-erp-gold transition-colors"
           >
             <ArrowLeft className="h-4 w-4" />
             <span>Volver a la Tienda</span>
           </Link>
-          <span className="text-xs font-mono text-[#D0A96B] font-bold">
+          <span className="text-xs font-mono text-erp-gold font-bold">
             Checkout Seguro
           </span>
         </div>
 
         {items.length === 0 ? (
           <div className="py-24 text-center space-y-4 max-w-md mx-auto">
-            <div className="h-16 w-16 rounded-full bg-[#13261E] border border-[#1B362A] flex items-center justify-center mx-auto text-zinc-600">
+            <div className="h-16 w-16 rounded-full bg-erp-surface border border-erp-border flex items-center justify-center mx-auto text-zinc-600">
               <ShoppingBag className="h-8 w-8" />
             </div>
             <div>
@@ -153,7 +154,7 @@ export function StorefrontCheckoutClient({ settings = DEFAULT_SYSTEM_SETTINGS }:
               </p>
             </div>
             <Link href="/tienda">
-              <Button className="bg-[#D0A96B] hover:bg-[#E5C158] text-[#08130E] font-bold text-xs">
+              <Button className="bg-erp-gold hover:bg-erp-gold-hover text-erp-bg font-bold text-xs">
                 Ir al Catálogo
               </Button>
             </Link>
@@ -180,10 +181,10 @@ export function StorefrontCheckoutClient({ settings = DEFAULT_SYSTEM_SETTINGS }:
               <div className="lg:col-span-7 space-y-6">
                 
                 {/* 1. DATOS DEL CLIENTE */}
-                <Card className="border border-[#1B362A] bg-[#13261E]/90 rounded-2xl shadow-xl overflow-hidden">
-                  <CardHeader className="border-b border-[#1B362A] p-5">
+                <Card className="border border-erp-border bg-erp-surface/90 rounded-2xl shadow-xl overflow-hidden">
+                  <CardHeader className="border-b border-erp-border p-5">
                     <CardTitle className="text-sm font-bold text-white font-serif flex items-center gap-2">
-                      <User className="h-4 w-4 text-[#D0A96B]" />
+                      <User className="h-4 w-4 text-erp-gold" />
                       1. Tus Datos de Contacto
                     </CardTitle>
                     <CardDescription className="text-xs text-zinc-400">
@@ -202,7 +203,7 @@ export function StorefrontCheckoutClient({ settings = DEFAULT_SYSTEM_SETTINGS }:
                           placeholder="Ej. Juan Pérez"
                           value={clientName}
                           onChange={(e) => setClientName(e.target.value)}
-                          className="bg-[#08130E] border-[#1B362A] text-white text-xs"
+                          className="bg-erp-bg border-erp-border text-white text-xs"
                         />
                       </div>
 
@@ -215,7 +216,7 @@ export function StorefrontCheckoutClient({ settings = DEFAULT_SYSTEM_SETTINGS }:
                           placeholder="Ej. +54 9 11 2345-6789"
                           value={clientPhone}
                           onChange={(e) => setClientPhone(e.target.value)}
-                          className="bg-[#08130E] border-[#1B362A] text-white text-xs font-mono"
+                          className="bg-erp-bg border-erp-border text-white text-xs font-mono"
                         />
                       </div>
 
@@ -228,7 +229,7 @@ export function StorefrontCheckoutClient({ settings = DEFAULT_SYSTEM_SETTINGS }:
                           placeholder="juan@ejemplo.com"
                           value={clientEmail}
                           onChange={(e) => setClientEmail(e.target.value)}
-                          className="bg-[#08130E] border-[#1B362A] text-white text-xs"
+                          className="bg-erp-bg border-erp-border text-white text-xs"
                         />
                       </div>
 
@@ -240,7 +241,7 @@ export function StorefrontCheckoutClient({ settings = DEFAULT_SYSTEM_SETTINGS }:
                           placeholder="Ej. 38450123"
                           value={clientDni}
                           onChange={(e) => setClientDni(e.target.value)}
-                          className="bg-[#08130E] border-[#1B362A] text-white text-xs font-mono"
+                          className="bg-erp-bg border-erp-border text-white text-xs font-mono"
                         />
                       </div>
                     </div>
@@ -248,10 +249,10 @@ export function StorefrontCheckoutClient({ settings = DEFAULT_SYSTEM_SETTINGS }:
                 </Card>
 
                 {/* 2. FORMA DE ENTREGA */}
-                <Card className="border border-[#1B362A] bg-[#13261E]/90 rounded-2xl shadow-xl overflow-hidden">
-                  <CardHeader className="border-b border-[#1B362A] p-5">
+                <Card className="border border-erp-border bg-erp-surface/90 rounded-2xl shadow-xl overflow-hidden">
+                  <CardHeader className="border-b border-erp-border p-5">
                     <CardTitle className="text-sm font-bold text-white font-serif flex items-center gap-2">
-                      <Truck className="h-4 w-4 text-[#D0A96B]" />
+                      <Truck className="h-4 w-4 text-erp-gold" />
                       2. Modalidad de Entrega
                     </CardTitle>
                     <CardDescription className="text-xs text-zinc-400">
@@ -268,15 +269,15 @@ export function StorefrontCheckoutClient({ settings = DEFAULT_SYSTEM_SETTINGS }:
                         onClick={() => setDeliveryMethod('shipping')}
                         className={`p-4 rounded-xl border text-left transition-all cursor-pointer ${
                           deliveryMethod === 'shipping'
-                            ? 'bg-[#1B362A] border-[#D0A96B] text-white shadow-md'
-                            : 'bg-[#08130E] border-[#1B362A] text-zinc-400 hover:border-zinc-500'
+                            ? 'bg-secondary border-erp-gold text-white shadow-md'
+                            : 'bg-erp-bg border-erp-border text-zinc-400 hover:border-zinc-500'
                         }`}
                       >
                         <div className="flex items-center justify-between font-bold text-xs text-white">
                           <span className="flex items-center gap-1.5">
-                            <Truck className="h-4 w-4 text-[#D0A96B]" /> Envío a Domicilio
+                            <Truck className="h-4 w-4 text-erp-gold" /> Envío a Domicilio
                           </span>
-                          {deliveryMethod === 'shipping' && <CheckCircle2 className="h-4 w-4 text-[#D0A96B]" />}
+                          {deliveryMethod === 'shipping' && <CheckCircle2 className="h-4 w-4 text-erp-gold" />}
                         </div>
                         <p className="text-[11px] text-zinc-400 mt-1">
                           Despacho a todo el país vía correo/encomienda.
@@ -289,8 +290,8 @@ export function StorefrontCheckoutClient({ settings = DEFAULT_SYSTEM_SETTINGS }:
                         onClick={() => setDeliveryMethod('pickup')}
                         className={`p-4 rounded-xl border text-left transition-all cursor-pointer ${
                           deliveryMethod === 'pickup'
-                            ? 'bg-[#1B362A] border-[#D0A96B] text-white shadow-md'
-                            : 'bg-[#08130E] border-[#1B362A] text-zinc-400 hover:border-zinc-500'
+                            ? 'bg-secondary border-erp-gold text-white shadow-md'
+                            : 'bg-erp-bg border-erp-border text-zinc-400 hover:border-zinc-500'
                         }`}
                       >
                         <div className="flex items-center justify-between font-bold text-xs text-white">
@@ -318,7 +319,7 @@ export function StorefrontCheckoutClient({ settings = DEFAULT_SYSTEM_SETTINGS }:
                             placeholder="Ej. Av. Corrientes 1234, Piso 4 B"
                             value={shippingAddress}
                             onChange={(e) => setShippingAddress(e.target.value)}
-                            className="bg-[#08130E] border-[#1B362A] text-white text-xs"
+                            className="bg-erp-bg border-erp-border text-white text-xs"
                           />
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -331,7 +332,7 @@ export function StorefrontCheckoutClient({ settings = DEFAULT_SYSTEM_SETTINGS }:
                               placeholder="Ej. Córdoba Capital / Rosario"
                               value={shippingCity}
                               onChange={(e) => setShippingCity(e.target.value)}
-                              className="bg-[#08130E] border-[#1B362A] text-white text-xs"
+                              className="bg-erp-bg border-erp-border text-white text-xs"
                             />
                           </div>
                           <div className="space-y-1.5">
@@ -342,14 +343,14 @@ export function StorefrontCheckoutClient({ settings = DEFAULT_SYSTEM_SETTINGS }:
                               placeholder="Ej. 5000"
                               value={shippingPostalCode}
                               onChange={(e) => setShippingPostalCode(e.target.value)}
-                              className="bg-[#08130E] border-[#1B362A] text-white text-xs font-mono"
+                              className="bg-erp-bg border-erp-border text-white text-xs font-mono"
                             />
                           </div>
                         </div>
                       </div>
                     ) : (
-                      <div className="p-3.5 rounded-xl bg-[#08130E] border border-[#1B362A] text-xs text-zinc-300 space-y-1">
-                        <div className="font-bold text-[#D0A96B] flex items-center gap-1.5">
+                      <div className="p-3.5 rounded-xl bg-erp-bg border border-erp-border text-xs text-zinc-300 space-y-1">
+                        <div className="font-bold text-erp-gold flex items-center gap-1.5">
                           <MapPin className="h-3.5 w-3.5" /> Dirección de Retiro:
                         </div>
                         <p>{settings.address || 'Chaco 50'} {settings.city ? `(${settings.city})` : ''}</p>
@@ -363,8 +364,8 @@ export function StorefrontCheckoutClient({ settings = DEFAULT_SYSTEM_SETTINGS }:
                 </Card>
 
                 {/* 3. ATENCIÓN PERSONALIZADA Y CIERRE POR WHATSAPP */}
-                <Card className="border border-[#1B362A] bg-[#13261E]/90 rounded-2xl shadow-xl overflow-hidden">
-                  <CardHeader className="border-b border-[#1B362A] p-5">
+                <Card className="border border-erp-border bg-erp-surface/90 rounded-2xl shadow-xl overflow-hidden">
+                  <CardHeader className="border-b border-erp-border p-5">
                     <CardTitle className="text-sm font-bold text-white font-serif flex items-center gap-2">
                       <MessageCircle className="h-4 w-4 text-emerald-400" />
                       3. Cierre y Coordinación por WhatsApp 📲
@@ -375,7 +376,7 @@ export function StorefrontCheckoutClient({ settings = DEFAULT_SYSTEM_SETTINGS }:
                   </CardHeader>
 
                   <CardContent className="p-5 space-y-4">
-                    <div className="p-4 rounded-xl bg-[#08130E] border border-emerald-500/30 text-xs space-y-2">
+                    <div className="p-4 rounded-xl bg-erp-bg border border-emerald-500/30 text-xs space-y-2">
                       <div className="font-bold text-emerald-400 flex items-center gap-2">
                         <CheckCircle2 className="h-4 w-4" />
                         <span>¿Cómo finaliza tu compra?</span>
@@ -390,21 +391,21 @@ export function StorefrontCheckoutClient({ settings = DEFAULT_SYSTEM_SETTINGS }:
 
                     {/* DATOS DE TRANSFERENCIA BANCARIA INFORMATIVOS */}
                     {settings.bank_alias && (
-                      <div className="p-4 rounded-xl bg-gradient-to-br from-[#1B362A]/60 to-[#08130E] border border-[#D0A96B]/40 space-y-2.5 text-xs">
+                      <div className="p-4 rounded-xl bg-gradient-to-br from-erp-border/60 to-erp-bg border border-erp-gold/40 space-y-2.5 text-xs">
                         <div className="flex items-center justify-between">
-                          <span className="font-bold text-[#D0A96B] uppercase tracking-wider text-[11px] flex items-center gap-1.5">
+                          <span className="font-bold text-erp-gold uppercase tracking-wider text-[11px] flex items-center gap-1.5">
                             <Landmark className="h-3.5 w-3.5" /> Datos para Transferencia (Opcional):
                           </span>
-                          <span className="text-[10px] font-mono text-zinc-400">
+                          <span className="text-[11px] font-mono text-zinc-400">
                             {settings.bank_name || 'Banco'}
                           </span>
                         </div>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1 border-t border-[#1B362A]">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1 border-t border-erp-border">
                           <div>
-                            <span className="text-[10px] text-zinc-400 uppercase tracking-wider block">Alias:</span>
+                            <span className="text-[11px] text-zinc-400 uppercase tracking-wider block">Alias:</span>
                             <div className="flex items-center gap-2">
-                              <span className="font-mono font-bold text-[#E5C158] text-sm">
+                              <span className="font-mono font-bold text-erp-gold-hover text-sm">
                                 {settings.bank_alias}
                               </span>
                               <button
@@ -420,7 +421,7 @@ export function StorefrontCheckoutClient({ settings = DEFAULT_SYSTEM_SETTINGS }:
 
                           {settings.bank_account_holder && (
                             <div>
-                              <span className="text-[10px] text-zinc-400 uppercase tracking-wider block">Titular:</span>
+                              <span className="text-[11px] text-zinc-400 uppercase tracking-wider block">Titular:</span>
                               <span className="font-bold text-white text-xs">
                                 {settings.bank_account_holder}
                               </span>
@@ -432,14 +433,14 @@ export function StorefrontCheckoutClient({ settings = DEFAULT_SYSTEM_SETTINGS }:
 
                     <div className="space-y-1.5 pt-1">
                       <label className="text-xs font-bold text-zinc-300 flex items-center gap-1.5">
-                        <FileText className="h-3.5 w-3.5 text-[#D0A96B]" />
+                        <FileText className="h-3.5 w-3.5 text-erp-gold" />
                         <span>Notas u Observaciones adicionales (Opcional):</span>
                       </label>
                       <Input
                         placeholder="Ej. Horario de entrega preferido / Aclaraciones de packaging"
                         value={shippingNotes}
                         onChange={(e) => setShippingNotes(e.target.value)}
-                        className="bg-[#08130E] border-[#1B362A] text-white text-xs"
+                        className="bg-erp-bg border-erp-border text-white text-xs"
                       />
                     </div>
                   </CardContent>
@@ -450,10 +451,10 @@ export function StorefrontCheckoutClient({ settings = DEFAULT_SYSTEM_SETTINGS }:
               {/* COLUMNA DERECHA: RESUMEN DE COMPRA (5 COLS) */}
               <div className="lg:col-span-5 space-y-6">
                 
-                <Card className="border border-[#1B362A] bg-[#13261E] rounded-2xl shadow-xl sticky top-24">
-                  <CardHeader className="border-b border-[#1B362A] p-5">
+                <Card className="border border-erp-border bg-erp-surface rounded-2xl shadow-xl sticky top-24">
+                  <CardHeader className="border-b border-erp-border p-5">
                     <CardTitle className="text-sm font-bold text-white font-serif flex items-center gap-2">
-                      <ShoppingBag className="h-4 w-4 text-[#D0A96B]" />
+                      <ShoppingBag className="h-4 w-4 text-erp-gold" />
                       Resumen del Pedido
                     </CardTitle>
                   </CardHeader>
@@ -463,10 +464,10 @@ export function StorefrontCheckoutClient({ settings = DEFAULT_SYSTEM_SETTINGS }:
                     {/* ITEMS DEL PEDIDO */}
                     <div className="space-y-3 max-h-64 overflow-y-auto pr-1">
                       {items.map((item) => (
-                        <div key={item.id} className="flex items-center justify-between gap-3 text-xs pb-2 border-b border-[#1B362A]/60">
+                        <div key={item.id} className="flex items-center justify-between gap-3 text-xs pb-2 border-b border-erp-border/60">
                           <div>
                             <div className="font-bold text-white font-serif">{item.name}</div>
-                            <div className="text-[10px] text-zinc-400 font-mono">
+                            <div className="text-[11px] text-zinc-400 font-mono">
                               {item.quantity}x {item.format}
                             </div>
                           </div>
@@ -489,13 +490,13 @@ export function StorefrontCheckoutClient({ settings = DEFAULT_SYSTEM_SETTINGS }:
                           {deliveryMethod === 'pickup' ? 'Gratis (Retiro en Local)' : 'A coordinar'}
                         </span>
                       </div>
-                      <div className="flex justify-between text-base pt-3 border-t border-[#1B362A] font-bold">
+                      <div className="flex justify-between text-base pt-3 border-t border-erp-border font-bold">
                         <span className="text-white uppercase tracking-wider text-xs">Total a Pagar:</span>
                         <div className="text-right">
-                          <div className="font-mono text-lg font-black text-[#D0A96B]">
+                          <div className="font-mono text-lg font-black text-erp-gold">
                             ${subtotalArs.toLocaleString('es-AR')} ARS
                           </div>
-                          <div className="text-[10px] font-mono text-zinc-400">
+                          <div className="text-[11px] font-mono text-zinc-400">
                             ~ u$s {subtotalUsd}
                           </div>
                         </div>
@@ -504,7 +505,7 @@ export function StorefrontCheckoutClient({ settings = DEFAULT_SYSTEM_SETTINGS }:
 
                   </CardContent>
 
-                  <CardFooter className="p-5 border-t border-[#1B362A] bg-[#08130E]/60 flex flex-col gap-3">
+                  <CardFooter className="p-5 border-t border-erp-border bg-erp-bg/60 flex flex-col gap-3">
                     <Button
                       type="submit"
                       disabled={submitting || items.length === 0}
@@ -521,7 +522,7 @@ export function StorefrontCheckoutClient({ settings = DEFAULT_SYSTEM_SETTINGS }:
                       )}
                     </Button>
 
-                    <div className="flex items-center justify-center gap-2 text-[10px] text-zinc-400">
+                    <div className="flex items-center justify-center gap-2 text-[11px] text-zinc-400">
                       <ShieldCheck className="h-3.5 w-3.5 text-emerald-400" />
                       <span>Compra 100% segura y directa con {settings.trade_name}.</span>
                     </div>

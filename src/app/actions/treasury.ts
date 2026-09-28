@@ -435,92 +435,10 @@ export async function transferBetweenAccounts(
 
 /**
  * Helper interno para impactar un ingreso en una cuenta de tesorería determinada con trazabilidad.
+ * NOTA DE SEGURIDAD: movido a src/lib/treasury-ops.ts (módulo no-'use server', no invocable desde el navegador).
  */
-export async function depositToAccount(
-  accountId: string,
-  amountArs: number,
-  description?: string,
-  referenceId?: string
-): Promise<boolean> {
-  try {
-    if (!accountId || amountArs <= 0) return false;
-    if (!isSupabaseConfigured()) return true;
-
-    const supabase = getServiceSupabase();
-
-    const { data: acc } = await supabase
-      .from('treasury_accounts')
-      .select('balance_ars')
-      .eq('id', accountId)
-      .single();
-
-    if (!acc) return false;
-
-    const newBalance = Number(acc.balance_ars || 0) + Math.round(amountArs);
-
-    await supabase
-      .from('treasury_accounts')
-      .update({ balance_ars: newBalance })
-      .eq('id', accountId);
-
-    // Registro de auditoría en libro de movimientos
-    await supabase.from('treasury_movements').insert({
-      account_id: accountId,
-      type: 'in',
-      amount: Math.round(amountArs),
-      description: description || 'Ingreso por cobro comercial',
-      reference_id: referenceId || null,
-    });
-
-    return true;
-  } catch (err) {
-    console.error('Error al acreditar en cuenta de tesorería:', err);
-    return false;
-  }
-}
 
 /**
  * Helper interno para debitar fondos de una cuenta de tesorería con trazabilidad.
+ * NOTA DE SEGURIDAD: movido a src/lib/treasury-ops.ts (módulo no-'use server', no invocable desde el navegador).
  */
-export async function withdrawFromAccount(
-  accountId: string,
-  amountArs: number,
-  description?: string,
-  referenceId?: string
-): Promise<boolean> {
-  try {
-    if (!accountId || amountArs <= 0) return false;
-    if (!isSupabaseConfigured()) return true;
-
-    const supabase = getServiceSupabase();
-
-    const { data: acc } = await supabase
-      .from('treasury_accounts')
-      .select('balance_ars')
-      .eq('id', accountId)
-      .single();
-
-    if (!acc) return false;
-
-    const newBalance = Number(acc.balance_ars || 0) - Math.round(amountArs);
-
-    await supabase
-      .from('treasury_accounts')
-      .update({ balance_ars: newBalance })
-      .eq('id', accountId);
-
-    // Registro de auditoría en libro de movimientos
-    await supabase.from('treasury_movements').insert({
-      account_id: accountId,
-      type: 'out',
-      amount: Math.round(amountArs),
-      description: description || 'Egreso de tesorería',
-      reference_id: referenceId || null,
-    });
-
-    return true;
-  } catch (err) {
-    console.error('Error al debitar de cuenta de tesorería:', err);
-    return false;
-  }
-}

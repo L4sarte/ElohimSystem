@@ -3,7 +3,8 @@
 import { getServiceSupabase, isSupabaseConfigured } from '@/lib/supabase';
 import { UserRole } from '@/types';
 import { revalidatePath } from 'next/cache';
-import { depositToAccount, getTreasuryAccounts } from '@/app/actions/treasury';
+import { getTreasuryAccounts } from '@/app/actions/treasury';
+import { depositToAccount } from '@/lib/treasury-ops';
 import { requireAuth, requireAdmin } from '@/lib/auth-checks';
 import { saleInputSchema, calculatePreciseTotal } from '@/lib/sales-validation';
 import { calculateDiscount, DiscountType } from '@/lib/discount-calculations';
@@ -142,7 +143,7 @@ export interface SaleInput {
 export async function createSaleTransaction(
   role: UserRole,
   saleData: SaleInput
-): Promise<{ success: boolean; saleId?: string; error?: string }> {
+): Promise<{ success: boolean; saleId?: string; warning?: string; error?: string }> {
   try {
     // 1. Verificación de sesión y autorización del vendedor en el servidor
     const currentUser = await requireAuth();
@@ -352,6 +353,9 @@ export async function createSaleTransaction(
     }
 
     // 10. Impactar ingreso en tesorería
+    // Si el ingreso falla NO se aborta la venta (ya existe: abortar provocaría doble venta
+    // al reintentar) — se registra el fallo explícitamente en la respuesta con warning.
+    let treasuryWarning: string | null = null;
     if (paidToday > 0) {
       let treasuryAccId = typeof pm?.treasury_account_id === 'string' ? pm.treasury_account_id : null;
       if (!treasuryAccId) {
@@ -363,7 +367,11 @@ export async function createSaleTransaction(
 
       if (treasuryAccId) {
         const amountToDeposit = netReceivedArs > 0 ? netReceivedArs : paidToday;
-        await depositToAccount(treasuryAccId, amountToDeposit);
+        const depositOk = await depositToAccount(treasuryAccId, amountToDeposit);
+        if (!depositOk) {
+          console.error('[SALE_TREASURY_DEPOSIT_FAILED]: venta', saleId, '- monto', amountToDeposit);
+          treasuryWarning = `El cobro de $${Math.round(amountToDeposit).toLocaleString('es-AR')} NO pudo acreditarse en la cuenta de tesorería. La venta fue registrada: verificá el saldo de la cuenta manualmente.`;
+        }
       }
     }
 
@@ -514,7 +522,7 @@ export async function createSaleTransaction(
     revalidatePath('/clientes');
     revalidatePath('/kanban');
 
-    return { success: true, saleId };
+    return { success: true, saleId, warning: treasuryWarning || undefined };
   } catch (error: unknown) {
     console.error('Error al registrar la venta transaccional:', error);
     const msg = error instanceof Error ? error.message : 'Error al procesar la facturación y stock';
@@ -563,22 +571,35 @@ export interface SaleDetailRecord {
 }
 
 /**
- * Obtener el historial completo de ventas registradas con clientes e ítems.
+ * Obtener el historial de ventas registrado con clientes e ítems (paginado).
+ * Evita traer todo el universo de ventas de golpe: payload acotado por página
+ * con recuento total (`count: 'exact'`) para los controles de paginación.
  */
-export async function getSalesHistory(role?: UserRole): Promise<{
+export async function getSalesHistory(
+  page: number = 1,
+  pageSize: number = 50
+): Promise<{
   success: boolean;
   data?: SaleDetailRecord[];
+  total?: number;
+  page?: number;
+  pageSize?: number;
   error?: string;
 }> {
   try {
     await requireAuth();
 
     if (!isSupabaseConfigured()) {
-      return { success: true, data: [] };
+      return { success: true, data: [], total: 0, page: 1, pageSize };
     }
 
+    const safePage = Math.max(1, Math.floor(Number(page) || 1));
+    const safePageSize = Math.min(200, Math.max(1, Math.floor(Number(pageSize) || 50)));
+    const from = (safePage - 1) * safePageSize;
+    const to = from + safePageSize - 1;
+
     const serviceClient = getServiceSupabase();
-    const { data, error } = await serviceClient
+    const { data, error, count } = await serviceClient
       .from('sales')
       .select(`
         *,
@@ -601,12 +622,19 @@ export async function getSalesHistory(role?: UserRole): Promise<{
             sku
           )
         )
-      `)
-      .order('created_at', { ascending: false });
+      `, { count: 'exact' })
+      .order('created_at', { ascending: false })
+      .range(from, to);
 
     if (error) throw error;
 
-    return { success: true, data: (data || []) as unknown as SaleDetailRecord[] };
+    return {
+      success: true,
+      data: (data || []) as unknown as SaleDetailRecord[],
+      total: count ?? 0,
+      page: safePage,
+      pageSize: safePageSize,
+    };
   } catch (error: unknown) {
     console.error('Error al obtener historial de ventas:', error);
     const msg = error instanceof Error ? error.message : 'Error al obtener historial de ventas';

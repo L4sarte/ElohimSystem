@@ -3,7 +3,8 @@
 import { getServiceSupabase, isSupabaseConfigured } from '@/lib/supabase';
 import { UserRole } from '@/types';
 import { revalidatePath } from 'next/cache';
-import { depositToAccount, getTreasuryAccounts } from '@/app/actions/treasury';
+import { getTreasuryAccounts } from '@/app/actions/treasury';
+import { depositToAccount } from '@/lib/treasury-ops';
 import { requireAuth } from '@/lib/auth-checks';
 
 export interface PendingSale {
@@ -127,7 +128,7 @@ export async function registerInstallment(
   amountPaidArs: number,
   paymentMethod: string = 'Efectivo',
   notes?: string
-): Promise<{ success: boolean; newAmountDue?: number; paymentStatus?: string; error?: string }> {
+): Promise<{ success: boolean; newAmountDue?: number; paymentStatus?: string; warning?: string; error?: string }> {
   try {
     await requireAuth();
 
@@ -211,6 +212,7 @@ export async function registerInstallment(
     }
 
     // 5. Impactar ingreso en Tesorería & Cuentas (emparejando por método de pago)
+    let treasuryWarning: string | null = null;
     const resAcc = await getTreasuryAccounts();
     if (resAcc.success && resAcc.data && resAcc.data.length > 0) {
       const pmLower = (paymentMethod || '').toLowerCase();
@@ -225,12 +227,16 @@ export async function registerInstallment(
         return false;
       }) || resAcc.data[0];
 
-      await depositToAccount(
+      const depositOk = await depositToAccount(
         targetAcc.id,
         valAmount,
         `Cobro Cuota - Cliente: ${(sale.clients as any)?.name || 'Cliente'} (Venta #${saleId.slice(0, 8).toUpperCase()})`,
         saleId.trim()
       );
+      if (!depositOk) {
+        console.error('[INSTALLMENT_TREASURY_DEPOSIT_FAILED]: venta', saleId.trim(), '- monto', valAmount);
+        treasuryWarning = 'El cobro fue registrado pero NO pudo acreditarse en la cuenta de tesorería. Verificá el saldo manualmente.';
+      }
     }
 
     // 5b. Si el pago es en efectivo, impactar en la caja diaria activa si existe turno abierto
@@ -262,7 +268,7 @@ export async function registerInstallment(
     revalidatePath('/auditoria/ventas');
     revalidatePath('/caja');
 
-    return { success: true, newAmountDue, paymentStatus: newPaymentStatus };
+    return { success: true, newAmountDue, paymentStatus: newPaymentStatus, warning: treasuryWarning || undefined };
   } catch (error: unknown) {
     console.error('Error al registrar abono a venta:', error);
     const msg = error instanceof Error ? error.message : 'Error al procesar el abono';

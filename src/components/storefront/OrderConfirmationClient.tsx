@@ -80,7 +80,7 @@ export function OrderConfirmationClient({ order }: OrderConfirmationClientProps)
   const isTransfer = meta.payment_method === 'transfer' || !meta.payment_method || Boolean(settings.bank_alias);
 
   return (
-    <div className="min-h-screen bg-[#08130E] text-zinc-100 flex flex-col font-sans selection:bg-[#D0A96B]/30 selection:text-[#E5C158]">
+    <div className="min-h-screen bg-erp-bg text-zinc-100 flex flex-col font-sans selection:bg-erp-gold/30 selection:text-erp-gold-hover">
       
       {/* HEADER */}
       <StorefrontHeader settings={settings} />
@@ -89,13 +89,13 @@ export function OrderConfirmationClient({ order }: OrderConfirmationClientProps)
       <main className="flex-1 container mx-auto max-w-4xl px-4 sm:px-6 py-10 space-y-8">
         
         {/* ENCABEZADO DE ÉXITO */}
-        <div className="text-center space-y-3 bg-[#13261E] p-6 sm:p-8 rounded-3xl border border-[#1B362A] shadow-2xl animate-in zoom-in-95 duration-300">
+        <div className="text-center space-y-3 bg-erp-surface p-6 sm:p-8 rounded-3xl border border-erp-border shadow-2xl animate-in zoom-in-95 duration-300">
           <div className="h-16 w-16 rounded-full bg-emerald-500/10 border-2 border-emerald-500/40 text-emerald-400 flex items-center justify-center mx-auto shadow-lg shadow-emerald-500/10">
             <CheckCircle2 className="h-9 w-9" />
           </div>
 
           <div className="space-y-1">
-            <div className="text-xs font-mono font-bold uppercase tracking-widest text-[#D0A96B]">
+            <div className="text-xs font-mono font-bold uppercase tracking-widest text-erp-gold">
               ¡Pedido Registrado con Éxito!
             </div>
             <h1 className="text-2xl sm:text-3xl font-black text-white font-serif">
@@ -105,7 +105,7 @@ export function OrderConfirmationClient({ order }: OrderConfirmationClientProps)
               Hemos reservado tus fragancias. Tu código de seguimiento es:
             </p>
             <div className="pt-2">
-              <span className="inline-block px-4 py-1.5 rounded-xl bg-[#08130E] border border-[#D0A96B]/40 text-[#E5C158] font-mono font-black text-lg sm:text-xl tracking-wider shadow-inner">
+              <span className="inline-block px-4 py-1.5 rounded-xl bg-erp-bg border border-erp-gold/40 text-erp-gold-hover font-mono font-black text-lg sm:text-xl tracking-wider shadow-inner">
                 #{order.orderNumber}
               </span>
             </div>
@@ -129,20 +129,20 @@ export function OrderConfirmationClient({ order }: OrderConfirmationClientProps)
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           
           {/* COLUMNA 1: DESGLOSE DE PRODUCTOS */}
-          <Card className="border border-[#1B362A] bg-[#13261E]/90 rounded-2xl shadow-xl">
-            <CardHeader className="border-b border-[#1B362A] p-5">
+          <Card className="border border-erp-border bg-erp-surface/90 rounded-2xl shadow-xl">
+            <CardHeader className="border-b border-erp-border p-5">
               <CardTitle className="text-sm font-bold text-white font-serif flex items-center gap-2">
-                <ShoppingBag className="h-4 w-4 text-[#D0A96B]" />
+                <ShoppingBag className="h-4 w-4 text-erp-gold" />
                 Detalle de Fragancias
               </CardTitle>
             </CardHeader>
 
             <CardContent className="p-5 space-y-3">
               {order.items.map((item) => (
-                <div key={item.id} className="flex justify-between items-center text-xs pb-2 border-b border-[#1B362A]/60">
+                <div key={item.id} className="flex justify-between items-center text-xs pb-2 border-b border-erp-border/60">
                   <div>
                     <div className="font-bold text-white font-serif">{item.name}</div>
-                    <div className="text-[10px] text-zinc-400 font-mono">
+                    <div className="text-[11px] text-zinc-400 font-mono">
                       {item.quantity} ud x ${item.priceArs.toLocaleString('es-AR')}
                     </div>
                   </div>
@@ -163,9 +163,9 @@ export function OrderConfirmationClient({ order }: OrderConfirmationClientProps)
                     {isPickup ? 'Retiro en Showroom' : 'Envío a Domicilio'}
                   </span>
                 </div>
-                <div className="flex justify-between text-sm pt-2 border-t border-[#1B362A] font-bold">
+                <div className="flex justify-between text-sm pt-2 border-t border-erp-border font-bold">
                   <span className="text-white text-xs uppercase tracking-wider">Total a Abonar:</span>
-                  <span className="text-base font-black font-mono text-[#D0A96B]">
+                  <span className="text-base font-black font-mono text-erp-gold">
                     ${order.totalArs.toLocaleString('es-AR')} ARS
                   </span>
                 </div>
@@ -178,9 +178,9 @@ export function OrderConfirmationClient({ order }: OrderConfirmationClientProps)
             
             {/* DATOS BANCARIOS SI ES TRANSFERENCIA */}
             {isTransfer ? (
-              <Card className="border border-[#D0A96B]/40 bg-gradient-to-br from-[#1B362A] to-[#08130E] rounded-2xl shadow-xl">
-                <CardHeader className="p-5 border-b border-[#1B362A]">
-                  <CardTitle className="text-xs font-bold text-[#D0A96B] font-serif uppercase tracking-wider flex items-center gap-2">
+              <Card className="border border-erp-gold/40 bg-gradient-to-br from-erp-border to-erp-bg rounded-2xl shadow-xl">
+                <CardHeader className="p-5 border-b border-erp-border">
+                  <CardTitle className="text-xs font-bold text-erp-gold font-serif uppercase tracking-wider flex items-center gap-2">
                     <Landmark className="h-4 w-4" />
                     Datos para tu Transferencia Bancaria
                   </CardTitle>
@@ -197,32 +197,32 @@ export function OrderConfirmationClient({ order }: OrderConfirmationClientProps)
                     <span className="font-bold text-white">{settings.bank_account_holder || settings.company_name}</span>
                   </div>
 
-                  <div className="p-2.5 rounded-xl bg-[#08130E] border border-[#1B362A] flex items-center justify-between">
+                  <div className="p-2.5 rounded-xl bg-erp-bg border border-erp-border flex items-center justify-between">
                     <div>
-                      <span className="text-[10px] text-zinc-400 uppercase tracking-wider block">Alias:</span>
-                      <span className="font-mono font-bold text-[#E5C158] text-sm">
+                      <span className="text-[11px] text-zinc-400 uppercase tracking-wider block">Alias:</span>
+                      <span className="font-mono font-bold text-erp-gold-hover text-sm">
                         {settings.bank_alias || 'ELOHIM.PERFUMES.ARS'}
                       </span>
                     </div>
                     <button
                       onClick={() => handleCopy(settings.bank_alias || 'ELOHIM.PERFUMES.ARS', 'Alias')}
-                      className="px-2 py-1 rounded bg-[#13261E] text-zinc-300 hover:text-white text-[10px] font-bold cursor-pointer"
+                      className="px-2 py-1 rounded bg-erp-surface text-zinc-300 hover:text-white text-[11px] font-bold cursor-pointer"
                     >
                       Copiar
                     </button>
                   </div>
 
                   {settings.bank_cbu_cvu && (
-                    <div className="p-2.5 rounded-xl bg-[#08130E] border border-[#1B362A] flex items-center justify-between">
+                    <div className="p-2.5 rounded-xl bg-erp-bg border border-erp-border flex items-center justify-between">
                       <div className="min-w-0">
-                        <span className="text-[10px] text-zinc-400 uppercase tracking-wider block">CBU / CVU:</span>
+                        <span className="text-[11px] text-zinc-400 uppercase tracking-wider block">CBU / CVU:</span>
                         <span className="font-mono font-bold text-zinc-200 text-xs truncate block">
                           {settings.bank_cbu_cvu}
                         </span>
                       </div>
                       <button
                         onClick={() => handleCopy(settings.bank_cbu_cvu, 'CBU')}
-                        className="px-2 py-1 rounded bg-[#13261E] text-zinc-300 hover:text-white text-[10px] font-bold cursor-pointer shrink-0 ml-2"
+                        className="px-2 py-1 rounded bg-erp-surface text-zinc-300 hover:text-white text-[11px] font-bold cursor-pointer shrink-0 ml-2"
                       >
                         Copiar
                       </button>
@@ -231,10 +231,10 @@ export function OrderConfirmationClient({ order }: OrderConfirmationClientProps)
                 </CardContent>
               </Card>
             ) : (
-              <Card className="border border-[#1B362A] bg-[#13261E]/90 rounded-2xl shadow-xl">
-                <CardHeader className="p-5 border-b border-[#1B362A]">
+              <Card className="border border-erp-border bg-erp-surface/90 rounded-2xl shadow-xl">
+                <CardHeader className="p-5 border-b border-erp-border">
                   <CardTitle className="text-xs font-bold text-white font-serif uppercase tracking-wider flex items-center gap-2">
-                    <CreditCard className="h-4 w-4 text-[#D0A96B]" />
+                    <CreditCard className="h-4 w-4 text-erp-gold" />
                     Método de Pago Seleccionado
                   </CardTitle>
                 </CardHeader>
@@ -250,10 +250,10 @@ export function OrderConfirmationClient({ order }: OrderConfirmationClientProps)
             )}
 
             {/* DIRECCIÓN DE ENTREGA / RETIRO */}
-            <Card className="border border-[#1B362A] bg-[#13261E]/90 rounded-2xl shadow-xl">
-              <CardHeader className="p-5 border-b border-[#1B362A]">
+            <Card className="border border-erp-border bg-erp-surface/90 rounded-2xl shadow-xl">
+              <CardHeader className="p-5 border-b border-erp-border">
                 <CardTitle className="text-xs font-bold text-white font-serif uppercase tracking-wider flex items-center gap-2">
-                  <MapPin className="h-4 w-4 text-[#D0A96B]" />
+                  <MapPin className="h-4 w-4 text-erp-gold" />
                   Información de Entrega
                 </CardTitle>
               </CardHeader>
@@ -285,7 +285,7 @@ export function OrderConfirmationClient({ order }: OrderConfirmationClientProps)
         {/* BOTÓN DE RETORNO */}
         <div className="text-center pt-4">
           <Link href="/tienda">
-            <Button variant="outline" className="border-[#1B362A] text-zinc-300 hover:text-white hover:bg-[#13261E]">
+            <Button variant="outline" className="border-erp-border text-zinc-300 hover:text-white hover:bg-erp-surface">
               <ArrowLeft className="mr-2 h-4 w-4" /> Seguir Explorando Fragancias
             </Button>
           </Link>

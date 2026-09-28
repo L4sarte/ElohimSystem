@@ -36,8 +36,16 @@ export const getServiceSupabase = () => {
   if (!url) {
     throw new Error('NEXT_PUBLIC_SUPABASE_URL no configurado');
   }
-  
-  // Usar anon key como respaldo si no hay service key para evitar fallar en build estático
+
+  // Fail-closed en producción: sin service key explícita NO se permite bypass silencioso de RLS
+  // con la anon key (ocultaría fallos de permisos y degradaría la seguridad en silencio).
+  if (!serviceKey && process.env.NODE_ENV === 'production') {
+    throw new Error(
+      'SUPABASE_SERVICE_ROLE_KEY no configurada en producción. Configúrala en las variables de entorno del despliegue.'
+    );
+  }
+
+  // Usar anon key como respaldo SOLO fuera de producción (desarrollo/build estático)
   return createClient(
     url,
     serviceKey || supabaseAnonKey || 'placeholder-key',

@@ -4,6 +4,8 @@ import { getServiceSupabase } from '@/lib/supabase';
 import { UserRole } from '@/types';
 import { requireAdmin } from '@/lib/auth-checks';
 import { calculateFinancialTotals, resolveItemUnitCost } from '@/lib/financial-calculations';
+import { buildRecipeFallbackMap } from '@/lib/recipe-fallback';
+import { resolveBusinessRange, businessDayKey } from '@/lib/date-utils';
 import Decimal from 'decimal.js';
 
 export interface FinancialReportData {
@@ -79,56 +81,52 @@ export async function getFinancialReport(
     await requireAdmin();
 
     const serviceClient = getServiceSupabase();
-    const now = new Date();
 
-    let startDate: Date;
-    let endDate: Date;
+    // Rango de negocio ART (zona horaria comercial) — consistente en todo el sistema
+    const businessRange = resolveBusinessRange(range, customStartDate, customEndDate);
+    const isoStart = businessRange.start.toISOString();
+    const isoEnd = businessRange.end.toISOString();
+    const dateStartString = businessRange.startDay;
+    const dateEndString = businessRange.endDay;
 
-    if (customStartDate && customEndDate) {
-      const [sYear, sMonth, sDay] = customStartDate.split('-').map(Number);
-      const [eYear, eMonth, eDay] = customEndDate.split('-').map(Number);
-      startDate = new Date(Date.UTC(sYear, sMonth - 1, sDay, 0, 0, 0));
-      endDate = new Date(Date.UTC(eYear, eMonth - 1, eDay, 23, 59, 59, 999));
-    } else if (range === 'current_month') {
-      startDate = new Date(Date.UTC(now.getFullYear(), now.getMonth(), 1, 0, 0, 0));
-      endDate = new Date(Date.UTC(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999));
-    } else if (range === 'previous_month') {
-      startDate = new Date(Date.UTC(now.getFullYear(), now.getMonth() - 1, 1, 0, 0, 0));
-      endDate = new Date(Date.UTC(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999));
-    } else if (range === 'last_30_days') {
-      startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-      endDate = new Date();
-    } else if (range === 'current_year') {
-      startDate = new Date(Date.UTC(now.getFullYear(), 0, 1, 0, 0, 0));
-      endDate = new Date(Date.UTC(now.getFullYear(), 11, 31, 23, 59, 59, 999));
-    } else {
-      startDate = new Date(Date.UTC(now.getFullYear(), now.getMonth(), 1, 0, 0, 0));
-      endDate = new Date(Date.UTC(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999));
-    }
+    // 1. Consultas CONCURRENTES: ventas + OPEX + Cuentas por Cobrar + Devoluciones
+    // (las tres últimas son independientes de la cadena de ventas: eliminada la cascada secuencial)
+    const [salesRes, expensesRes, pendingReceivablesRes, returnsRes] = await Promise.all([
+      serviceClient
+        .from('sales')
+        .select('id, total_ars, payment_methods, created_at, status, gateway_fee_ars')
+        .gte('created_at', isoStart)
+        .lte('created_at', isoEnd)
+        .neq('status', 'voided')
+        .neq('status', 'pending_payment')
+        .order('created_at', { ascending: true }),
+      serviceClient
+        .from('operating_expenses')
+        .select('category, amount_ars, expense_date')
+        .gte('expense_date', dateStartString)
+        .lte('expense_date', dateEndString),
+      serviceClient
+        .from('accounts_receivable')
+        .select('total_amount_ars, paid_amount_ars')
+        .in('status', ['pending', 'overdue']),
+      serviceClient
+        .from('returns')
+        .select('refund_amount_ars')
+        .gte('created_at', isoStart)
+        .lte('created_at', isoEnd),
+    ]);
 
-    const isoStart = startDate.toISOString();
-    const isoEnd = endDate.toISOString();
-    const dateStartString = startDate.toISOString().split('T')[0];
-    const dateEndString = endDate.toISOString().split('T')[0];
-
-    // 1. Consultar ventas activas del período (excluyendo voided)
-    const { data: salesData, error: salesError } = await serviceClient
-      .from('sales')
-      .select('id, total_ars, payment_methods, created_at, status, gateway_fee_ars')
-      .gte('created_at', isoStart)
-      .lte('created_at', isoEnd)
-      .neq('status', 'voided')
-      .neq('status', 'pending_payment')
-      .order('created_at', { ascending: true });
-
-    if (salesError) throw salesError;
-    const sales = (salesData || []) as unknown as SaleRow[];
+    if (salesRes.error) throw salesRes.error;
+    if (expensesRes.error) throw expensesRes.error;
+    const sales = (salesRes.data || []) as unknown as SaleRow[];
+    const expenses = (expensesRes.data || []) as unknown as ExpenseRow[];
 
     // 2. Consultar ítems de ventas para calcular el COGS real usando la Cadena de Resolución
     const saleIds = sales.map((s) => s.id);
     let totalCogsDecimal = new Decimal(0);
     const saleCogsMap: Record<string, Decimal> = {};
     const unassignedCostProducts: string[] = [];
+    const estimatedWithoutRecipeProducts: string[] = [];
     let warningMessage: string | null = null;
 
     if (saleIds.length > 0) {
@@ -209,23 +207,33 @@ export async function getFinancialReport(
           }
         }
 
+        // Fallback 5: recetas BOM (tamaño real de muestra + costo de insumos) — sin constantes hardcodeadas
+        const recipeFallbackMap = await buildRecipeFallbackMap(missingCostProductIds);
+
         saleItems.forEach((item) => {
           const qty = new Decimal(item.quantity || 1);
 
           // Ejecutar cadena de resolución inteligente canónica
+          const recipeInfo = recipeFallbackMap[item.product_id];
           const costResolution = resolveItemUnitCost({
             itemUnitCostAtMoment: item.unit_cost_at_moment,
             productBaseCostArs: item.products?.base_cost_ars,
             lastPurchaseOrderCostArs: poCostMap[item.product_id]?.toNumber(),
             productType: item.products?.type,
-            decantMl: 5,
-            supplyCostArs: 559,
+            decantMl: recipeInfo?.sizeMl ?? null,
+            supplyCostArs: recipeInfo?.supplyCostArs ?? null,
           });
 
           if (!costResolution.hasCost) {
             const pName = item.products?.name || `Producto ID ${item.product_id}`;
             if (!unassignedCostProducts.includes(pName)) {
               unassignedCostProducts.push(pName);
+            }
+          } else if (costResolution.source === 'decant_calculated' && !recipeFallbackMap[item.product_id]) {
+            // Costo ESTIMADO con constantes por defecto: sin receta BOM que resuelva el tamaño real
+            const pName = item.products?.name || `Producto ID ${item.product_id}`;
+            if (!estimatedWithoutRecipeProducts.includes(pName)) {
+              estimatedWithoutRecipeProducts.push(pName);
             }
           }
 
@@ -243,20 +251,15 @@ export async function getFinancialReport(
         if (unassignedCostProducts.length > 0) {
           warningMessage = `${unassignedCostProducts.length} producto(s) sin costo base configurado (${unassignedCostProducts.slice(0, 3).join(', ')}${unassignedCostProducts.length > 3 ? '...' : ''})`;
         }
+
+        if (estimatedWithoutRecipeProducts.length > 0) {
+          const estMsg = `${estimatedWithoutRecipeProducts.length} producto(s) decant con costo ESTIMADO (sin receta BOM: ${estimatedWithoutRecipeProducts.slice(0, 3).join(', ')}${estimatedWithoutRecipeProducts.length > 3 ? '...' : ''})`;
+          warningMessage = warningMessage ? `${warningMessage}. ${estMsg}` : estMsg;
+        }
       }
     }
 
-    // 3. Consultar gastos operativos (OPEX)
-    const { data: expensesData, error: expError } = await serviceClient
-      .from('operating_expenses')
-      .select('category, amount_ars, expense_date')
-      .gte('expense_date', dateStartString)
-      .lte('expense_date', dateEndString);
-
-    if (expError) throw expError;
-    const expenses = (expensesData || []) as unknown as ExpenseRow[];
-
-    // 4. Procesar ventas diarias y comisiones de pasarela
+    // 3. Procesar ventas diarias y comisiones de pasarela
     let grossRevenueDecimal = new Decimal(0);
     let gatewayFeeDecimal = new Decimal(0);
     const dailyMap: Record<string, { ingresos: Decimal; cogs: Decimal; fees: Decimal; opex: Decimal }> = {};
@@ -281,11 +284,8 @@ export async function getFinancialReport(
       }
       gatewayFeeDecimal = gatewayFeeDecimal.plus(feeForSale);
 
-      // Agrupar por día para gráfico de tendencia
-      const createdDate = s.created_at ? new Date(s.created_at) : new Date();
-      const dayKey = isNaN(createdDate.getTime())
-        ? 'Hoy'
-        : createdDate.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' });
+      // Agrupar por día para gráfico de tendencia (clave de día de negocio ART)
+      const dayKey = businessDayKey(s.created_at);
 
       if (!dailyMap[dayKey]) {
         dailyMap[dayKey] = {
@@ -316,36 +316,26 @@ export async function getFinancialReport(
       }
       catMap[cat] = catMap[cat].plus(amt);
 
-      // Asignar OPEX al mapa diario si corresponde
+      // Asignar OPEX al mapa diario si corresponde (clave de día de negocio ART)
       if (e.expense_date) {
-        const [eY, eM, eD] = e.expense_date.split('-').map(Number);
-        const expDate = new Date(eY, eM - 1, eD);
-        const dayKey = expDate.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit' });
+        const dayKey = businessDayKey(e.expense_date);
         if (dailyMap[dayKey]) {
           dailyMap[dayKey].opex = dailyMap[dayKey].opex.plus(amt);
         }
       }
     });
 
-    // 5. Consultar Cuentas por Cobrar globales activas (Dinero en la calle)
-    const { data: pendingReceivablesData } = await serviceClient
-      .from('accounts_receivable')
-      .select('total_amount_ars, paid_amount_ars')
-      .in('status', ['pending', 'overdue']);
-
-    const totalAmountDueGlobal = (pendingReceivablesData || []).reduce(
+    // 5. Cuentas por Cobrar globales activas (Dinero en la calle)
+    // Acotada por status activo (pending/overdue): sin registros cerrados.
+    // Nota: sin LIMIT deliberadamente — truncar rompería la SUMA exacta de deuda;
+    // el bounding a escala = agregación SQL (pendiente de migración si se requiere).
+    const totalAmountDueGlobal = (pendingReceivablesRes.data || []).reduce(
       (sum: number, r: any) => sum + Math.max(0, Number(r.total_amount_ars || 0) - Number(r.paid_amount_ars || 0)),
       0
     );
 
-    // 6. Consultar Devoluciones del Período
-    const { data: returnsData } = await serviceClient
-      .from('returns')
-      .select('refund_amount_ars')
-      .gte('created_at', isoStart)
-      .lte('created_at', isoEnd);
-
-    const totalRefundsArs = (returnsData || []).reduce(
+    // 6. Devoluciones del Período (consultadas concurrentemente al inicio)
+    const totalRefundsArs = (returnsRes.data || []).reduce(
       (sum: number, r: any) => sum + Number(r.refund_amount_ars || 0),
       0
     );

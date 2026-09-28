@@ -93,15 +93,15 @@ export function ReturnModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200 overflow-y-auto">
-      <div className="w-[95vw] sm:max-w-lg bg-[#13261E] border border-[#1B362A] rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 my-auto">
+      <div className="w-[95vw] sm:max-w-lg bg-erp-surface border border-erp-border rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 my-auto">
         
         {!confirmStep ? (
           <form onSubmit={handleStartSubmit}>
             
-            <CardHeader className="border-b border-[#1B362A] pb-4">
+            <CardHeader className="border-b border-erp-border pb-4">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-lg font-bold text-white font-serif flex items-center gap-2">
-                  <RotateCcw className="h-5 w-5 text-[#D0A96B]" />
+                  <RotateCcw className="h-5 w-5 text-erp-gold" />
                   Procesar Devolución / Cambio
                 </CardTitle>
                 <button
@@ -127,20 +127,20 @@ export function ReturnModal({
               )}
 
               {/* DETALLES DE LA VENTA ORIGINAL */}
-              <div className="p-3.5 rounded-xl bg-[#08130E] border border-[#1B362A] space-y-2 text-xs">
+              <div className="p-3.5 rounded-xl bg-erp-bg border border-erp-border space-y-2 text-xs">
                 <div className="flex justify-between font-bold text-zinc-300 font-serif">
                   <span>Total Cobrado:</span>
-                  <span className="font-mono text-[#D0A96B]">${sale.total_ars?.toLocaleString('es-AR')} ARS</span>
+                  <span className="font-mono text-erp-gold">${sale.total_ars?.toLocaleString('es-AR')} ARS</span>
                 </div>
 
                 {discountAmount > 0 && (
-                  <div className="flex justify-between text-emerald-400 font-mono text-[11px] pt-1 border-t border-[#1B362A]/40">
+                  <div className="flex justify-between text-emerald-400 font-mono text-[11px] pt-1 border-t border-erp-border/40">
                     <span>Subtotal Original: ${subtotalOriginal.toLocaleString('es-AR')}</span>
                     <span>Descuento Aplicado: -${discountAmount.toLocaleString('es-AR')} ({discountPct}%)</span>
                   </div>
                 )}
 
-                <div className="space-y-1 pt-1 border-t border-[#1B362A]/60 max-h-32 overflow-y-auto font-mono text-[11px]">
+                <div className="space-y-1 pt-1 border-t border-erp-border/60 max-h-32 overflow-y-auto font-mono text-[11px]">
                   {sale.sale_items && sale.sale_items.length > 0 ? (
                     sale.sale_items.map((item: any, idx: number) => (
                       <div key={idx} className="flex justify-between text-zinc-400">
@@ -164,13 +164,13 @@ export function ReturnModal({
                   placeholder="Ej. Cambio de opinión, falla de perfume, caja dañada..."
                   value={returnReason}
                   onChange={(e) => setReturnReason(e.target.value)}
-                  className="bg-[#08130E] border-[#1B362A] text-white"
+                  className="bg-erp-bg border-erp-border text-white"
                 />
               </div>
 
               {/* MONTO A REINTEGRAR (ARS) */}
               <div className="space-y-1.5">
-                <label className="text-xs font-bold uppercase tracking-wider text-[#D0A96B]">
+                <label className="text-xs font-bold uppercase tracking-wider text-erp-gold">
                   Monto a Reintegrar al Cliente (ARS) *
                 </label>
                 <div className="relative">
@@ -182,26 +182,26 @@ export function ReturnModal({
                     placeholder={`Default: $${sale.total_ars?.toLocaleString('es-AR')}`}
                     value={refundAmountInput}
                     onChange={(e) => setRefundAmountInput(e.target.value)}
-                    className="pl-7 bg-[#08130E] border-[#1B362A] text-white font-mono font-bold text-sm"
+                    className="pl-7 bg-erp-bg border-erp-border text-white font-mono font-bold text-sm"
                   />
                 </div>
               </div>
 
               {/* REINGRESAR AL STOCK CHECKBOX */}
-              <div className="p-3.5 rounded-xl bg-[#08130E] border border-[#1B362A] space-y-2">
+              <div className="p-3.5 rounded-xl bg-erp-bg border border-erp-border space-y-2">
                 <div className="flex items-center gap-3">
                   <input
                     type="checkbox"
                     id="restock_checkbox"
                     checked={restockItem}
                     onChange={(e) => setRestockItem(e.target.checked)}
-                    className="h-4 w-4 rounded border-[#1B362A] bg-[#13261E] text-[#D0A96B] focus:ring-[#D0A96B] cursor-pointer"
+                    className="h-4 w-4 rounded border-erp-border bg-erp-surface text-erp-gold focus:ring-erp-gold cursor-pointer"
                   />
                   <label htmlFor="restock_checkbox" className="text-xs font-bold text-white cursor-pointer select-none flex items-center gap-1.5">
-                    <PackageCheck className="h-4 w-4 text-[#D0A96B]" /> Reingresar mercadería al Stock de Inventario
+                    <PackageCheck className="h-4 w-4 text-erp-gold" /> Reingresar mercadería al Stock de Inventario
                   </label>
                 </div>
-                <p className="text-[10px] text-zinc-400 leading-snug pl-7">
+                <p className="text-[11px] text-zinc-400 leading-snug pl-7">
                   {restockItem ? (
                     <span className="text-emerald-400">
                       ✔ El inventario se incrementará automáticamente con los ítems devueltos.
@@ -216,18 +216,18 @@ export function ReturnModal({
 
             </CardContent>
 
-            <CardFooter className="border-t border-[#1B362A] pt-4 flex justify-end gap-3 bg-[#08130E]/60 px-6 py-4">
+            <CardFooter className="border-t border-erp-border pt-4 flex justify-end gap-3 bg-erp-bg/60 px-6 py-4">
               <Button
                 type="button"
                 variant="outline"
                 onClick={onClose}
-                className="border-[#1B362A] bg-[#13261E] text-zinc-300 hover:bg-zinc-800"
+                className="border-erp-border bg-erp-surface text-zinc-300 hover:bg-zinc-800"
               >
                 Cancelar
               </Button>
               <Button
                 type="submit"
-                className="bg-[#D0A96B] hover:bg-[#E5C158] text-[#08130E] font-extrabold text-xs shadow-md shadow-[#D0A96B]/20 cursor-pointer"
+                className="bg-erp-gold hover:bg-erp-gold-hover text-erp-bg font-extrabold text-xs shadow-md shadow-erp-gold/20 cursor-pointer"
               >
                 Continuar a Confirmación
               </Button>
@@ -238,7 +238,7 @@ export function ReturnModal({
           /* STEP DE CONFIRMACIÓN DE SEGURIDAD ATÓMICA */
           <div className="p-6 text-center space-y-5 animate-in zoom-in-95 duration-200">
             <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/30 mb-1 shadow-lg shadow-amber-500/10">
-              <AlertTriangle className="h-8 w-8 text-[#D0A96B]" />
+              <AlertTriangle className="h-8 w-8 text-erp-gold" />
             </div>
 
             <div>
@@ -248,7 +248,7 @@ export function ReturnModal({
               </p>
             </div>
 
-            <div className="bg-[#08130E] p-4 rounded-xl border border-[#1B362A] space-y-2 text-left text-xs font-mono">
+            <div className="bg-erp-bg p-4 rounded-xl border border-erp-border space-y-2 text-left text-xs font-mono">
               <div className="flex justify-between text-zinc-400">
                 <span>N° Ticket:</span>
                 <span className="text-white font-bold">#{ticketNum}</span>
@@ -263,7 +263,7 @@ export function ReturnModal({
                   {restockItem ? 'Sí (Stock +Qty)' : 'No (Producto dañado)'}
                 </span>
               </div>
-              <div className="flex justify-between text-sm font-bold pt-2 border-t border-[#1B362A]">
+              <div className="flex justify-between text-sm font-bold pt-2 border-t border-erp-border">
                 <span>Egreso de Caja Chica:</span>
                 <span className="text-rose-400">-${valRefundAmount.toLocaleString('es-AR')} ARS</span>
               </div>
@@ -275,7 +275,7 @@ export function ReturnModal({
                 variant="outline"
                 onClick={() => setConfirmStep(false)}
                 disabled={submitting}
-                className="border-[#1B362A] bg-[#08130E] text-zinc-300 hover:bg-zinc-800"
+                className="border-erp-border bg-erp-bg text-zinc-300 hover:bg-zinc-800"
               >
                 Modificar Datos
               </Button>
