@@ -94,6 +94,8 @@ export interface DashboardData {
   estimatedProfitArs: number; // Ganancia Neta Real (Margen Bruto - OPEX - Comisiones)
   estimatedProfitUsd: number;
   performanceWarning?: string | null;
+  /** Advertencia de degradación grácil: márgenes no calculables (ítems no disponibles). */
+  warningMessage?: string | null;
   salesByDate: Array<{
     date: string;
     Ventas: number;
@@ -235,6 +237,8 @@ export async function getDashboardData(
     const validSaleIds = sales.map((s) => s.id);
 
     // 2. Obtener los ítems de ventas activas con costo para rentabilidad
+    let cogsDegraded = false;
+    let warningMessage: string | null = null;
     let saleItems: DbSaleItemRow[] = [];
     if (validSaleIds.length > 0) {
       let { data: itemsData, error: itemsError } = await supabase
@@ -275,8 +279,14 @@ export async function getDashboardData(
         itemsError = fallbackRes.error;
       }
 
-      if (itemsError) throw itemsError;
-      saleItems = (itemsData || []) as unknown as DbSaleItemRow[];
+      // Degradación grácil: se registra el error y el dashboard carga; los márgenes
+      // se presentan en CERO (nunca fabricados con COGS=0) y el resto de métricas es confiable.
+      if (itemsError) {
+        console.error('[DASHBOARD_ITEMS_ERROR]:', itemsError);
+        cogsDegraded = true;
+        warningMessage = 'El desglose de márgenes no pudo calcularse (ítems de venta no disponibles). El resto de las métricas es confiable.';
+      }
+      saleItems = cogsDegraded ? [] : ((itemsData || []) as unknown as DbSaleItemRow[]);
     }
 
     // 3. Obtener alertas de stock crítico (< 3 botellas comerciales o frascos vacíos)
@@ -379,7 +389,8 @@ export async function getDashboardData(
       const saleFee = Number(sale.gateway_fee_ars || 0);
 
       // Margen Bruto de la Venta SIN clamp: las pérdidas individuales son reales (coincidir con el P&L)
-      const saleGrossMargin = saleTotal - saleCogs;
+      // Degradado: márgenes en CERO explícitos (no fabricados con COGS=0)
+      const saleGrossMargin = cogsDegraded ? 0 : (saleTotal - saleCogs);
 
       totalRevenueArs += saleTotal;
       totalRevenueUsd += Number(sale.total_usd_equivalent || 0);
@@ -390,8 +401,8 @@ export async function getDashboardData(
     });
 
     const totalOpexArs = expenses.reduce((sum, e) => sum + Number(e.amount_ars || 0), 0);
-    const grossMarginArs = totalRevenueArs - totalCogsArs;
-    const estimatedProfitArs = Math.round(grossMarginArs - totalOpexArs - totalGatewayFees);
+    const grossMarginArs = cogsDegraded ? 0 : (totalRevenueArs - totalCogsArs);
+    const estimatedProfitArs = cogsDegraded ? 0 : Math.round(grossMarginArs - totalOpexArs - totalGatewayFees);
 
     const grossMarginPercent = totalRevenueArs > 0
       ? Number(((grossMarginArs / totalRevenueArs) * 100).toFixed(1))
@@ -460,7 +471,7 @@ export async function getDashboardData(
         const currentProfit = group ? Math.round(group.profit) : 0; // Ganancia comercial real limpia (intacta)
         const currentFees = group ? group.fees : 0;
         const currentOpex = dailyOpexMap[dateKey] || 0;
-        const currentNetProfit = Math.round((group ? group.profit : 0) - currentFees - currentOpex);
+        const currentNetProfit = cogsDegraded ? 0 : Math.round((group ? group.profit : 0) - currentFees - currentOpex);
         const realPrevMonthTotal = Math.round(prevMonthSalesByDay[day] || 0);
 
         salesByDate.push({
@@ -486,7 +497,7 @@ export async function getDashboardData(
         const currentProfit = group ? Math.round(group.profit) : 0;
         const currentFees = group ? group.fees : 0;
         const currentOpex = dailyOpexMap[date] || 0;
-        const currentNetProfit = Math.round((group ? group.profit : 0) - currentFees - currentOpex);
+        const currentNetProfit = cogsDegraded ? 0 : Math.round((group ? group.profit : 0) - currentFees - currentOpex);
         const dayNumber = group?.dayNum || Number(date.split('/')[0]);
         const realPrevMonthTotal = Math.round(prevMonthSalesByDay[dayNumber] || 0);
 
@@ -521,6 +532,7 @@ export async function getDashboardData(
           client_name: sale.clients?.name || 'Consumidor Final',
         })),
         performanceWarning,
+        warningMessage,
       },
     };
   } catch (error: unknown) {
@@ -547,6 +559,8 @@ export interface RetailKPIsData {
   totalRevenueArs: number;
   averageOrderValueArs: number;
   topBestSellers: BestSellerProduct[];
+  /** Advertencia de degradación grácil (ranking no calculable). */
+  warningMessage?: string | null;
 }
 
 interface DbRetailItemRow {
@@ -662,7 +676,21 @@ export async function getRetailKPIs(
         itemsError = fallbackRes.error;
       }
 
-      if (itemsError) throw itemsError;
+      // Degradación grácil: las métricas de ventas (conteo/ingresos/AOV) siguen
+      // siendo confiables; el ranking queda vacío con advertencia explícita.
+      if (itemsError) {
+        console.error('[RETAIL_KPIS_ITEMS_ERROR]:', itemsError);
+        return {
+          success: true,
+          data: {
+            totalSalesCount,
+            totalRevenueArs,
+            averageOrderValueArs,
+            topBestSellers: [],
+            warningMessage: 'El ranking de productos no pudo calcularse (ítems de venta no disponibles).',
+          },
+        };
+      }
 
       const items = (itemsData || []) as unknown as DbRetailItemRow[];
       const productGroupMap: Record<string, BestSellerProduct> = {};

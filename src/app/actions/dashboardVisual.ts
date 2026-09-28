@@ -5,6 +5,7 @@ import { UserRole } from '@/types';
 import { requireAdmin } from '@/lib/auth-checks';
 import { resolveItemUnitCost } from '@/lib/financial-calculations';
 import { buildRecipeFallbackMap } from '@/lib/recipe-fallback';
+import { toBusinessInstant } from '@/lib/date-utils';
 import Decimal from 'decimal.js';
 
 export interface VisualDashboardData {
@@ -28,6 +29,8 @@ export interface VisualDashboardData {
     totalRevenueArs: number;
   }>;
   totalCurrentMonthGross: number;
+  /** Advertencia de degradación grácil: márgenes no calculables (ítems no disponibles). */
+  warning?: string | null;
 }
 
 const MONTH_NAMES_SHORT = [
@@ -144,69 +147,89 @@ export async function getVisualDashboardData(role?: UserRole): Promise<{
     const allSaleIds = allSales.map((s) => s.id);
     let allItems: DbVisualItemRow[] = [];
 
+    // Degradación grácil de márgenes: si los ítems fallan, se registra el error y el
+    // resto del dashboard carga; las ganancias se presentan en CERO (nunca márgenes
+    // fabricados del 100% con COGS=0).
+    let cogsDegraded = false;
+    let degradationWarning: string | null = null;
+
     if (allSaleIds.length > 0) {
-      const { data: itemsData, error: itemsErr } = await supabase
+      let { data: itemsData, error: itemsErr } = await supabase
         .from('sale_items')
         .select('sale_id, product_id, quantity, price_ars_at_moment, unit_cost_at_moment, products(name, brand, type, base_cost_ars)')
         .in('sale_id', allSaleIds);
 
-      if (itemsErr) {
-        // Sin fallback silencioso: un saleCogsMap vacío computaría márgenes irreales del 100% (ingreso - 0 COGS)
-        throw itemsErr;
+      // Tolerancia 42703: si la columna unit_cost_at_moment no existe en la BD, reintentar sin ella
+      if (itemsErr && itemsErr.message?.includes('unit_cost_at_moment')) {
+        const fallbackRes = await supabase
+          .from('sale_items')
+          .select('sale_id, product_id, quantity, price_ars_at_moment, products(name, brand, type, base_cost_ars)')
+          .in('sale_id', allSaleIds);
+        itemsData = fallbackRes.data as typeof itemsData;
+        itemsErr = fallbackRes.error;
       }
-      allItems = (itemsData || []) as unknown as DbVisualItemRow[];
+
+      if (itemsErr) {
+        console.error('[DASHBOARD_VISUAL_ITEMS_ERROR]:', itemsErr);
+        cogsDegraded = true;
+        degradationWarning = 'El desglose de márgenes no pudo calcularse (ítems de venta no disponibles). Las ganancias se muestran en cero; el resto de las métricas es confiable.';
+      } else {
+        allItems = (itemsData || []) as unknown as DbVisualItemRow[];
+      }
     }
 
     // --- Mapear costo canónico por venta (misma cadena que el P&L) ---
     const saleCogsMap = new Map<string, Decimal>();
 
-    // Detectar productos que requieren fallbacks de costo (sin congelado ni de catálogo)
-    const missingCostProductIds = new Set<string>();
-    allItems.forEach((item: any) => {
-      const catCost = Number(item.products?.base_cost_ars || 0);
-      if (catCost <= 0 && item.product_id) {
-        missingCostProductIds.add(item.product_id);
-      }
-    });
-
-    // Fallbacks canónicos: último costo de compra + recetas BOM (sin constantes hardcodeadas)
-    const poCostMap: Record<string, Decimal> = {};
-    if (missingCostProductIds.size > 0) {
-      const { data: poItems } = await supabase
-        .from('purchase_order_items')
-        .select('product_id, unit_cost, created_at')
-        .in('product_id', Array.from(missingCostProductIds))
-        .order('created_at', { ascending: false });
-
-      if (poItems) {
-        poItems.forEach((poItem: any) => {
-          if (!poCostMap[poItem.product_id] && Number(poItem.unit_cost) > 0) {
-            poCostMap[poItem.product_id] = new Decimal(poItem.unit_cost);
-          }
-        });
-      }
-    }
-    const recipeFallbackMap = await buildRecipeFallbackMap(missingCostProductIds);
-
-    allItems.forEach((item: any) => {
-      const qty = new Decimal(item.quantity || 1);
-      const recipeInfo = recipeFallbackMap[item.product_id];
-
-      // Cadena canónica de resolución de costo unitario (idéntica a analytics.ts)
-      const costResolution = resolveItemUnitCost({
-        itemUnitCostAtMoment: item.unit_cost_at_moment,
-        productBaseCostArs: item.products?.base_cost_ars,
-        lastPurchaseOrderCostArs: poCostMap[item.product_id]?.toNumber(),
-        productType: item.products?.type,
-        decantMl: recipeInfo?.sizeMl ?? null,
-        supplyCostArs: recipeInfo?.supplyCostArs ?? null,
+    if (!cogsDegraded) {
+      // Detectar productos que requieren fallbacks de costo (sin congelado ni de catálogo)
+      const missingCostProductIds = new Set<string>();
+      allItems.forEach((item: any) => {
+        const catCost = Number(item.products?.base_cost_ars || 0);
+        if (catCost <= 0 && item.product_id) {
+          missingCostProductIds.add(item.product_id);
+        }
       });
 
-      const itemCost = new Decimal(costResolution.unitCost).times(qty);
+      // Fallbacks canónicos: último costo de compra + recetas BOM (sin constantes hardcodeadas)
+      const poCostMap: Record<string, Decimal> = {};
+      if (missingCostProductIds.size > 0) {
+        const { data: poItems } = await supabase
+          .from('purchase_order_items')
+          .select('product_id, unit_cost, created_at')
+          .in('product_id', Array.from(missingCostProductIds))
+          .order('created_at', { ascending: false });
 
-      const prev = saleCogsMap.get(item.sale_id) || new Decimal(0);
-      saleCogsMap.set(item.sale_id, prev.plus(itemCost));
-    });
+        if (poItems) {
+          poItems.forEach((poItem: any) => {
+            if (!poCostMap[poItem.product_id] && Number(poItem.unit_cost) > 0) {
+              poCostMap[poItem.product_id] = new Decimal(poItem.unit_cost);
+            }
+          });
+        }
+      }
+      const recipeFallbackMap = await buildRecipeFallbackMap(missingCostProductIds);
+
+      allItems.forEach((item: any) => {
+        const qty = new Decimal(item.quantity || 1);
+        const recipeInfo = recipeFallbackMap[item.product_id];
+
+        // Cadena canónica de resolución de costo unitario (idéntica a analytics.ts)
+        const costResolution = resolveItemUnitCost({
+          itemUnitCostAtMoment: item.unit_cost_at_moment,
+          productBaseCostArs: item.products?.base_cost_ars,
+          lastPurchaseOrderCostArs: poCostMap[item.product_id]?.toNumber(),
+          productType: item.products?.type,
+          decantMl: recipeInfo?.sizeMl ?? null,
+          supplyCostArs: recipeInfo?.supplyCostArs ?? null,
+        });
+
+        const itemCost = new Decimal(costResolution.unitCost).times(qty);
+
+        const prev = saleCogsMap.get(item.sale_id) || new Decimal(0);
+        saleCogsMap.set(item.sale_id, prev.plus(itemCost));
+      });
+    }
 
     // Mapear ventas y gastos a cada uno de los 6 meses
     interface MonthBucket {
@@ -233,12 +256,12 @@ export async function getVisualDashboardData(role?: UserRole): Promise<{
       });
     }
 
-    // Distribuir ventas
+    // Distribuir ventas (asignación por mes de negocio ART)
     allSales.forEach((sale) => {
       if (!sale.created_at) return;
-      const sDate = new Date(sale.created_at);
-      const sYear = sDate.getFullYear();
-      const sMonth0 = sDate.getMonth();
+      const sDate = toBusinessInstant(sale.created_at);
+      const sYear = sDate ? sDate.getUTCFullYear() : 0;
+      const sMonth0 = sDate ? sDate.getUTCMonth() : 0;
 
       const bucket = monthBuckets.find((b) => b.year === sYear && b.month0 === sMonth0);
       if (bucket) {
@@ -267,8 +290,9 @@ export async function getVisualDashboardData(role?: UserRole): Promise<{
 
     // Construir monthlyRevenueData
     const monthlyRevenueData = monthBuckets.map((b) => {
-      const grossProfit = b.gross.minus(b.cogs);
-      const net = grossProfit.minus(b.fees).minus(b.opex);
+      // Degradado: márgenes en CERO explícitos (nunca fabricados con COGS=0)
+      const grossProfit = cogsDegraded ? new Decimal(0) : b.gross.minus(b.cogs);
+      const net = cogsDegraded ? new Decimal(0) : grossProfit.minus(b.fees).minus(b.opex);
       return {
         month: b.label,
         ingresosBrutos: Math.round(b.gross.toNumber()),
@@ -418,6 +442,7 @@ export async function getVisualDashboardData(role?: UserRole): Promise<{
         paymentMethodDistribution,
         topSellingProducts,
         totalCurrentMonthGross: Math.round(totalCurMonthGross.toNumber()),
+        warning: degradationWarning,
       },
     };
   } catch (error: unknown) {

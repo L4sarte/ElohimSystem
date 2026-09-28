@@ -4,6 +4,8 @@ import { getServiceSupabase, isSupabaseConfigured } from '@/lib/supabase';
 import { UserRole } from '@/types';
 import { requireAdmin, requireAuth } from '@/lib/auth-checks';
 import { resolveBusinessRange } from '@/lib/date-utils';
+import { resolveItemUnitCost } from '@/lib/financial-calculations';
+import { buildRecipeFallbackMap } from '@/lib/recipe-fallback';
 import Decimal from 'decimal.js';
 
 /**
@@ -82,6 +84,7 @@ interface DbFormatItemRow {
   products?: {
     name?: string | null;
     type?: string | null;
+    base_cost_ars?: number | null;
   } | null;
 }
 
@@ -138,16 +141,55 @@ export async function getFormatMarginAnalysis(
     // 2. Ítems vendidos con formato y costo congelado
     let items: DbFormatItemRow[] = [];
     if (saleIds.length > 0) {
-      const { data: itemsData, error: itemsError } = await supabase
+      let { data: itemsData, error: itemsError } = await supabase
         .from('sale_items')
-        .select('sale_id, product_id, quantity, price_ars_at_moment, unit_cost_at_moment, products ( name, type )')
+        .select('sale_id, product_id, quantity, price_ars_at_moment, unit_cost_at_moment, products ( name, type, base_cost_ars )')
         .in('sale_id', saleIds);
+
+      // Tolerancia 42703: si la columna unit_cost_at_moment no existe en la BD, reintentar sin ella
+      if (itemsError && itemsError.message?.includes('unit_cost_at_moment')) {
+        const fallbackRes = await supabase
+          .from('sale_items')
+          .select('sale_id, product_id, quantity, price_ars_at_moment, products ( name, type, base_cost_ars )')
+          .in('sale_id', saleIds);
+        itemsData = fallbackRes.data as typeof itemsData;
+        itemsError = fallbackRes.error;
+      }
 
       if (itemsError) throw itemsError;
       items = (itemsData || []) as unknown as DbFormatItemRow[];
     }
 
-    // 3. Agregación por formato con Decimal.js
+    // 3. Fallbacks canónicos de costo (misma cadena que el P&L) para ítems sin costo
+    // congelado: último costo de compra + recetas BOM (tamaño y costos reales)
+    const missingCostProductIds = new Set<string>();
+    items.forEach((item) => {
+      const catCost = Number(item.products?.base_cost_ars || 0);
+      const momentCost = Number(item.unit_cost_at_moment || 0);
+      if (catCost <= 0 && momentCost <= 0 && item.product_id) {
+        missingCostProductIds.add(item.product_id);
+      }
+    });
+
+    const poCostMap: Record<string, Decimal> = {};
+    if (missingCostProductIds.size > 0) {
+      const { data: poItems } = await supabase
+        .from('purchase_order_items')
+        .select('product_id, unit_cost, created_at')
+        .in('product_id', Array.from(missingCostProductIds))
+        .order('created_at', { ascending: false });
+
+      if (poItems) {
+        poItems.forEach((poItem: any) => {
+          if (!poCostMap[poItem.product_id] && Number(poItem.unit_cost) > 0) {
+            poCostMap[poItem.product_id] = new Decimal(poItem.unit_cost);
+          }
+        });
+      }
+    }
+    const recipeFallbackMap = await buildRecipeFallbackMap(missingCostProductIds);
+
+    // 4. Agregación por formato con Decimal.js
     const buckets = new Map<'decant_liquid' | 'bottle', FormatBucket>();
     const ensureBucket = (format: 'decant_liquid' | 'bottle'): FormatBucket => {
       let bucket = buckets.get(format);
@@ -162,11 +204,23 @@ export async function getFormatMarginAnalysis(
       const format: 'decant_liquid' | 'bottle' = item.products?.type === 'decant_liquid' ? 'decant_liquid' : 'bottle';
       const bucket = ensureBucket(format);
       const qty = new Decimal(item.quantity || 0);
+      const recipeInfo = recipeFallbackMap[item.product_id];
+
+      // Cadena canónica de resolución de costo unitario (idéntica al P&L):
+      // costo congelado -> BOM/decant calculado -> catálogo -> última compra
+      const costResolution = resolveItemUnitCost({
+        itemUnitCostAtMoment: item.unit_cost_at_moment,
+        productBaseCostArs: item.products?.base_cost_ars,
+        lastPurchaseOrderCostArs: poCostMap[item.product_id]?.toNumber(),
+        productType: item.products?.type,
+        decantMl: recipeInfo?.sizeMl ?? null,
+        supplyCostArs: recipeInfo?.supplyCostArs ?? null,
+      });
 
       bucket.salesCount.add(item.sale_id);
       bucket.unitsSold = bucket.unitsSold.plus(qty);
       bucket.revenue = bucket.revenue.plus(new Decimal(item.price_ars_at_moment || 0).times(qty));
-      bucket.cost = bucket.cost.plus(new Decimal(item.unit_cost_at_moment || 0).times(qty));
+      bucket.cost = bucket.cost.plus(new Decimal(costResolution.unitCost).times(qty));
     });
 
     const rows: FormatMarginRow[] = (['decant_liquid', 'bottle'] as const).map((format) => {
