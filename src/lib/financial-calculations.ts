@@ -105,8 +105,24 @@ export interface ResolvedCostResult {
  */
 export function resolveItemUnitCost(params: ResolveItemCostParams): ResolvedCostResult {
   if (params.itemUnitCostAtMoment !== undefined && params.itemUnitCostAtMoment !== null && Number(params.itemUnitCostAtMoment) > 0) {
+    const rawCost = Number(params.itemUnitCostAtMoment);
+    const baseCost = Number(params.productBaseCostArs || 0);
+
+    // Detección y saneamiento de registros históricos congelados a 1 ml:
+    // Si el producto es decant_liquid y unit_cost_at_moment <= baseCost * 1.5,
+    // significa que se congeló solo 1 ml en lugar del volumen completo (ej. 5 o 10 ml).
+    // Recalculamos con base en decantMl * baseCost para proteger el P&L histórico.
+    if (params.productType === 'decant_liquid' && baseCost > 0 && rawCost <= (baseCost * 1.5)) {
+      const ml = Number(params.decantMl || 5);
+      return {
+        unitCost: new Decimal(baseCost).times(ml).toNumber(),
+        source: 'decant_calculated',
+        hasCost: true,
+      };
+    }
+
     return {
-      unitCost: Number(params.itemUnitCostAtMoment),
+      unitCost: rawCost,
       source: 'unit_cost_at_moment',
       hasCost: true,
     };
@@ -116,7 +132,6 @@ export function resolveItemUnitCost(params: ResolveItemCostParams): ResolvedCost
   if (params.productType === 'decant_liquid') {
     const ml = Number(params.decantMl || 5);
     const mlCost = Number(params.productBaseCostArs || 0);
-    const supplyCost = Number(params.supplyCostArs || 559); // Costo frasco con válvula por defecto
 
     if (params.recipeCostArs !== undefined && params.recipeCostArs !== null && Number(params.recipeCostArs) > 0) {
       return {
@@ -127,7 +142,8 @@ export function resolveItemUnitCost(params: ResolveItemCostParams): ResolvedCost
     }
 
     if (mlCost > 0) {
-      const calculatedDecantCost = new Decimal(mlCost).times(ml).plus(supplyCost).toNumber();
+      // Regla Elohim Import: base_cost_ars ya contempla insumos. Costo = base_cost_ars * decant_ml.
+      const calculatedDecantCost = new Decimal(mlCost).times(ml).toNumber();
       return {
         unitCost: calculatedDecantCost,
         source: 'decant_calculated',

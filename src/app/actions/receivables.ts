@@ -110,7 +110,8 @@ export async function registerDebtPayment(
   role: UserRole,
   receivableId: string,
   amountPaid: number,
-  notes?: string
+  notes?: string,
+  treasuryAccountId?: string
 ): Promise<{ success: boolean; newPaid?: number; status?: string; warning?: string; error?: string }> {
   try {
     await requireAuth();
@@ -119,6 +120,7 @@ export async function registerDebtPayment(
       receivable_id: receivableId,
       amount_paid: amountPaid,
       notes,
+      treasury_account_id: treasuryAccountId || undefined,
     });
 
     if (!validation.success) {
@@ -197,11 +199,18 @@ export async function registerDebtPayment(
       }
     }
 
-    // 2c. IMPACTAR INGRESO EN TESORERÍA (Emparejando cuenta Efectivo)
+    // 2c. IMPACTAR INGRESO EN TESORERÍA (respetando cuenta seleccionada o fallback inteligente)
     let treasuryWarning: string | null = null;
     const resAcc = await getTreasuryAccounts();
+    let targetAccId: string | null = clean.treasury_account_id || null;
+    let isCashAccount = true;
+
     if (resAcc.success && resAcc.data && resAcc.data.length > 0) {
-      const targetAcc = resAcc.data.find(a => a.account_type === 'cash' || a.account_name.toLowerCase().includes('efectivo')) || resAcc.data[0];
+      const matchedAcc = targetAccId ? resAcc.data.find(a => a.id === targetAccId) : null;
+      const targetAcc = matchedAcc || resAcc.data.find(a => a.account_type === 'cash' || a.account_name.toLowerCase().includes('efectivo')) || resAcc.data[0];
+      targetAccId = targetAcc.id;
+      isCashAccount = targetAcc.account_type === 'cash' || targetAcc.account_name.toLowerCase().includes('efectivo');
+
       const depositOk = await depositToAccount(
         targetAcc.id,
         Number(clean.amount_paid),
@@ -215,26 +224,28 @@ export async function registerDebtPayment(
     }
 
     // 3. REGISTRO EN CAJA FÍSICA ACTIVA (cash_movements)
-    // Verificar si el vendedor tiene un turno de caja abierto en cash_shifts
-    const { data: openShift } = await supabase
-      .from('cash_shifts')
-      .select('id')
-      .eq('status', 'open')
-      .order('opened_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
+    // Solo registrar en caja de mostrador si la cuenta destino es de tipo efectivo
+    if (isCashAccount) {
+      const { data: openShift } = await supabase
+        .from('cash_shifts')
+        .select('id')
+        .eq('status', 'open')
+        .order('opened_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
-    if (openShift) {
-      const { error: moveError } = await supabase.from('cash_movements').insert({
-        shift_id: openShift.id,
-        type: 'in',
-        amount_ars: Number(clean.amount_paid),
-        amount_usd: 0,
-        description: `Cobro Cta Cte - Cliente: ${clientName} (Deuda #${clean.receivable_id.split('-')[0].toUpperCase()})`,
-      });
+      if (openShift) {
+        const { error: moveError } = await supabase.from('cash_movements').insert({
+          shift_id: openShift.id,
+          type: 'in',
+          amount_ars: Number(clean.amount_paid),
+          amount_usd: 0,
+          description: `Cobro Cta Cte - Cliente: ${clientName} (Deuda #${clean.receivable_id.split('-')[0].toUpperCase()})`,
+        });
 
-      if (moveError) {
-        console.warn('No se pudo insertar el movimiento de caja automático:', moveError);
+        if (moveError) {
+          console.warn('Advertencia al registrar movimiento en cash_movements:', moveError.message);
+        }
       }
     }
 

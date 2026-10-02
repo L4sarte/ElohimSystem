@@ -28,6 +28,27 @@ export interface ReceiptItem {
   totalArs: number;
 }
 
+/** Selección de cuentas de tesorería por flujo de cobro (split payment). */
+export interface TreasuryAccountSelections {
+  cashAccountId: string;
+  digitalAccountId: string;
+  usdAccountId?: string;
+}
+
+/** Desglose individual de cobro por medio de pago con trazabilidad de tesorería. */
+export interface PaymentBreakdownItem {
+  method_name: string;
+  amount_base: number;
+  final_amount: number;
+  surcharge_applied?: number;
+  gateway_fee_ars?: number;
+  net_received_ars?: number;
+  amount_usd?: number;
+  points_redeemed?: number;
+  treasury_account_id?: string;
+  [key: string]: unknown;
+}
+
 /** Metadata JSONB de métodos de pago y desgloses enviada a la transacción. */
 export interface SalePaymentMethodsPayload {
   cash_ars: number;
@@ -52,7 +73,7 @@ export interface SalePaymentMethodsPayload {
     final_ars: number;
   } | null;
   treasury_account_id: string;
-  breakdown: Array<Record<string, unknown>>;
+  breakdown: PaymentBreakdownItem[];
   [key: string]: unknown;
 }
 

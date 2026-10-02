@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useUserStore } from '@/hooks/use-user-store';
 import { useExchangeRate } from '@/hooks/use-exchange-rate';
-import { getFinancialReport, FinancialReportData } from '@/app/actions/analytics';
+import { getFinancialReport, FinancialReportData, SalesChannelFilter } from '@/app/actions/analytics';
 import { getInventoryValuation } from '@/app/actions/inventoryAnalytics';
 import { getRetailKPIs } from '@/app/actions/reports';
 import { getMonthlyProjection } from '@/app/actions/goals';
@@ -28,11 +28,15 @@ import { RetailKPIsWidget } from '@/components/dashboard/RetailKPIsWidget';
 import { ExchangeRatesWidget } from '@/components/rates/ExchangeRatesWidget';
 import { FormatMarginWidget } from '@/components/analytics/FormatMarginWidget';
 import { FamilyRotationWidget } from '@/components/analytics/FamilyRotationWidget';
+import { DeadStockAlertWidget } from '@/components/analytics/DeadStockAlertWidget';
 
 import { toast } from 'sonner';
 import { generateFinancialReportPDF, exportFinancialReportToCsv } from '@/lib/pdf-financial-report';
 import { getSystemSettings } from '@/app/actions/systemSettings';
 import { getTreasuryAccounts } from '@/app/actions/treasury';
+import { getFormatMarginAnalysis } from '@/app/actions/retailMetrics';
+import { getAccountsPayable } from '@/app/actions/purchases';
+import { getCurrentRate } from '@/app/actions/rates';
 import { SystemSettingsData, DEFAULT_SYSTEM_SETTINGS } from '@/lib/settings-validation';
 
 const COLORS = ['#e11d48', '#8b5cf6', '#3b82f6', '#10b981', '#f59e0b', '#64748b'];
@@ -86,7 +90,8 @@ export default function ReportesPage() {
   const role = useUserStore((state) => state.role);
   const { refresh: refreshRate } = useExchangeRate();
 
-  const [timeRange, setTimeRange] = useState<'current_month' | 'previous_month' | 'last_30_days' | 'current_year' | 'custom'>('current_month');
+  const [timeRange, setTimeRange] = useState<'current_month' | 'previous_month' | 'last_30_days' | 'last_90_days' | 'current_year' | 'custom'>('current_month');
+  const [channelFilter, setChannelFilter] = useState<SalesChannelFilter>('all');
   const [startDate, setStartDate] = useState<string>(getFirstDayOfMonth());
   const [endDate, setEndDate] = useState<string>(getTodayDate());
   const [report, setReport] = useState<FinancialReportData | null>(null);
@@ -100,8 +105,8 @@ export default function ReportesPage() {
     setError(null);
     const [resReport, resSettings] = await Promise.all([
       timeRange === 'custom'
-        ? getFinancialReport(role, 'custom', startDate, endDate)
-        : getFinancialReport(role, timeRange, startDate, endDate),
+        ? getFinancialReport(role, 'custom', startDate, endDate, channelFilter)
+        : getFinancialReport(role, timeRange, startDate, endDate, channelFilter),
       getSystemSettings(),
     ]);
 
@@ -120,9 +125,9 @@ export default function ReportesPage() {
 
   useEffect(() => {
     fetchReport();
-  }, [role, timeRange]);
+  }, [role, timeRange, channelFilter]);
 
-  const handlePresetChange = (preset: 'current_month' | 'previous_month' | 'last_30_days' | 'current_year') => {
+  const handlePresetChange = (preset: 'current_month' | 'previous_month' | 'last_30_days' | 'last_90_days' | 'current_year') => {
     const now = new Date();
     let s = '';
     let e = getTodayDate();
@@ -138,6 +143,9 @@ export default function ReportesPage() {
     } else if (preset === 'last_30_days') {
       const past30 = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
       s = `${past30.getFullYear()}-${String(past30.getMonth() + 1).padStart(2, '0')}-${String(past30.getDate()).padStart(2, '0')}`;
+    } else if (preset === 'last_90_days') {
+      const past90 = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+      s = `${past90.getFullYear()}-${String(past90.getMonth() + 1).padStart(2, '0')}-${String(past90.getDate()).padStart(2, '0')}`;
     } else if (preset === 'current_year') {
       s = `${now.getFullYear()}-01-01`;
     }
@@ -156,6 +164,7 @@ export default function ReportesPage() {
     if (timeRange === 'current_month') return 'Mes Actual';
     if (timeRange === 'previous_month') return 'Mes Anterior';
     if (timeRange === 'last_30_days') return 'Últimos 30 días';
+    if (timeRange === 'last_90_days') return 'Últimos 90 días';
     return 'Año en Curso';
   };
 
@@ -169,18 +178,38 @@ export default function ReportesPage() {
       setGeneratingPdf(true);
       toast.info('Generando reporte contable oficial en PDF...');
 
-      // 1. Obtener métricas adicionales en paralelo
-      const [invRes, retailRes, goalsRes, treasuryRes] = await Promise.all([
+      // 1. Obtener métricas adicionales en paralelo (cada una se degrada con gracia por separado)
+      const [invRes, retailRes, goalsRes, treasuryRes, formatRes, payablesRes, rateRes] = await Promise.all([
         getInventoryValuation(),
         getRetailKPIs(role, startDate, endDate),
         getMonthlyProjection(startDate, endDate),
         getTreasuryAccounts(),
+        getFormatMarginAnalysis(role, startDate, endDate),
+        getAccountsPayable(role),
+        getCurrentRate(),
       ]);
 
       const inventoryData = invRes.success ? invRes.data : null;
       const retailData = retailRes.success ? retailRes.data : null;
       const goalsData = goalsRes.success ? goalsRes.data : null;
       const treasuryAccounts = treasuryRes.success ? treasuryRes.data : null;
+      const formatMarginData = formatRes.success && formatRes.data
+        ? {
+            decant: formatRes.data.decant,
+            bottle: formatRes.data.bottle,
+            marginDeltaPercent: formatRes.data.marginDeltaPercent,
+          }
+        : null;
+      const payablesPendingArs = payablesRes.success && payablesRes.data
+        ? payablesRes.data.reduce(
+            (sum, p) =>
+              p.status === 'pending'
+                ? sum + Math.max(0, Number(p.total_amount_ars || 0) - Number(p.paid_amount_ars || 0))
+                : sum,
+            0
+          )
+        : null;
+      const exchangeRateUsed = rateRes.success && rateRes.data ? rateRes.data.value_ars : null;
 
       const periodLabel = getPeriodLabel(goalsData);
 
@@ -190,6 +219,9 @@ export default function ReportesPage() {
         goalsData,
         inventoryData,
         treasuryAccounts,
+        formatMarginData,
+        payablesPendingArs,
+        exchangeRateUsed,
         periodLabel,
         storeName: settings.trade_name || settings.company_name || 'Elohim Import ERP',
       });
@@ -422,6 +454,16 @@ export default function ReportesPage() {
                 Últimos 30 días
               </button>
               <button
+                onClick={() => handlePresetChange('last_90_days')}
+                className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer ${
+                  timeRange === 'last_90_days'
+                    ? 'bg-white dark:bg-zinc-800 text-slate-950 dark:text-white shadow-sm'
+                    : 'text-slate-600 dark:text-zinc-400 hover:text-slate-950'
+                }`}
+              >
+                Últimos 90 días
+              </button>
+              <button
                 onClick={() => handlePresetChange('current_year')}
                 className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer ${
                   timeRange === 'current_year'
@@ -431,6 +473,34 @@ export default function ReportesPage() {
               >
                 Año en Curso
               </button>
+            </div>
+
+            {/* SELECTOR DE CANAL DE VENTA */}
+            <div className="flex items-center gap-1 bg-slate-200/70 dark:bg-erp-surface p-1 rounded-xl border border-slate-300/60 dark:border-erp-border text-xs font-bold">
+              <span className="text-[11px] uppercase tracking-wider text-slate-500 dark:text-zinc-400 px-2 font-mono">
+                Canal:
+              </span>
+              {(['all', 'pos', 'storefront', 'whatsapp'] as const).map((ch) => {
+                const labels: Record<SalesChannelFilter, string> = {
+                  all: 'Todos',
+                  pos: 'POS Mostrador',
+                  storefront: 'Tienda Online',
+                  whatsapp: 'WhatsApp',
+                };
+                return (
+                  <button
+                    key={ch}
+                    onClick={() => setChannelFilter(ch)}
+                    className={`px-2.5 py-1.5 rounded-lg transition-colors cursor-pointer ${
+                      channelFilter === ch
+                        ? 'bg-white dark:bg-zinc-800 text-slate-950 dark:text-white shadow-sm'
+                        : 'text-slate-600 dark:text-zinc-400 hover:text-slate-950'
+                    }`}
+                  >
+                    {labels[ch]}
+                  </button>
+                );
+              })}
             </div>
 
             {/* INPUTS DE RANGO PERSONALIZADO (DESDE / HASTA) */}
@@ -771,6 +841,7 @@ export default function ReportesPage() {
             {/* MÉTRICAS AVANZADAS DE RETAIL/PERFUMERÍA */}
             <FormatMarginWidget role={role} startDate={startDate} endDate={endDate} />
             <FamilyRotationWidget role={role} />
+            <DeadStockAlertWidget role={role} />
 
           </>
         )}

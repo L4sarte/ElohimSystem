@@ -81,6 +81,8 @@ export interface SaleItemInput {
   quantity: number;
   price_ars: number;
   price_usd: number;
+  decant_ml?: number | null;
+  size_ml?: number | null;
 }
 
 export interface DecantJitInput {
@@ -261,7 +263,11 @@ export async function createSaleTransaction(
       try {
         for (const item of cleanSaleData.items) {
           const dbProd = productMap.get(item.product_id);
-          const unitCost = Number(dbProd?.base_cost_ars || 0);
+          let unitCost = Number(dbProd?.base_cost_ars || 0);
+          if (dbProd?.type === 'decant_liquid') {
+            const ml = Number(item.decant_ml || item.size_ml || 5);
+            unitCost = unitCost * ml;
+          }
           if (unitCost > 0) {
             await serviceClient
               .from('sale_items')
@@ -299,14 +305,19 @@ export async function createSaleTransaction(
 
     // 8. Actualizar registro de venta en tabla sales
     if (saleId) {
-      const baseUpdatePayload = {
+      const primaryTreasuryAccId = typeof pm?.treasury_account_id === 'string'
+        ? pm.treasury_account_id
+        : null;
+
+      const baseUpdatePayload: Record<string, unknown> = {
         gateway_fee_ars: gatewayFeeArs,
         net_received_ars: netReceivedArs,
         payment_status: paymentStatus,
         amount_due_ars: amountDueArs,
+        ...(primaryTreasuryAccId ? { treasury_account_id: primaryTreasuryAccId } : {}),
       };
 
-      const fullUpdatePayload = {
+      const fullUpdatePayload: Record<string, unknown> = {
         ...baseUpdatePayload,
         subtotal_ars: discountCalc.subtotalArs,
         discount_type: discountCalc.discountType,
@@ -322,7 +333,7 @@ export async function createSaleTransaction(
 
       // Si falla por columnas aún no migradas en Supabase, aplicar fallback seguro
       if (updateErr) {
-        console.warn('Aviso: columnas de descuento no presentes en sales, aplicando actualización base:', updateErr.message);
+        console.warn('Aviso: columnas de descuento o tesorería no presentes en sales, aplicando actualización base:', updateErr.message);
         await serviceClient
           .from('sales')
           .update(baseUpdatePayload)
@@ -352,25 +363,90 @@ export async function createSaleTransaction(
       }
     }
 
-    // 10. Impactar ingreso en tesorería
+    // 10. Impactar ingreso en tesorería multicuenta con granularidad
     // Si el ingreso falla NO se aborta la venta (ya existe: abortar provocaría doble venta
     // al reintentar) — se registra el fallo explícitamente en la respuesta con warning.
     let treasuryWarning: string | null = null;
     if (paidToday > 0) {
-      let treasuryAccId = typeof pm?.treasury_account_id === 'string' ? pm.treasury_account_id : null;
-      if (!treasuryAccId) {
-        const resAcc = await getTreasuryAccounts();
-        if (resAcc.success && resAcc.data && resAcc.data.length > 0) {
-          treasuryAccId = resAcc.data[0].id;
-        }
-      }
+      const breakdown = Array.isArray(pm?.breakdown) ? (pm.breakdown as Array<Record<string, unknown>>) : null;
+      let allAccounts: { id: string; name?: string; account_name?: string; account_type?: string }[] = [];
 
-      if (treasuryAccId) {
-        const amountToDeposit = netReceivedArs > 0 ? netReceivedArs : paidToday;
-        const depositOk = await depositToAccount(treasuryAccId, amountToDeposit);
-        if (!depositOk) {
-          console.error('[SALE_TREASURY_DEPOSIT_FAILED]: venta', saleId, '- monto', amountToDeposit);
-          treasuryWarning = `El cobro de $${Math.round(amountToDeposit).toLocaleString('es-AR')} NO pudo acreditarse en la cuenta de tesorería. La venta fue registrada: verificá el saldo de la cuenta manualmente.`;
+      const getFallbackAccount = async (isCash: boolean): Promise<string | null> => {
+        if (allAccounts.length === 0) {
+          const resAcc = await getTreasuryAccounts();
+          if (resAcc.success && resAcc.data) {
+            allAccounts = resAcc.data as { id: string; name?: string; account_name?: string; account_type?: string }[];
+          }
+        }
+        if (allAccounts.length === 0) return null;
+        if (isCash) {
+          const cashAcc = allAccounts.find(a => a.account_type === 'cash' || (a.name || a.account_name || '').toLowerCase().includes('efectivo'));
+          return cashAcc ? cashAcc.id : allAccounts[0].id;
+        } else {
+          const digitalAcc = allAccounts.find(a => a.account_type !== 'cash' && !(a.name || a.account_name || '').toLowerCase().includes('efectivo'));
+          return digitalAcc ? digitalAcc.id : allAccounts[0].id;
+        }
+      };
+
+      if (breakdown && breakdown.length > 0) {
+        // Filtrar solo líneas de cobro monetario efectivo (ignorar descuentos negativos o canjes de puntos)
+        const monetaryLines = breakdown.filter(line => {
+          const isDiscount = Number(line.final_amount || 0) < 0;
+          const isPoints = Boolean(line.points_redeemed || String(line.method_name || '').toLowerCase().includes('vibepoints'));
+          const hasPositiveAmount = Number(line.final_amount || line.amount_base || 0) > 0;
+          return !isDiscount && !isPoints && hasPositiveAmount;
+        });
+
+        for (const line of monetaryLines) {
+          const lineMethodName = String(line.method_name || 'Cobro');
+          const isCash = lineMethodName.toLowerCase().includes('efectivo') || lineMethodName.toLowerCase().includes('dólar') || lineMethodName.toLowerCase().includes('billete');
+
+          let targetAccountId = typeof line.treasury_account_id === 'string' && line.treasury_account_id
+            ? line.treasury_account_id
+            : null;
+
+          if (!targetAccountId) {
+            targetAccountId = await getFallbackAccount(isCash);
+          }
+
+          const lineAmount = Math.round(
+            Number(line.net_received_ars !== undefined ? line.net_received_ars : (line.final_amount || line.amount_base || 0))
+          );
+
+          if (targetAccountId && lineAmount > 0) {
+            const depositOk = await depositToAccount(
+              targetAccountId,
+              lineAmount,
+              `Venta #${saleId.slice(0, 8)} (${lineMethodName})`,
+              saleId
+            );
+            if (!depositOk) {
+              console.error('[SALE_TREASURY_DEPOSIT_FAILED]: venta', saleId, '- cuenta', targetAccountId, '- monto', lineAmount);
+              treasuryWarning = (treasuryWarning ? treasuryWarning + ' ' : '') +
+                `El cobro de $${lineAmount.toLocaleString('es-AR')} (${lineMethodName}) NO pudo acreditarse en tesorería.`;
+            }
+          }
+        }
+      } else {
+        // Fallback para ventas sin desglose detallado
+        const isCashMethod = paidDigitalArs.toNumber() <= 0;
+        let treasuryAccId = typeof pm?.treasury_account_id === 'string' ? pm.treasury_account_id : null;
+        if (!treasuryAccId) {
+          treasuryAccId = await getFallbackAccount(isCashMethod);
+        }
+
+        if (treasuryAccId) {
+          const amountToDeposit = netReceivedArs > 0 ? netReceivedArs : paidToday;
+          const depositOk = await depositToAccount(
+            treasuryAccId,
+            amountToDeposit,
+            `Venta #${saleId.slice(0, 8)}`,
+            saleId
+          );
+          if (!depositOk) {
+            console.error('[SALE_TREASURY_DEPOSIT_FAILED]: venta', saleId, '- monto', amountToDeposit);
+            treasuryWarning = `El cobro de $${Math.round(amountToDeposit).toLocaleString('es-AR')} NO pudo acreditarse en la cuenta de tesorería. La venta fue registrada: verificá el saldo de la cuenta manualmente.`;
+          }
         }
       }
     }

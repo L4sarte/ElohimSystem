@@ -1,6 +1,6 @@
 import { CartItem } from '@/hooks/use-pos-store';
 import { CheckoutTotals } from './checkout-calculations';
-import { PackagingUsedItem, ReceiptItem, SalePaymentMethodsPayload } from './types';
+import { PackagingUsedItem, ReceiptItem, SalePaymentMethodsPayload, TreasuryAccountSelections } from './types';
 
 /**
  * Builders puros de los payloads del checkout POS: ítems, decants JIT,
@@ -11,16 +11,19 @@ import { PackagingUsedItem, ReceiptItem, SalePaymentMethodsPayload } from './typ
 export function buildSaleItems(cartItems: CartItem[], exchangeRate: number) {
   return cartItems.map(item => {
     let priceArs = item.product.base_price_ars;
-    if (item.product.type === 'decant_liquid' && item.decantMl) {
+    const isDecant = item.product.type === 'decant_liquid' && Boolean(item.decantMl);
+    if (isDecant) {
       const supplyPrice = Number(item.selectedSupplyPrice ?? 0);
-      priceArs = (item.product.base_price_ars * item.decantMl) + supplyPrice;
+      priceArs = (item.product.base_price_ars * (item.decantMl || 1)) + supplyPrice;
     }
 
     return {
       product_id: item.product.id,
       quantity: item.quantity,
       price_ars: priceArs,
-      price_usd: priceArs / exchangeRate
+      price_usd: priceArs / exchangeRate,
+      decant_ml: isDecant ? (item.decantMl || 5) : undefined,
+      size_ml: isDecant ? (item.decantMl || 5) : undefined,
     };
   });
 }
@@ -39,11 +42,16 @@ export function buildDecants(cartItems: CartItem[]) {
 
 export function buildPaymentMethodsPayload(
   totals: CheckoutTotals,
-  selectedTreasuryAccountId: string
+  selectedAccounts: string | TreasuryAccountSelections
 ): SalePaymentMethodsPayload {
   const methodName = totals.selectedMethod
     ? (totals.selectedMethod.method_name || totals.selectedMethod.name || 'Digital')
     : 'Efectivo / Directo';
+
+  const cashAccId = typeof selectedAccounts === 'object' ? selectedAccounts.cashAccountId : selectedAccounts;
+  const digitalAccId = typeof selectedAccounts === 'object' ? selectedAccounts.digitalAccountId : selectedAccounts;
+  const usdAccId = typeof selectedAccounts === 'object' ? (selectedAccounts.usdAccountId || selectedAccounts.cashAccountId) : selectedAccounts;
+  const primaryTreasuryAccountId = totals.valDigitalArs > 0 ? digitalAccId : cashAccId;
 
   const breakdown = [];
 
@@ -61,7 +69,8 @@ export function buildPaymentMethodsPayload(
       method_name: 'Efectivo ARS',
       amount_base: totals.valCashArs,
       surcharge_applied: 0,
-      final_amount: totals.valCashArs
+      final_amount: totals.valCashArs,
+      treasury_account_id: cashAccId
     });
   }
 
@@ -71,7 +80,8 @@ export function buildPaymentMethodsPayload(
       amount_base: totals.usdInArs,
       surcharge_applied: 0,
       final_amount: totals.usdInArs,
-      amount_usd: totals.valCashUsd
+      amount_usd: totals.valCashUsd,
+      treasury_account_id: usdAccId
     });
   }
 
@@ -82,7 +92,8 @@ export function buildPaymentMethodsPayload(
       surcharge_applied: totals.totalSurchargeArs,
       gateway_fee_ars: totals.calculatedGatewayFeeArs,
       net_received_ars: totals.netReceivedArs,
-      final_amount: totals.digitalFinalArs
+      final_amount: totals.digitalFinalArs,
+      treasury_account_id: digitalAccId
     });
   }
 
@@ -121,7 +132,7 @@ export function buildPaymentMethodsPayload(
       subtotal_ars: totals.discountResult.subtotalArs,
       final_ars: totals.discountResult.totalArs
     } : null,
-    treasury_account_id: selectedTreasuryAccountId,
+    treasury_account_id: primaryTreasuryAccountId,
     breakdown
   };
 }

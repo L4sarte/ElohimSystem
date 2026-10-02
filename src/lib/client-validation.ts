@@ -20,11 +20,13 @@ export const installmentPaymentSchema = z.object({
   sale_id: z.string().uuid('ID de venta inválido'),
   amount_paid_ars: z.number().positive('El monto a abonar debe ser mayor a 0'),
   payment_method: z.string().trim().min(1, 'El medio de pago es obligatorio').default('Efectivo ARS'),
+  treasury_account_id: z.string().uuid('ID de cuenta de tesorería inválido').optional().nullable(),
   notes: z.string().trim().max(300).optional(),
 });
 
 export const receivablePaymentSchema = z.object({
   receivable_id: z.string().uuid('ID de cuenta por cobrar inválido'),
   amount_paid: z.number().positive('El monto a abonar debe ser mayor a 0'),
+  treasury_account_id: z.string().uuid('ID de cuenta de tesorería inválido').optional().nullable(),
   notes: z.string().trim().max(300).optional(),
 });

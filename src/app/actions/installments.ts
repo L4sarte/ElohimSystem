@@ -127,7 +127,8 @@ export async function registerInstallment(
   saleId: string,
   amountPaidArs: number,
   paymentMethod: string = 'Efectivo',
-  notes?: string
+  notes?: string,
+  treasuryAccountId?: string
 ): Promise<{ success: boolean; newAmountDue?: number; paymentStatus?: string; warning?: string; error?: string }> {
   try {
     await requireAuth();
@@ -211,31 +212,43 @@ export async function registerInstallment(
       }
     }
 
-    // 5. Impactar ingreso en Tesorería & Cuentas (emparejando por método de pago)
+    // 5. Impactar ingreso en Tesorería & Cuentas (respetando cuenta seleccionada o emparejando por método)
     let treasuryWarning: string | null = null;
     const resAcc = await getTreasuryAccounts();
     if (resAcc.success && resAcc.data && resAcc.data.length > 0) {
-      const pmLower = (paymentMethod || '').toLowerCase();
-      const isCash = pmLower.includes('efectivo');
-      const isMp = pmLower.includes('mp') || pmLower.includes('mercado');
-      const isBank = pmLower.includes('banco') || pmLower.includes('transfer') || pmLower.includes('brubank');
+      let targetAcc = treasuryAccountId ? resAcc.data.find(a => a.id === treasuryAccountId) : null;
 
-      const targetAcc = resAcc.data.find((a) => {
-        if (isCash) return a.account_type === 'cash' || a.account_name.toLowerCase().includes('efectivo');
-        if (isMp) return a.account_type === 'wallet' || a.account_name.toLowerCase().includes('mercado');
-        if (isBank) return a.account_type === 'bank' || a.account_name.toLowerCase().includes('banco') || a.account_name.toLowerCase().includes('brubank');
-        return false;
-      }) || resAcc.data[0];
+      if (!targetAcc) {
+        const pmLower = (paymentMethod || '').toLowerCase();
+        const isCash = pmLower.includes('efectivo');
+        const isWallet = pmLower.includes('mp') || pmLower.includes('mercado') || pmLower.includes('naranja') || pmLower.includes('uala') || pmLower.includes('wallet');
+        const isBank = pmLower.includes('banco') || pmLower.includes('transfer') || pmLower.includes('brubank');
 
-      const depositOk = await depositToAccount(
-        targetAcc.id,
-        valAmount,
-        `Cobro Cuota - Cliente: ${(sale.clients as any)?.name || 'Cliente'} (Venta #${saleId.slice(0, 8).toUpperCase()})`,
-        saleId.trim()
-      );
-      if (!depositOk) {
-        console.error('[INSTALLMENT_TREASURY_DEPOSIT_FAILED]: venta', saleId.trim(), '- monto', valAmount);
-        treasuryWarning = 'El cobro fue registrado pero NO pudo acreditarse en la cuenta de tesorería. Verificá el saldo manualmente.';
+        targetAcc = resAcc.data.find((a) => {
+          const accLower = (a.account_name || '').toLowerCase();
+          if (isCash) return a.account_type === 'cash' || accLower.includes('efectivo');
+          if (isWallet) return a.account_type === 'wallet' || accLower.includes('mercado') || accLower.includes('naranja') || accLower.includes('uala');
+          if (isBank) return a.account_type === 'bank' || accLower.includes('banco') || accLower.includes('brubank');
+          return false;
+        });
+
+        // Fallback defensivo: si no es efectivo, preferir cualquier cuenta que no sea 'cash' para no desviar fondos a caja
+        if (!targetAcc) {
+          targetAcc = (!isCash ? resAcc.data.find(a => a.account_type !== 'cash') : null) || resAcc.data[0];
+        }
+      }
+
+      if (targetAcc) {
+        const depositOk = await depositToAccount(
+          targetAcc.id,
+          valAmount,
+          `Cobro Cuota - Cliente: ${(sale.clients as { name?: string } | undefined)?.name || 'Cliente'} (Venta #${saleId.slice(0, 8).toUpperCase()})`,
+          saleId.trim()
+        );
+        if (!depositOk) {
+          console.error('[INSTALLMENT_TREASURY_DEPOSIT_FAILED]: venta', saleId.trim(), '- monto', valAmount);
+          treasuryWarning = 'El cobro fue registrado pero NO pudo acreditarse en la cuenta de tesorería. Verificá el saldo manualmente.';
+        }
       }
     }
 

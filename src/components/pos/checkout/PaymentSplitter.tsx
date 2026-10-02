@@ -13,8 +13,14 @@ interface PaymentSplitterProps {
   selectedMethodId: string;
   onMethodIdChange: (id: string) => void;
   treasuryAccounts: TreasuryAccount[];
-  selectedTreasuryAccountId: string;
-  onTreasuryAccountIdChange: (id: string) => void;
+  selectedTreasuryAccountId?: string;
+  onTreasuryAccountIdChange?: (id: string) => void;
+  selectedCashAccountId: string;
+  onCashAccountIdChange: (id: string) => void;
+  selectedDigitalAccountId: string;
+  onDigitalAccountIdChange: (id: string) => void;
+  selectedUsdAccountId?: string;
+  onUsdAccountIdChange?: (id: string) => void;
   cashArs: string;
   onCashArsChange: (value: string) => void;
   digitalArs: string;
@@ -43,9 +49,9 @@ interface PaymentSplitterProps {
 
 /**
  * Sección de división de métodos de pago del checkout bimonetario:
- * cuenta de destino en tesorería, pasarela digital/cuotas, resumen en tiempo
- * real de la orden, monto abonado hoy, ingreso de valores recibidos
- * (Efectivo ARS / Digital / USD) y estado del cobro con cálculo de vuelto.
+ * asignación multicuenta de tesorería (Efectivo / Transferencia / USD),
+ * pasarela digital/cuotas, resumen en tiempo real, ingreso de valores
+ * y estado del cobro.
  */
 export function PaymentSplitter({
   activeMethods,
@@ -54,6 +60,12 @@ export function PaymentSplitter({
   treasuryAccounts,
   selectedTreasuryAccountId,
   onTreasuryAccountIdChange,
+  selectedCashAccountId,
+  onCashAccountIdChange,
+  selectedDigitalAccountId,
+  onDigitalAccountIdChange,
+  selectedUsdAccountId,
+  onUsdAccountIdChange,
   cashArs,
   onCashArsChange,
   digitalArs,
@@ -79,26 +91,96 @@ export function PaymentSplitter({
   exchangeRate,
   totalUsd,
 }: PaymentSplitterProps) {
+  const hasDigitalPayment = Number(digitalArs) > 0 || Boolean(selectedMethodId);
+  const hasCashUsd = Number(cashUsd) > 0;
+  const isSplitPayment = (Number(cashArs) > 0 && hasDigitalPayment) || (Number(cashArs) > 0 && hasCashUsd) || (hasDigitalPayment && hasCashUsd);
+
   return (
     <>
-      {/* SELECCIÓN DE CUENTA DE DESTINO EN TESORERÍA */}
-      <div className="space-y-1.5 pt-1">
-        <label className="text-xs font-bold uppercase tracking-wider text-erp-gold flex items-center justify-between">
-          <span className="flex items-center gap-1.5">
-            <Landmark className="h-3.5 w-3.5" /> Cuenta de Destino en Tesorería *
-          </span>
-        </label>
-        <select
-          value={selectedTreasuryAccountId}
-          onChange={(e) => onTreasuryAccountIdChange(e.target.value)}
-          className="flex h-9 w-full rounded-lg border border-erp-border bg-erp-bg px-3 py-1 text-xs font-bold text-white focus:outline-none focus:ring-1 focus:ring-erp-gold"
-        >
-          {treasuryAccounts.map(acc => (
-            <option key={acc.id} value={acc.id}>
-              🏦 {acc.account_name} (${acc.balance_ars.toLocaleString('es-AR')} ARS)
-            </option>
-          ))}
-        </select>
+      {/* SELECCIÓN DE CUENTAS DE DESTINO EN TESORERÍA (MULTI-CUENTA) */}
+      <div className="space-y-2 pt-1 rounded-xl bg-erp-bg/80 p-3 border border-erp-border">
+        <div className="flex items-center justify-between">
+          <label className="text-xs font-bold uppercase tracking-wider text-erp-gold flex items-center gap-1.5">
+            <Landmark className="h-3.5 w-3.5 text-erp-gold" />
+            Cuentas de Tesorería Destino *
+          </label>
+          {isSplitPayment && (
+            <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+              Pago Dividido / Multi-Cuenta
+            </span>
+          )}
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+          {/* CUENTA PARA EFECTIVO */}
+          <div className="space-y-1">
+            <label className="text-[11px] font-semibold text-zinc-300 flex items-center gap-1">
+              <DollarSign className="h-3 w-3 text-erp-gold" />
+              Cuenta Efectivo (Caja)
+            </label>
+            <select
+              value={selectedCashAccountId}
+              onChange={(e) => {
+                onCashAccountIdChange(e.target.value);
+                if (onTreasuryAccountIdChange && !hasDigitalPayment) {
+                  onTreasuryAccountIdChange(e.target.value);
+                }
+              }}
+              className="flex h-8 w-full rounded-lg border border-erp-border bg-erp-surface px-2 py-1 text-xs font-bold text-white focus:outline-none focus:ring-1 focus:ring-erp-gold"
+            >
+              {treasuryAccounts.map(acc => (
+                <option key={acc.id} value={acc.id}>
+                  💵 {acc.account_name} (${acc.balance_ars.toLocaleString('es-AR')} ARS)
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* CUENTA PARA DIGITAL / TRANSFERENCIA */}
+          <div className="space-y-1">
+            <label className="text-[11px] font-semibold text-zinc-300 flex items-center gap-1">
+              <Landmark className="h-3 w-3 text-indigo-400" />
+              Cuenta Digital / Transferencia
+            </label>
+            <select
+              value={selectedDigitalAccountId}
+              onChange={(e) => {
+                onDigitalAccountIdChange(e.target.value);
+                if (onTreasuryAccountIdChange && hasDigitalPayment) {
+                  onTreasuryAccountIdChange(e.target.value);
+                }
+              }}
+              className="flex h-8 w-full rounded-lg border border-erp-border bg-erp-surface px-2 py-1 text-xs font-bold text-white focus:outline-none focus:ring-1 focus:ring-indigo-400"
+            >
+              {treasuryAccounts.map(acc => (
+                <option key={acc.id} value={acc.id}>
+                  🏛️ {acc.account_name} (${acc.balance_ars.toLocaleString('es-AR')} ARS)
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {/* CUENTA PARA DÓLARES (SI SE INGRESA EFECTIVO USD) */}
+        {hasCashUsd && (
+          <div className="space-y-1 pt-1 border-t border-erp-border/60">
+            <label className="text-[11px] font-semibold text-emerald-400 flex items-center gap-1">
+              <CreditCard className="h-3 w-3 text-emerald-400" />
+              Cuenta Destino Dólares Billete
+            </label>
+            <select
+              value={selectedUsdAccountId || selectedCashAccountId}
+              onChange={(e) => onUsdAccountIdChange?.(e.target.value)}
+              className="flex h-8 w-full rounded-lg border border-erp-border bg-erp-surface px-2 py-1 text-xs font-bold text-white focus:outline-none focus:ring-1 focus:ring-emerald-400"
+            >
+              {treasuryAccounts.map(acc => (
+                <option key={acc.id} value={acc.id}>
+                  💵 {acc.account_name} (${acc.balance_ars.toLocaleString('es-AR')} ARS)
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
       </div>
 
       {/* SELECCIÓN DE PASARELA / MÉTODO DIGITAL DINÁMICO */}

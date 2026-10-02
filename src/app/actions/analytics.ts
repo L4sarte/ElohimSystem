@@ -36,6 +36,8 @@ export interface FinancialReportData {
   }>;
 }
 
+export type SalesChannelFilter = 'all' | 'pos' | 'storefront' | 'whatsapp';
+
 interface SaleRow {
   id: string;
   total_ars?: number | null;
@@ -43,6 +45,7 @@ interface SaleRow {
   created_at?: string | null;
   status?: string | null;
   gateway_fee_ars?: number | null;
+  channel?: string | null;
 }
 
 interface SaleItemRow {
@@ -69,13 +72,24 @@ interface ExpenseRow {
 }
 
 /**
+ * Normaliza nombres de categorías de OPEX (trim + colapso de espacios + casing)
+ * para evitar conceptos duplicados ("Alquiler ", "alquiler", "ALQUILER" -> "Alquiler").
+ */
+function normalizeOpexCategory(raw: string | null | undefined): string {
+  const trimmed = (raw || '').trim().replace(/\s+/g, ' ');
+  if (!trimmed) return 'Varios';
+  return trimmed.charAt(0).toUpperCase() + trimmed.slice(1).toLowerCase();
+}
+
+/**
  * Generar Reporte Financiero Completo y Estado de Resultados para Administradores.
  */
 export async function getFinancialReport(
   role: UserRole,
-  range: 'current_month' | 'previous_month' | 'last_30_days' | 'current_year' | 'custom' = 'current_month',
+  range: 'current_month' | 'previous_month' | 'last_30_days' | 'last_90_days' | 'current_year' | 'custom' = 'current_month',
   customStartDate?: string,
-  customEndDate?: string
+  customEndDate?: string,
+  channel: SalesChannelFilter = 'all'
 ): Promise<{ success: boolean; data?: FinancialReportData; error?: string }> {
   try {
     await requireAdmin();
@@ -94,7 +108,7 @@ export async function getFinancialReport(
     const [salesRes, expensesRes, pendingReceivablesRes, returnsRes] = await Promise.all([
       serviceClient
         .from('sales')
-        .select('id, total_ars, payment_methods, created_at, status, gateway_fee_ars')
+        .select('id, total_ars, payment_methods, created_at, status, gateway_fee_ars, channel')
         .gte('created_at', isoStart)
         .lte('created_at', isoEnd)
         .neq('status', 'voided')
@@ -118,8 +132,41 @@ export async function getFinancialReport(
 
     if (salesRes.error) throw salesRes.error;
     if (expensesRes.error) throw expensesRes.error;
-    const sales = (salesRes.data || []) as unknown as SaleRow[];
+    let sales = (salesRes.data || []) as unknown as SaleRow[];
     const expenses = (expensesRes.data || []) as unknown as ExpenseRow[];
+
+    // Filtrar ventas por canal si no es 'all'
+    if (channel !== 'all') {
+      sales = sales.filter((s) => {
+        const directChannel = (s.channel || '').toLowerCase();
+        const pmChannel = (s.payment_methods?.channel || '').toLowerCase();
+
+        if (channel === 'pos') {
+          return (
+            directChannel === 'pos' ||
+            pmChannel === 'pos' ||
+            (!directChannel && !pmChannel)
+          );
+        }
+        if (channel === 'storefront') {
+          return (
+            directChannel === 'online' ||
+            directChannel === 'storefront' ||
+            pmChannel === 'online' ||
+            pmChannel === 'storefront'
+          );
+        }
+        if (channel === 'whatsapp') {
+          return (
+            directChannel === 'whatsapp_store' ||
+            directChannel === 'whatsapp' ||
+            pmChannel === 'whatsapp_store' ||
+            pmChannel === 'whatsapp'
+          );
+        }
+        return true;
+      });
+    }
 
     // 2. Consultar ítems de ventas para calcular el COGS real usando la Cadena de Resolución
     const saleIds = sales.map((s) => s.id);
@@ -310,7 +357,7 @@ export async function getFinancialReport(
       const amt = new Decimal(e.amount_ars || 0);
       opexDecimal = opexDecimal.plus(amt);
 
-      const cat = e.category || 'Varios';
+      const cat = normalizeOpexCategory(e.category);
       if (!catMap[cat]) {
         catMap[cat] = new Decimal(0);
       }

@@ -6,6 +6,8 @@ export const saleItemInputSchema = z.object({
   quantity: z.number().positive('La cantidad debe ser mayor a 0'),
   price_ars: z.number().nonnegative('El precio en ARS no puede ser negativo'),
   price_usd: z.number().nonnegative('El precio en USD no puede ser negativo').optional().default(0),
+  decant_ml: z.number().positive('El volumen en ml debe ser positivo').optional().nullable(),
+  size_ml: z.number().positive('El tamaño en ml debe ser positivo').optional().nullable(),
 });
 
 export const decantJitInputSchema = z.object({

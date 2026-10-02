@@ -5,6 +5,7 @@ import { useUserStore } from '@/hooks/use-user-store';
 import { useExchangeRate } from '@/hooks/use-exchange-rate';
 import { getPendingSales, registerInstallment, PendingSale } from '@/app/actions/installments';
 import { getDebtorsForReport } from '@/app/actions/receivables';
+import { getTreasuryAccounts, TreasuryAccount } from '@/app/actions/treasury';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -14,7 +15,7 @@ import { ShiftStatusBadge } from '@/components/cash/ShiftStatusBadge';
 import { 
   ArrowLeft, Search, Plus, DollarSign, Clock, Mail, Phone, User, 
   X, Check, RefreshCw, AlertCircle, Sparkles, CreditCard, ShieldCheck, 
-  TrendingUp, Coins, FileText, CheckCircle, Calendar, History, Download 
+  TrendingUp, Coins, FileText, CheckCircle, Calendar, History, Download, Landmark 
 } from 'lucide-react';
 import Link from 'next/link';
 import jsPDF from 'jspdf';
@@ -26,6 +27,7 @@ export default function CxCobrarPage() {
   const { rate: exchangeRate, refresh: refreshRate } = useExchangeRate();
 
   const [sales, setSales] = useState<PendingSale[]>([]);
+  const [treasuryAccounts, setTreasuryAccounts] = useState<TreasuryAccount[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
@@ -37,6 +39,7 @@ export default function CxCobrarPage() {
   const [selectedSale, setSelectedSale] = useState<PendingSale | null>(null);
   const [amountPaidInput, setAmountPaidInput] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('Efectivo ARS');
+  const [selectedTreasuryAccountId, setSelectedTreasuryAccountId] = useState('');
   const [notes, setNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [modalError, setModalError] = useState<string | null>(null);
@@ -44,12 +47,25 @@ export default function CxCobrarPage() {
   const fetchSales = async () => {
     setLoading(true);
     setError(null);
-    const res = await getPendingSales(role);
-    if (res.success && res.data) {
-      setSales(res.data);
+    const [resSales, resAcc] = await Promise.all([
+      getPendingSales(role),
+      getTreasuryAccounts()
+    ]);
+
+    if (resSales.success && resSales.data) {
+      setSales(resSales.data);
     } else {
-      setError(res.error || 'Error al cargar ventas pendientes');
+      setError(resSales.error || 'Error al cargar ventas pendientes');
     }
+
+    if (resAcc.success && resAcc.data) {
+      setTreasuryAccounts(resAcc.data);
+      if (resAcc.data.length > 0 && !selectedTreasuryAccountId) {
+        const cashAcc = resAcc.data.find(a => a.account_type === 'cash' || a.account_name.toLowerCase().includes('efectivo')) || resAcc.data[0];
+        setSelectedTreasuryAccountId(cashAcc.id);
+      }
+    }
+
     setLoading(false);
   };
 
@@ -57,10 +73,25 @@ export default function CxCobrarPage() {
     fetchSales();
   }, [role]);
 
+  const handlePaymentMethodChange = (method: string) => {
+    setPaymentMethod(method);
+    const mLower = method.toLowerCase();
+    const isCash = mLower.includes('efectivo');
+    if (isCash) {
+      const cashAcc = treasuryAccounts.find(a => a.account_type === 'cash' || a.account_name.toLowerCase().includes('efectivo'));
+      if (cashAcc) setSelectedTreasuryAccountId(cashAcc.id);
+    } else {
+      const digitalAcc = treasuryAccounts.find(a => a.account_type !== 'cash' && !a.account_name.toLowerCase().includes('efectivo'));
+      if (digitalAcc) setSelectedTreasuryAccountId(digitalAcc.id);
+    }
+  };
+
   const handleOpenModal = (sale: PendingSale) => {
     setSelectedSale(sale);
     setAmountPaidInput(sale.amount_due_ars.toString());
     setPaymentMethod('Efectivo ARS');
+    const cashAcc = treasuryAccounts.find(a => a.account_type === 'cash' || a.account_name.toLowerCase().includes('efectivo')) || treasuryAccounts[0];
+    if (cashAcc) setSelectedTreasuryAccountId(cashAcc.id);
     setNotes('');
     setModalError(null);
   };
@@ -78,12 +109,20 @@ export default function CxCobrarPage() {
     setSubmitting(true);
     setModalError(null);
 
-    const res = await registerInstallment(role, selectedSale.id, valAmount, paymentMethod, notes);
+    const res = await registerInstallment(
+      role,
+      selectedSale.id,
+      valAmount,
+      paymentMethod,
+      notes,
+      selectedTreasuryAccountId
+    );
     setSubmitting(false);
 
     if (res.success) {
       setSelectedSale(null);
       fetchSales();
+      toast.success('Abono registrado con éxito en la cuenta de tesorería.');
     } else {
       setModalError(res.error || 'Error al registrar el abono');
     }
@@ -569,7 +608,7 @@ export default function CxCobrarPage() {
                   </label>
                   <select
                     value={paymentMethod}
-                    onChange={(e) => setPaymentMethod(e.target.value)}
+                    onChange={(e) => handlePaymentMethodChange(e.target.value)}
                     disabled={submitting}
                     className="flex h-9 w-full rounded-lg border border-erp-border bg-erp-bg px-3 py-1 text-xs font-bold text-white focus:outline-none focus:ring-1 focus:ring-erp-gold disabled:opacity-50"
                   >
@@ -580,6 +619,27 @@ export default function CxCobrarPage() {
                     <option value="Dólares Billete">💵 Dólares Billete</option>
                   </select>
                 </div>
+
+                {/* Selección de Cuenta de Tesorería Destino */}
+                {treasuryAccounts.length > 0 && (
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold uppercase tracking-wider text-erp-gold flex items-center gap-1.5">
+                      <Landmark className="h-3.5 w-3.5 text-erp-gold" /> Cuenta de Tesorería Destino *
+                    </label>
+                    <select
+                      value={selectedTreasuryAccountId}
+                      onChange={(e) => setSelectedTreasuryAccountId(e.target.value)}
+                      disabled={submitting}
+                      className="flex h-9 w-full rounded-lg border border-erp-border bg-erp-bg px-3 py-1 text-xs font-bold text-white focus:outline-none focus:ring-1 focus:ring-erp-gold disabled:opacity-50"
+                    >
+                      {treasuryAccounts.map((acc) => (
+                        <option key={acc.id} value={acc.id}>
+                          {acc.account_type === 'cash' ? '💵' : acc.account_type === 'bank' ? '🏛️' : '💳'} {acc.account_name} (${Number(acc.balance_ars || 0).toLocaleString('es-AR')} ARS)
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
 
                 {/* Histórico de Abonos Anteriores en esta Venta */}
                 {selectedSale.sale_installments && selectedSale.sale_installments.length > 0 && (

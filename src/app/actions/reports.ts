@@ -547,6 +547,7 @@ export interface BestSellerProduct {
   name: string;
   brand: string;
   sku: string;
+  type?: string | null;
   units_sold: number;
   total_revenue_ars: number;
   total_cost_ars: number;
@@ -751,6 +752,7 @@ export async function getRetailKPIs(
             name: pInfo?.name || 'Producto Desconocido',
             brand: pInfo?.brand || 'Elohim',
             sku: pInfo?.sku || 'SKU-N/A',
+            type: pInfo?.type || null,
             units_sold: 0,
             total_revenue_ars: 0,
             total_cost_ars: 0,

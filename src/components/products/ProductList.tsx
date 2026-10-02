@@ -21,6 +21,7 @@ import { OlfactoryCatalogModal } from './OlfactoryCatalogModal';
 import { CatalogGeneratorModal } from './CatalogGeneratorModal';
 import { exportStockToCsv, exportStockToPdf } from '@/lib/stock-export';
 import { getSystemSettings } from '@/app/actions/systemSettings';
+import { getStockRunwayAnalysis, StockRunwayProduct } from '@/app/actions/inventoryAnalytics';
 
 interface ProductListProps {
   role: UserRole;
@@ -29,6 +30,7 @@ interface ProductListProps {
 
 export function ProductList({ role, excludeSupplies = true }: ProductListProps) {
   const [products, setProducts] = useState<Product[]>([]);
+  const [runwayMap, setRunwayMap] = useState<Record<string, StockRunwayProduct>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
@@ -65,11 +67,17 @@ export function ProductList({ role, excludeSupplies = true }: ProductListProps) 
   const fetchProductsList = async () => {
     setLoading(true);
     setError(null);
-    const res = await getProducts();
+    const [res, runwayRes] = await Promise.all([
+      getProducts(),
+      role === 'admin' ? getStockRunwayAnalysis() : Promise.resolve({ success: true, data: undefined }),
+    ]);
     if (res.success && res.data) {
       setProducts(res.data);
     } else {
       setError(res.error || 'Error al cargar productos');
+    }
+    if (runwayRes.success && runwayRes.data) {
+      setRunwayMap(runwayRes.data.byProductId);
     }
     setLoading(false);
   };
@@ -134,7 +142,8 @@ export function ProductList({ role, excludeSupplies = true }: ProductListProps) 
     let matchesType = true;
     if (selectedType === 'low_stock') {
       const minAlert = Number(product.min_stock_alert ?? 5);
-      matchesType = product.stock_quantity <= minAlert;
+      const runway = runwayMap[product.id];
+      matchesType = product.stock_quantity <= minAlert || runway?.urgency === 'critico' || runway?.urgency === 'reorden';
     } else if (selectedType !== 'all') {
       matchesType = product.type === selectedType;
     }
@@ -543,6 +552,38 @@ export function ProductList({ role, excludeSupplies = true }: ProductListProps) 
                             </div>
                           )}
                         </>
+                      )}
+
+                      {/* Indicador de Cobertura / Runway (Días de stock restante) */}
+                      {role === 'admin' && runwayMap[product.id] && (
+                        <div className="mt-1.5">
+                          {runwayMap[product.id].urgency === 'critico' ? (
+                            <span 
+                              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-rose-500/10 text-rose-500 border border-rose-500/30"
+                              title={`Velocidad: ${runwayMap[product.id].dailyVelocity} ud/día (${runwayMap[product.id].unitsSoldLast30Days} vendidas en 30d)`}
+                            >
+                              🚨 {runwayMap[product.id].coverageDays}d (Crítico)
+                            </span>
+                          ) : runwayMap[product.id].urgency === 'reorden' ? (
+                            <span 
+                              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-500 border border-amber-500/30"
+                              title={`Velocidad: ${runwayMap[product.id].dailyVelocity} ud/día (${runwayMap[product.id].unitsSoldLast30Days} vendidas en 30d)`}
+                            >
+                              ⚠️ {runwayMap[product.id].coverageDays}d (Reorden)
+                            </span>
+                          ) : runwayMap[product.id].urgency === 'agotado' ? (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-neutral-500/10 text-neutral-400 border border-neutral-500/30">
+                              Agotado (0d)
+                            </span>
+                          ) : runwayMap[product.id].urgency === 'optimo' ? (
+                            <span 
+                              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium bg-emerald-500/10 text-emerald-500 border border-emerald-500/20"
+                              title={`Velocidad: ${runwayMap[product.id].dailyVelocity} ud/día (${runwayMap[product.id].unitsSoldLast30Days} vendidas en 30d)`}
+                            >
+                              {runwayMap[product.id].coverageDays > 90 ? '>90d' : `${runwayMap[product.id].coverageDays}d`} (Óptimo)
+                            </span>
+                          ) : null}
+                        </div>
                       )}
                     </td>
 

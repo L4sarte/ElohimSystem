@@ -4,6 +4,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { useSupplyChainStore } from '@/store/supplyChainStore';
 import { getProducts } from '@/app/actions/products';
+import { getStockRunwayAnalysis, StockRunwayProduct } from '@/app/actions/inventoryAnalytics';
 import { createPurchaseOrderAction } from '@/app/actions/purchases';
 import { POExpenseType, POStatus, CreatePOPayload } from '@/types/supplyChain';
 import { toast } from 'sonner';
@@ -59,6 +60,8 @@ export function POBuilder({ onSuccess, initialProductId }: POBuilderProps) {
 
   // Paso 2: Catálogo cargado de forma segura vía Server Action (Bypasea RLS)
   const [availableItems, setAvailableItems] = useState<ProductSearchResult[]>([]);
+  const [runwayMap, setRunwayMap] = useState<Record<string, StockRunwayProduct>>({});
+  const [itemsNeedingReorder, setItemsNeedingReorder] = useState<StockRunwayProduct[]>([]);
   const [isLoadingCatalog, setIsLoadingCatalog] = useState<boolean>(false);
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
@@ -82,7 +85,10 @@ export function POBuilder({ onSuccess, initialProductId }: POBuilderProps) {
     const loadCatalog = async () => {
       setIsLoadingCatalog(true);
       try {
-        const res = await getProducts();
+        const [res, runwayRes] = await Promise.all([
+          getProducts(),
+          getStockRunwayAnalysis(),
+        ]);
         if (isMounted && res.success && res.data) {
           const items: ProductSearchResult[] = res.data.map(p => ({
             id: p.id,
@@ -94,6 +100,10 @@ export function POBuilder({ onSuccess, initialProductId }: POBuilderProps) {
             stock_quantity: Number(p.stock_quantity || 0)
           }));
           setAvailableItems(items);
+        }
+        if (isMounted && runwayRes.success && runwayRes.data) {
+          setRunwayMap(runwayRes.data.byProductId);
+          setItemsNeedingReorder(runwayRes.data.itemsNeedingReorder);
         }
       } catch (err) {
         console.error('Error al cargar catálogo de productos:', err);
@@ -445,6 +455,39 @@ export function POBuilder({ onSuccess, initialProductId }: POBuilderProps) {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
+              {/* ASISTENTE INTELIGENTE DE REORDEN AUTOMÁTICO (RUNWAY < 25 DÍAS) */}
+              {itemsNeedingReorder.length > 0 && (
+                <div className="p-3.5 rounded-xl border border-amber-500/30 bg-amber-500/10 text-xs space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-amber-400 flex items-center gap-1.5">
+                      <Sparkles className="h-4 w-4" />
+                      Sugerencias de Reorden Urgente ({itemsNeedingReorder.length} fragancias con stock &lt; 25 días)
+                    </span>
+                    <span className="text-[11px] text-amber-300/80 font-mono">Runway Predictivo</span>
+                  </div>
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    {itemsNeedingReorder.slice(0, 6).map((reorderItem) => {
+                      const prod = availableItems.find((it) => it.id === reorderItem.productId);
+                      if (!prod) return null;
+                      return (
+                        <button
+                          key={reorderItem.productId}
+                          type="button"
+                          onClick={() => handleAddToCart(prod)}
+                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-white dark:bg-zinc-800 text-slate-800 dark:text-zinc-200 border border-amber-500/40 hover:bg-amber-500/20 cursor-pointer transition-colors shadow-sm"
+                        >
+                          <Plus className="h-3 w-3 text-amber-500" />
+                          <span>{reorderItem.productName}</span>
+                          <span className="text-[10px] text-rose-400 font-mono font-bold">
+                            ({reorderItem.coverageDays}d)
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
               <div className="relative">
                 <input
                   type="text"
@@ -489,6 +532,25 @@ export function POBuilder({ onSuccess, initialProductId }: POBuilderProps) {
                           <span>SKU: {p.sku || 'N/A'}</span>
                           <span>Stock: {p.stock_quantity} ud</span>
                           <span>Costo base: ${Number(p.base_cost_ars).toLocaleString('es-AR', { minimumFractionDigits: 2 })}</span>
+                          {runwayMap[p.id] && (
+                            runwayMap[p.id].urgency === 'critico' ? (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded font-bold text-rose-500 bg-rose-500/10 border border-rose-500/20">
+                                🚨 Cobertura: {runwayMap[p.id].coverageDays}d (Crítico)
+                              </span>
+                            ) : runwayMap[p.id].urgency === 'reorden' ? (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded font-bold text-amber-500 bg-amber-500/10 border border-amber-500/20">
+                                ⚠️ Cobertura: {runwayMap[p.id].coverageDays}d (Reorden)
+                              </span>
+                            ) : runwayMap[p.id].urgency === 'agotado' ? (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded font-bold text-neutral-400 bg-neutral-500/10">
+                                Agotado (0d)
+                              </span>
+                            ) : (
+                              <span className="text-emerald-500">
+                                Cobertura: {runwayMap[p.id].coverageDays > 90 ? '>90d' : `${runwayMap[p.id].coverageDays}d`}
+                              </span>
+                            )
+                          )}
                         </div>
                       </div>
 

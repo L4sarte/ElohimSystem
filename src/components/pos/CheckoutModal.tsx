@@ -61,9 +61,12 @@ export function CheckoutModal({
   const [digitalArs, setDigitalArs] = useState<string>('');
   const [cashUsd, setCashUsd] = useState<string>('');
 
-  // Cuentas de tesorería
+  // Cuentas de tesorería (soporte multi-cuenta)
   const [treasuryAccounts, setTreasuryAccounts] = useState<TreasuryAccount[]>([]);
   const [selectedTreasuryAccountId, setSelectedTreasuryAccountId] = useState<string>('');
+  const [selectedCashAccountId, setSelectedCashAccountId] = useState<string>('');
+  const [selectedDigitalAccountId, setSelectedDigitalAccountId] = useState<string>('');
+  const [selectedUsdAccountId, setSelectedUsdAccountId] = useState<string>('');
 
   // Método de pago digital seleccionado desde la pasarela de cuotas
   const [selectedMethodId, setSelectedMethodId] = useState<string>('');
@@ -106,9 +109,16 @@ export function CheckoutModal({
       }
 
       if (resAcc.success && resAcc.data) {
-        setTreasuryAccounts(resAcc.data);
-        if (resAcc.data.length > 0 && !selectedTreasuryAccountId) {
-          setSelectedTreasuryAccountId(resAcc.data[0].id);
+        const accs = resAcc.data;
+        setTreasuryAccounts(accs);
+        if (accs.length > 0) {
+          const cashAcc = accs.find(a => a.account_type === 'cash' || a.account_name.toLowerCase().includes('efectivo')) || accs[0];
+          const digitalAcc = accs.find(a => a.account_type !== 'cash' || !a.account_name.toLowerCase().includes('efectivo')) || accs[0];
+
+          setSelectedCashAccountId(prev => prev || cashAcc.id);
+          setSelectedDigitalAccountId(prev => prev || digitalAcc.id);
+          setSelectedUsdAccountId(prev => prev || cashAcc.id);
+          setSelectedTreasuryAccountId(prev => prev || digitalAcc.id || cashAcc.id);
         }
       }
 
@@ -184,7 +194,11 @@ export function CheckoutModal({
         packaging_id: p.packaging_id,
         quantity_used: p.quantity_used
       }));
-      const paymentMethodsPayload = buildPaymentMethodsPayload(totals, selectedTreasuryAccountId);
+      const paymentMethodsPayload = buildPaymentMethodsPayload(totals, {
+        cashAccountId: selectedCashAccountId,
+        digitalAccountId: selectedDigitalAccountId,
+        usdAccountId: selectedUsdAccountId
+      });
 
       // Enviar transacción con el TOTAL FINAL, subtotal, descuento, abonado hoy, saldo pendiente y packaging
       const res = await createSaleTransaction(role, {
@@ -359,6 +373,12 @@ export function CheckoutModal({
               treasuryAccounts={treasuryAccounts}
               selectedTreasuryAccountId={selectedTreasuryAccountId}
               onTreasuryAccountIdChange={setSelectedTreasuryAccountId}
+              selectedCashAccountId={selectedCashAccountId}
+              onCashAccountIdChange={setSelectedCashAccountId}
+              selectedDigitalAccountId={selectedDigitalAccountId}
+              onDigitalAccountIdChange={setSelectedDigitalAccountId}
+              selectedUsdAccountId={selectedUsdAccountId}
+              onUsdAccountIdChange={setSelectedUsdAccountId}
               cashArs={cashArs}
               onCashArsChange={setCashArs}
               digitalArs={digitalArs}

@@ -110,7 +110,7 @@ function normalizeDayString(value: string): string {
  * (antes generaban Date inválido y una excepción genérica).
  */
 export function resolveBusinessRange(
-  range: 'current_month' | 'previous_month' | 'last_30_days' | 'current_year' | 'custom',
+  range: 'current_month' | 'previous_month' | 'last_30_days' | 'last_90_days' | 'current_year' | 'custom',
   customStartDate?: string,
   customEndDate?: string
 ): BusinessDateRange {
@@ -140,6 +140,20 @@ export function resolveBusinessRange(
     // Ventana rodante de 30 días (offset puro, sin desfase de zona horaria)
     const end = new Date();
     const start = new Date(end.getTime() - 30 * 24 * 60 * 60 * 1000);
+    const startB = toBusinessInstant(start)!;
+    const endB = toBusinessInstant(end)!;
+    return {
+      start,
+      end,
+      startDay: `${startB.getUTCFullYear()}-${String(startB.getUTCMonth() + 1).padStart(2, '0')}-${String(startB.getUTCDate()).padStart(2, '0')}`,
+      endDay: `${endB.getUTCFullYear()}-${String(endB.getUTCMonth() + 1).padStart(2, '0')}-${String(endB.getUTCDate()).padStart(2, '0')}`,
+    };
+  }
+
+  if (range === 'last_90_days') {
+    // Ventana rodante de 90 días (offset puro, sin desfase de zona horaria)
+    const end = new Date();
+    const start = new Date(end.getTime() - 90 * 24 * 60 * 60 * 1000);
     const startB = toBusinessInstant(start)!;
     const endB = toBusinessInstant(end)!;
     return {

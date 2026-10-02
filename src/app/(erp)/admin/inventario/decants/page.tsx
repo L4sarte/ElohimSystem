@@ -18,6 +18,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { toast } from 'sonner';
+import { DecantYieldWidget } from '@/components/analytics/DecantYieldWidget';
 
 export default function DecantsHubPage() {
   const role = useUserStore((state) => state.role);
@@ -632,6 +633,9 @@ export default function DecantsHubPage() {
             </div>
           )}
         </div>
+
+        {/* WIDGET DE RENDIMIENTO DE FRACCIONAMIENTO Y MULTIPLICADOR BOM */}
+        <DecantYieldWidget role={role} />
 
       </main>
 
