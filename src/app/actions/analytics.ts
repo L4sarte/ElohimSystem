@@ -108,7 +108,7 @@ export async function getFinancialReport(
     const [salesRes, expensesRes, pendingReceivablesRes, returnsRes] = await Promise.all([
       serviceClient
         .from('sales')
-        .select('id, total_ars, payment_methods, created_at, status, gateway_fee_ars, channel')
+        .select('id, total_ars, payment_methods, created_at, status, gateway_fee_ars')
         .gte('created_at', isoStart)
         .lte('created_at', isoEnd)
         .neq('status', 'voided')
@@ -138,7 +138,7 @@ export async function getFinancialReport(
     // Filtrar ventas por canal si no es 'all'
     if (channel !== 'all') {
       sales = sales.filter((s) => {
-        const directChannel = (s.channel || '').toLowerCase();
+        const directChannel = ((s as any).channel || '').toLowerCase();
         const pmChannel = (s.payment_methods?.channel || '').toLowerCase();
 
         if (channel === 'pos') {

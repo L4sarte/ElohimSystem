@@ -49,7 +49,7 @@ export function MonthlyGoalsWidget({ startDate, endDate }: MonthlyGoalsWidgetPro
   }, [role, startDate, endDate]);
 
   const handleOpenModal = () => {
-    if (projection) {
+    if (projection && projection.hasConfiguredGoal) {
       setInputRevGoal(projection.revenueGoalArs.toString());
       setInputProfitGoal(projection.netProfitGoalArs.toString());
     } else {
@@ -139,8 +139,53 @@ export function MonthlyGoalsWidget({ startDate, endDate }: MonthlyGoalsWidgetPro
               Calculando avance de metas del periodo...
             </div>
           ) : error || !projection ? (
-            <div className="text-xs text-rose-400 p-3 rounded-xl bg-rose-500/10 border border-rose-500/20">
-              {error || 'No se pudieron calcular las proyecciones'}
+            <div className="flex items-start justify-between gap-3 p-4 rounded-xl bg-zinc-800/60 border border-zinc-700/60 text-xs text-zinc-300">
+              <div className="flex items-start gap-2.5">
+                <AlertTriangle className="h-4 w-4 shrink-0 text-amber-400 mt-0.5" />
+                <div className="space-y-1">
+                  <span className="font-semibold text-zinc-200">Información del Módulo de Metas</span>
+                  <p className="text-[11px] text-zinc-400 leading-relaxed font-sans">
+                    {error || 'No se pudieron calcular las proyecciones para este período.'}
+                  </p>
+                </div>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={fetchProjection}
+                className="text-xs text-zinc-300 hover:text-white hover:bg-zinc-700 h-7 px-2.5 shrink-0"
+              >
+                <RefreshCw className="h-3 w-3 mr-1" /> Reintentar
+              </Button>
+            </div>
+          ) : projection.isClosed && !projection.hasConfiguredGoal ? (
+            /* MES HISTÓRICO CERRADO SIN META FIJADA: ESTADO INFORMATIVO LIMPIO */
+            <div className="p-5 rounded-xl bg-erp-bg border border-erp-border space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-erp-gold uppercase tracking-wider font-serif flex items-center gap-1.5">
+                  <Calendar className="h-4 w-4 text-erp-gold" />
+                  Período Histórico Cerrado • {projection.monthName}
+                </span>
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-zinc-800 text-zinc-400 border border-zinc-700">
+                  Sin Meta Fijada
+                </span>
+              </div>
+              <p className="text-xs text-zinc-300 leading-relaxed font-sans">
+                No se configuró una meta comercial para {projection.monthName}. Las proyecciones de ritmo operativo aplican al mes en curso. La facturación comercial final registrada fue de <strong className="text-emerald-400 font-mono">${projection.currentRevenueArs.toLocaleString('es-AR')} ARS</strong> con una ganancia neta real de <strong className="text-erp-gold font-mono">${projection.currentNetProfitArs.toLocaleString('es-AR')} ARS</strong>.
+              </p>
+              <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-erp-border/50">
+                <span className="text-[11px] text-zinc-500">
+                  Podés registrar una meta histórica para auditar el cumplimiento comercial de este período.
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleOpenModal}
+                  className="h-7 text-xs border-erp-border bg-erp-surface text-erp-gold hover:bg-zinc-800 font-bold"
+                >
+                  <Settings className="mr-1 h-3 w-3" /> Fijar Meta Histórica
+                </Button>
+              </div>
             </div>
           ) : (
             <>
@@ -195,19 +240,29 @@ export function MonthlyGoalsWidget({ startDate, endDate }: MonthlyGoalsWidgetPro
 
               {/* CARD CONDICIONAL DE RUN RATE O PERIODO CERRADO */}
               {projection.isClosed ? (
-                /* MES PASADO (CERRADO): Bloque Neutral de Periodo Cerrado */
+                /* MES PASADO (CERRADO CON META): Bloque de Cumplimiento Definitivo */
                 <div className="p-4 rounded-xl bg-erp-bg border border-erp-border space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold text-erp-gold uppercase tracking-wider font-serif flex items-center gap-1.5">
                       <Lock className="h-4 w-4 text-erp-gold" />
-                      Periodo Cerrado ({projection.monthName})
+                      Período Cerrado • {projection.monthName}
                     </span>
-                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-zinc-800 text-zinc-300 border border-zinc-700">
-                      Cierre Definitivo
+                    <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-extrabold ${
+                      projection.revenueProgressPercent >= 100
+                        ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
+                        : projection.revenueProgressPercent >= 75
+                        ? 'bg-amber-500/10 text-amber-400 border border-amber-500/30'
+                        : 'bg-zinc-800 text-zinc-300 border border-zinc-700'
+                    }`}>
+                      {projection.revenueProgressPercent >= 100 ? (
+                        <><CheckCircle className="h-3 w-3" /> Meta Cumplida ({projection.revenueProgressPercent}%)</>
+                      ) : (
+                        <><Lock className="h-3 w-3" /> Cierre Definitivo ({projection.revenueProgressPercent}%)</>
+                      )}
                     </span>
                   </div>
                   <p className="text-xs text-zinc-300 leading-snug">
-                    Facturación final obtenida: <strong className="text-emerald-400 font-mono">${projection.currentRevenueArs.toLocaleString('es-AR')} ARS</strong> ({projection.revenueProgressPercent}% de la meta de ${projection.revenueGoalArs.toLocaleString('es-AR')} ARS).
+                    Cumplimiento final registrado (100% del período transcurrido). Facturación final obtenida: <strong className="text-emerald-400 font-mono">${projection.currentRevenueArs.toLocaleString('es-AR')} ARS</strong> ({projection.revenueProgressPercent}% de la meta de ${projection.revenueGoalArs.toLocaleString('es-AR')} ARS) y ganancia neta real de <strong className="text-erp-gold font-mono">${projection.currentNetProfitArs.toLocaleString('es-AR')} ARS</strong> ({projection.profitProgressPercent}% de la meta de ${projection.netProfitGoalArs.toLocaleString('es-AR')} ARS).
                   </p>
                 </div>
               ) : (() => {

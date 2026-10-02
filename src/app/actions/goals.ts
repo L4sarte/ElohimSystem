@@ -12,6 +12,7 @@ export interface MonthlyProjectionData {
   month: number;       // 8 (1-12)
   monthName: string;   // "Agosto 2026"
   isClosed: boolean;
+  hasConfiguredGoal: boolean;
   currentDay: number;
   totalDaysInMonth: number;
   remainingDays: number;
@@ -81,6 +82,12 @@ export async function getMonthlyProjection(
     if (isCurrentMonth) {
       currentDay = Math.max(1, today.getDate());
       remainingDays = Math.max(0, totalDaysInMonth - currentDay);
+    } else if (isPastMonth) {
+      currentDay = totalDaysInMonth;
+      remainingDays = 0;
+    } else {
+      currentDay = 0;
+      remainingDays = totalDaysInMonth;
     }
 
     // Rango de negocio ART del mes objetivo (consistente intra-llamada:
@@ -98,20 +105,24 @@ export async function getMonthlyProjection(
         .lte('created_at', isoEnd)
         .neq('status', 'voided')
         .neq('status', 'pending_payment'),
-      getFinancialReport(adminUser.role, 'custom', monthRange.startDay, monthRange.endDay),
+      getFinancialReport(adminUser.role, 'custom', monthRange.startDay, monthRange.endDay, 'all'),
     ]);
 
-    if (salesRes.error) throw salesRes.error;
+    if (salesRes.error) {
+      console.error('[GOALS_ERROR_DETAIL]: Error consultando ventas:', salesRes.error);
+      throw salesRes.error;
+    }
     const sales = salesRes.data;
 
     let currentRevenueArs = 0;
     (sales || []).forEach((s: any) => {
       currentRevenueArs += Number(s.total_ars || 0);
     });
-    // 2. Ganancia Neta REAL del periodo objetivo (si el P&L falla NO se inventa ganancia:
-    // se retorna error explícito, nunca números ficticios)
+
+    // 2. Ganancia Neta REAL del periodo objetivo
     if (!reportRes.success || !reportRes.data) {
       console.error('[MONTHLY_PROJECTION_PNL_FAILED]:', reportRes.error);
+      console.error('[GOALS_ERROR_DETAIL]:', reportRes.error);
       return {
         success: false,
         error: 'No se pudo calcular el Estado de Resultados del período. No se generan proyecciones sobre datos estimados; revisá los datos de ventas e inténtalo nuevamente.',
@@ -120,18 +131,31 @@ export async function getMonthlyProjection(
     const currentNetProfitArs = reportRes.data.netProfit;
 
     // 3. Consultar meta guardada en monthly_goals para este mes y año específico
-    let revenueGoalArs = 5000000;
-    let netProfitGoalArs = 2000000;
-
-    const { data: goalData } = await supabase
+    const { data: goalData, error: goalDbErr } = await supabase
       .from('monthly_goals')
       .select('revenue_goal_ars, net_profit_goal_ars')
       .or(`period_month.eq.${periodMonth},and(month.eq.${monthNum},year.eq.${targetYear})`)
       .maybeSingle();
 
-    if (goalData) {
-      revenueGoalArs = Number(goalData.revenue_goal_ars || 5000000);
-      netProfitGoalArs = Number(goalData.net_profit_goal_ars || 2000000);
+    if (goalDbErr) {
+      console.warn('[GOALS_DB_WARN]:', goalDbErr.message);
+    }
+
+    const hasConfiguredGoal = !!goalData && (Number(goalData.revenue_goal_ars || 0) > 0 || Number(goalData.net_profit_goal_ars || 0) > 0);
+    let revenueGoalArs = 0;
+    let netProfitGoalArs = 0;
+
+    if (hasConfiguredGoal && goalData) {
+      revenueGoalArs = Number(goalData.revenue_goal_ars || 0);
+      netProfitGoalArs = Number(goalData.net_profit_goal_ars || 0);
+    } else if (isCurrentMonth) {
+      // Valores referenciales sugeridos para el mes en curso si aún no se configuró meta
+      revenueGoalArs = 5000000;
+      netProfitGoalArs = 2000000;
+    } else {
+      // Mes cerrado/pasado sin meta: 0 (no inventar metas ficticias)
+      revenueGoalArs = 0;
+      netProfitGoalArs = 0;
     }
 
     // 4. Proyección Run Rate y Avances
@@ -143,8 +167,16 @@ export async function getMonthlyProjection(
     let dailyRevenueNeeded = 0;
     let runRatePercent = revenueProgressPercent;
 
-    if (!isClosed) {
-      // Mes en curso: calcular Run Rate Proyectado
+    if (isClosed) {
+      // Período cerrado: 100% transcurrido, congelar a los valores finales reales, sin run-rate proyectado
+      currentDay = totalDaysInMonth;
+      remainingDays = 0;
+      runRateRevenueArs = currentRevenueArs;
+      runRateNetProfitArs = currentNetProfitArs;
+      dailyRevenueNeeded = 0;
+      runRatePercent = revenueProgressPercent;
+    } else if (isCurrentMonth) {
+      // Mes en curso: calcular Run Rate Proyectado según días transcurridos
       runRateRevenueArs = Math.round((currentRevenueArs / currentDay) * totalDaysInMonth);
       runRateNetProfitArs = Math.round((currentNetProfitArs / currentDay) * totalDaysInMonth);
       const pendingRevenue = Math.max(0, revenueGoalArs - currentRevenueArs);
@@ -153,10 +185,15 @@ export async function getMonthlyProjection(
     }
 
     let status: 'on_track' | 'warning' | 'behind' = 'on_track';
-    if (runRatePercent < 75) {
-      status = 'behind';
-    } else if (runRatePercent < 95) {
-      status = 'warning';
+    if (revenueGoalArs > 0) {
+      const evaluationMetric = isClosed ? revenueProgressPercent : runRatePercent;
+      if (evaluationMetric < 75) {
+        status = 'behind';
+      } else if (evaluationMetric < 95) {
+        status = 'warning';
+      } else {
+        status = 'on_track';
+      }
     }
 
     return {
@@ -167,6 +204,7 @@ export async function getMonthlyProjection(
         month: monthNum,
         monthName,
         isClosed,
+        hasConfiguredGoal,
         currentDay,
         totalDaysInMonth,
         remainingDays,
@@ -185,7 +223,8 @@ export async function getMonthlyProjection(
     };
   } catch (error: any) {
     console.error('Error al calcular proyección mensual de ventas:', error);
-    return { success: false, error: error.message || 'Error al obtener proyecciones del mes' };
+    console.error('[GOALS_ERROR_DETAIL]:', error?.message || error);
+    return { success: false, error: error?.message || 'Error al obtener proyecciones del mes' };
   }
 }
 

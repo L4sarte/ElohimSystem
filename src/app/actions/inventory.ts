@@ -513,7 +513,7 @@ export async function getKardexMovements(params: GetKardexParams = {}): Promise<
         price_ars_at_moment,
         unit_cost_at_moment,
         products ( id, name, brand, sku, type, base_cost_ars ),
-        sales ( id, channel, created_at, payment_methods, seller_id, status )
+        sales ( id, created_at, payment_methods, seller_id, status )
       `)
       .order('id', { ascending: false })
       .limit(200);
@@ -526,9 +526,9 @@ export async function getKardexMovements(params: GetKardexParams = {}): Promise<
         if (sale.status === 'voided' || sale.status === 'pending_payment') return;
 
         const isWeb =
-          sale.channel === 'whatsapp_store' ||
+          (sale as any).channel === 'whatsapp_store' ||
           sale.payment_methods?.channel === 'whatsapp_store' ||
-          sale.channel === 'online';
+          (sale as any).channel === 'online';
 
         const qty = Number(item.quantity || 1);
         const unitVal = Number(item.unit_cost_at_moment || prod.base_cost_ars || item.price_ars_at_moment || 0);
