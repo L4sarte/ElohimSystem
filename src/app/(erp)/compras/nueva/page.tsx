@@ -5,6 +5,7 @@ import { useUserStore } from '@/hooks/use-user-store';
 import { useExchangeRate } from '@/hooks/use-exchange-rate';
 import { getSuppliers } from '@/app/actions/suppliers';
 import { getProducts } from '@/app/actions/products';
+import { getTreasuryAccounts } from '@/app/actions/treasury';
 import { submitPurchase, PurchaseInput, PurchaseItemInput } from '@/app/actions/purchases';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -13,7 +14,7 @@ import { RoleSelector } from '@/components/products/RoleSelector';
 import { ExchangeRateWidget } from '@/components/rates/ExchangeRateWidget';
 import { 
   ArrowLeft, Search, Plus, Trash2, PackagePlus, Truck, DollarSign, 
-  Calendar, Check, RefreshCw, AlertCircle, ShieldAlert, ShoppingBag, X, CheckCircle2, Clock 
+  Calendar, Check, RefreshCw, AlertCircle, ShieldAlert, ShoppingBag, X, CheckCircle2, Clock, Landmark 
 } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
@@ -31,6 +32,8 @@ export default function NuevaCompraPage() {
 
   const [suppliers, setSuppliers] = useState<any[]>([]);
   const [selectedSupplierId, setSelectedSupplierId] = useState<string>('');
+  const [treasuryAccounts, setTreasuryAccounts] = useState<any[]>([]);
+  const [treasuryAccountId, setTreasuryAccountId] = useState<string>('');
 
   const [products, setProducts] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -43,6 +46,7 @@ export default function NuevaCompraPage() {
   // Modal Confirmación de Compra
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [paymentStatus, setPaymentStatus] = useState<'paid' | 'unpaid'>('paid');
+  const [receptionStatus, setReceptionStatus] = useState<'received' | 'in_transit'>('received');
   const [dueDate, setDueDate] = useState<string>('');
   const [submitting, setSubmitting] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -52,9 +56,10 @@ export default function NuevaCompraPage() {
     setLoadingInit(true);
     setError(null);
 
-    const [supRes, prodRes] = await Promise.all([
+    const [supRes, prodRes, treasRes] = await Promise.all([
       getSuppliers(role),
-      getProducts()
+      getProducts(),
+      getTreasuryAccounts()
     ]);
 
     if (supRes.success && supRes.data) {
@@ -66,6 +71,13 @@ export default function NuevaCompraPage() {
 
     if (prodRes.success && prodRes.data) {
       setProducts(prodRes.data);
+    }
+
+    if (treasRes.success && treasRes.data) {
+      setTreasuryAccounts(treasRes.data);
+      if (treasRes.data.length > 0) {
+        setTreasuryAccountId(treasRes.data[0].id);
+      }
     }
 
     setLoadingInit(false);
@@ -146,18 +158,33 @@ export default function NuevaCompraPage() {
   const handleSubmitPurchase = async () => {
     if (!selectedSupplierId || cart.length === 0) return;
 
+    if (paymentStatus === 'paid' && !treasuryAccountId) {
+      toast.error('Selecciona una cuenta de tesorería para debitar el pago al contado.');
+      return;
+    }
+
     setSubmitting(true);
     setError(null);
 
+    const safeRate = exchangeRate && exchangeRate > 0 ? exchangeRate : 1200;
+
     const purchasePayload: PurchaseInput = {
       supplier_id: selectedSupplierId,
-      total_ars: totalArs,
+      status: receptionStatus,
+      currency: 'ARS',
+      exchange_rate: safeRate,
+      total_ars: Number(totalArs.toFixed(2)),
       total_usd: Number(totalUsd.toFixed(2)),
-      payment_status: paymentStatus,
-      due_date: paymentStatus === 'unpaid' ? dueDate : null,
+      payment_condition: paymentStatus === 'paid' ? 'CONTADO' : 'CUENTA_CORRIENTE',
+      payment_status: paymentStatus === 'paid' ? 'paid_cash' : 'pending_credit',
+      treasury_account_id: paymentStatus === 'paid' ? treasuryAccountId : null,
+      payment_due_date: paymentStatus === 'unpaid' ? (dueDate || null) : null,
+      due_date: paymentStatus === 'unpaid' ? (dueDate || null) : null,
       items: cart.map(item => ({
         product_id: item.product_id,
         quantity: item.quantity,
+        unit_cost: item.unit_cost_ars,
+        currency: 'ARS',
         unit_cost_ars: item.unit_cost_ars
       }))
     };
@@ -168,10 +195,11 @@ export default function NuevaCompraPage() {
     if (res.success) {
       setIsConfirmOpen(false);
       setCart([]);
-      setSuccessMessage('¡Ingreso de stock e inventario registrado correctamente!');
+      setSuccessMessage('¡Compra procesada con éxito (Inventario / Tesorería / CXP sincronizados)!');
       loadInitialData(); // Recargar inventario actualizado
     } else {
       setError(res.error || 'Error al registrar el ingreso de compra.');
+      toast.error(res.error || 'Error al registrar el ingreso de compra.');
     }
   };
 
@@ -578,6 +606,62 @@ export default function NuevaCompraPage() {
                   </button>
                 </div>
               </div>
+
+              {/* Selector de Recepción de Stock */}
+              <div className="space-y-2 pt-1">
+                <label className="text-xs font-bold uppercase tracking-wider text-slate-400 block">
+                  Recepción de Mercadería *
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setReceptionStatus('received')}
+                    className={`flex items-center justify-center gap-2 h-10 rounded-lg border font-bold text-xs transition-colors cursor-pointer ${
+                      receptionStatus === 'received'
+                        ? 'bg-indigo-600 border-indigo-700 text-white shadow-sm'
+                        : 'bg-white border-slate-200 hover:bg-slate-50 text-slate-700 dark:bg-erp-surface dark:border-erp-border dark:text-zinc-300'
+                    }`}
+                  >
+                    <CheckCircle2 className="h-4 w-4" /> Ingreso Inmediato
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setReceptionStatus('in_transit')}
+                    className={`flex items-center justify-center gap-2 h-10 rounded-lg border font-bold text-xs transition-colors cursor-pointer ${
+                      receptionStatus === 'in_transit'
+                        ? 'bg-sky-600 border-sky-700 text-white shadow-sm'
+                        : 'bg-white border-slate-200 hover:bg-slate-50 text-slate-700 dark:bg-erp-surface dark:border-erp-border dark:text-zinc-300'
+                    }`}
+                  >
+                    <Truck className="h-4 w-4" /> En Tránsito
+                  </button>
+                </div>
+              </div>
+
+              {/* Selector de Cuenta de Tesorería (Obligatorio si es Contado) */}
+              {paymentStatus === 'paid' && (
+                <div className="space-y-1.5 pt-2 animate-in fade-in duration-200">
+                  <label className="text-xs font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
+                    <Landmark className="h-3.5 w-3.5" /> Cuenta de Tesorería a Debitar *
+                  </label>
+                  <select
+                    value={treasuryAccountId}
+                    onChange={(e) => setTreasuryAccountId(e.target.value)}
+                    className="w-full h-10 px-3 text-xs font-semibold rounded-lg border border-emerald-500/40 bg-emerald-500/5 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  >
+                    <option value="">Selecciona caja / banco...</option>
+                    {treasuryAccounts.map((acc) => (
+                      <option key={acc.id} value={acc.id}>
+                        {acc.name} ({acc.currency}) — Disp: $
+                        {Number(acc.balance_ars || 0).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-[11px] text-slate-400">
+                    Descontará el saldo de tesorería con concepto EGRESO_COMPRA_STOCK.
+                  </p>
+                </div>
+              )}
 
               {/* Campo opcional de Fecha de Vencimiento */}
               {paymentStatus === 'unpaid' && (

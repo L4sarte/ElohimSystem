@@ -1,6 +1,10 @@
 export type SupplierCurrency = 'ARS' | 'USD' | 'USDT';
+export type PurchaseCurrency = 'ARS' | 'USD';
 
 export type POStatus = 'draft' | 'in_transit' | 'received' | 'cancelled';
+export type PaymentCondition = 'CONTADO' | 'CUENTA_CORRIENTE';
+export type PurchasePaymentStatus = 'paid_cash' | 'pending_credit' | 'partial_payment' | 'paid' | 'unpaid';
+export type AccountPayableStatus = 'pending' | 'partial' | 'settled' | 'paid';
 
 export type POExpenseType = 'flete' | 'aduana' | 'packaging' | 'comisiones' | 'otro';
 
@@ -31,6 +35,7 @@ export interface PurchaseOrderItem {
     name: string;
     brand?: string;
     sku?: string;
+    type?: string;
     base_cost_ars?: number;
     stock_quantity?: number;
   };
@@ -92,4 +97,3 @@ export interface CheckInPaymentDetails {
   dueDate?: string | null;
   notes?: string;
 }
-
