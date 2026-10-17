@@ -324,11 +324,65 @@ export function PaymentSplitter({
         )}
       </div>
 
-      {/* ENTRADAS DE MÉTODOS DE PAGO */}
-      <div className="space-y-3">
-        <label className="text-xs font-bold uppercase tracking-wider text-zinc-300 block">
-          Ingreso de Valores Recibidos
-        </label>
+      {/* ENTRADAS DE MÉTODOS DE PAGO + ATAJOS RÁPIDOS F1-F4 */}
+      <div className="space-y-2.5">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <label className="text-xs font-bold uppercase tracking-wider text-zinc-300">
+            Ingreso de Valores Recibidos
+          </label>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => {
+                onCashArsChange(String(Math.round(finalTotalArsToCharge)));
+                onDigitalArsChange('');
+                onCashUsdChange('');
+              }}
+              className="px-2 py-1 rounded-lg bg-erp-surface hover:bg-erp-gold/20 border border-erp-border hover:border-erp-gold/50 text-[10px] font-mono font-bold text-erp-gold transition-colors cursor-pointer"
+              title="Cubrir 100% en Efectivo ARS (Atajo: F1)"
+            >
+              <kbd className="text-zinc-400 mr-1">F1</kbd>100% Efectivo
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                onDigitalArsChange(String(Math.round(finalTotalArsToCharge)));
+                onCashArsChange('');
+                onCashUsdChange('');
+              }}
+              className="px-2 py-1 rounded-lg bg-erp-surface hover:bg-indigo-500/20 border border-erp-border hover:border-indigo-500/50 text-[10px] font-mono font-bold text-indigo-400 transition-colors cursor-pointer"
+              title="Cubrir 100% en Digital / Transferencia (Atajo: F2)"
+            >
+              <kbd className="text-zinc-400 mr-1">F2</kbd>100% Digital
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                onCashUsdChange(totalUsd.toFixed(2));
+                onCashArsChange('');
+                onDigitalArsChange('');
+              }}
+              className="px-2 py-1 rounded-lg bg-erp-surface hover:bg-emerald-500/20 border border-erp-border hover:border-emerald-500/50 text-[10px] font-mono font-bold text-emerald-400 transition-colors cursor-pointer"
+              title="Cubrir 100% en Dólares Billete (Atajo: F3)"
+            >
+              <kbd className="text-zinc-400 mr-1">F3</kbd>100% USD
+            </button>
+            {(cashArs || digitalArs || cashUsd) && (
+              <button
+                type="button"
+                onClick={() => {
+                  onCashArsChange('');
+                  onDigitalArsChange('');
+                  onCashUsdChange('');
+                }}
+                className="px-2 py-1 rounded-lg bg-erp-surface hover:bg-rose-500/20 border border-erp-border hover:border-rose-500/40 text-[10px] font-mono font-bold text-zinc-400 hover:text-rose-300 transition-colors cursor-pointer"
+                title="Limpiar importes (Atajo: F4)"
+              >
+                <kbd className="mr-1">F4</kbd>Limpiar
+              </button>
+            )}
+          </div>
+        </div>
         
         <div className="grid grid-cols-3 gap-3">
           {/* EFECTIVO ARS */}
@@ -342,7 +396,7 @@ export function PaymentSplitter({
               placeholder="ARS"
               value={cashArs}
               onChange={(e) => onCashArsChange(e.target.value)}
-              className="bg-erp-bg border-erp-border text-white font-mono text-xs font-bold"
+              className="bg-erp-bg border-erp-border text-white font-mono text-xs font-bold tabular-nums"
             />
           </div>
 
@@ -357,7 +411,7 @@ export function PaymentSplitter({
               placeholder="ARS"
               value={digitalArs}
               onChange={(e) => onDigitalArsChange(e.target.value)}
-              className="bg-erp-bg border-erp-border text-white font-mono text-xs font-bold"
+              className="bg-erp-bg border-erp-border text-white font-mono text-xs font-bold tabular-nums"
             />
           </div>
 
@@ -372,7 +426,7 @@ export function PaymentSplitter({
               placeholder="USD"
               value={cashUsd}
               onChange={(e) => onCashUsdChange(e.target.value)}
-              className="bg-erp-bg border-erp-border text-white font-mono text-xs font-bold"
+              className="bg-erp-bg border-erp-border text-white font-mono text-xs font-bold tabular-nums"
             />
           </div>
         </div>

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import { useUserStore } from '@/hooks/use-user-store';
 import { useExchangeRate } from '@/hooks/use-exchange-rate';
@@ -26,6 +26,7 @@ const CheckoutModal = dynamic(
 
 export default function POSClientWrapper() {
   const [mounted, setMounted] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
 
   const role = useUserStore((state) => state.role);
   const { rate: exchangeRate, refresh: refreshRate } = useExchangeRate();
@@ -156,6 +157,46 @@ export default function POSClientWrapper() {
   }, [products, addItem, emptyBottles, decantConfig]);
 
   useBarcodeScanner(handleBarcodeScan);
+
+  // Atajos de teclado operativos para cajero en el POS (cuando el modal de cobro está cerrado)
+  useEffect(() => {
+    if (!mounted || isCheckoutOpen) return;
+
+    const handlePosKeyDown = (e: KeyboardEvent) => {
+      const activeEl = document.activeElement;
+      const isEditingInput =
+        activeEl &&
+        (activeEl.tagName === 'INPUT' ||
+          activeEl.tagName === 'TEXTAREA' ||
+          activeEl.tagName === 'SELECT' ||
+          (activeEl as HTMLElement).isContentEditable);
+
+      // F2 o '/' (fuera de un input) -> Enfocar buscador de productos del POS
+      if (e.key === 'F2' || (!isEditingInput && e.key === '/')) {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+        searchInputRef.current?.select();
+        return;
+      }
+
+      // F4 o F9 -> Abrir ventana de cobro bimonetario
+      if ((e.key === 'F4' || e.key === 'F9') && cart.length > 0) {
+        e.preventDefault();
+        setIsCheckoutOpen(true);
+        return;
+      }
+
+      // F8 -> Vaciar el carrito rápido
+      if (e.key === 'F8' && cart.length > 0) {
+        e.preventDefault();
+        clearCart();
+        toast.info('Carrito vaciado (F8)');
+      }
+    };
+
+    window.addEventListener('keydown', handlePosKeyDown);
+    return () => window.removeEventListener('keydown', handlePosKeyDown);
+  }, [mounted, isCheckoutOpen, cart.length, clearCart]);
 
   if (!mounted) {
     return (
@@ -304,11 +345,15 @@ export default function POSClientWrapper() {
             <div className="relative">
               <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
               <Input
-                placeholder="Buscar por marca, perfume o SKU..."
-                className="pl-9"
+                ref={searchInputRef}
+                placeholder="Buscar por marca, perfume o SKU... (Atajo: F2 o /)"
+                className="pl-9 pr-14"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
+              <kbd className="hidden sm:inline-block absolute right-2.5 top-2 px-1.5 py-0.5 rounded bg-slate-100 dark:bg-erp-bg border border-slate-200 dark:border-erp-border text-[10px] font-mono text-slate-500 dark:text-zinc-400 pointer-events-none">
+                F2
+              </kbd>
             </div>
             
             <div className="flex flex-wrap gap-2">
@@ -521,16 +566,24 @@ export default function POSClientWrapper() {
                 variant="outline"
                 onClick={clearCart}
                 disabled={cart.length === 0}
-                className="w-full text-xs cursor-pointer h-9"
+                className="w-full text-xs cursor-pointer h-9 flex items-center justify-center gap-1.5"
+                title="Vaciar carrito (Atajo: F8)"
               >
-                Vaciar
+                <span>Vaciar</span>
+                <kbd className="px-1 py-0.5 rounded bg-slate-100 dark:bg-erp-bg border border-slate-200 dark:border-erp-border text-[10px] font-mono opacity-75">
+                  F8
+                </kbd>
               </Button>
               <Button
                 onClick={() => setIsCheckoutOpen(true)}
                 disabled={cart.length === 0}
-                className="w-full bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-500 dark:hover:bg-emerald-600 text-white font-bold text-xs cursor-pointer h-9 shadow-sm"
+                className="w-full bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-500 dark:hover:bg-emerald-600 text-white font-bold text-xs cursor-pointer h-9 shadow-sm flex items-center justify-center gap-1.5"
+                title="Abrir ventana de cobro (Atajo: F4)"
               >
-                Cobrar Orden
+                <span>Cobrar Orden</span>
+                <kbd className="px-1 py-0.5 rounded bg-emerald-700/60 border border-emerald-400/30 text-[10px] font-mono text-emerald-100">
+                  F4
+                </kbd>
               </Button>
             </div>
 

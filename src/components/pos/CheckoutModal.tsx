@@ -143,8 +143,6 @@ export function CheckoutModal({
     setCompletedSaleData(null);
   }, [isOpen, role]);
 
-  if (!isOpen) return null;
-
   // Cliente seleccionado
   const selectedClient = clients.find(c => c.id === clientId);
   const clientPoints = selectedClient?.points_balance || 0;
@@ -168,6 +166,44 @@ export function CheckoutModal({
     clientPoints,
     isRegisteredClient,
   });
+
+  // Atajos de teclado F1-F4 para asignación instantánea de cobro en mostrador
+  useEffect(() => {
+    if (!isOpen || step !== 'checkout') return;
+
+    const handleCheckoutHotkeys = (e: KeyboardEvent) => {
+      if (e.key === 'F1') {
+        e.preventDefault();
+        setCashArs(String(Math.round(totals.finalTotalArsToCharge)));
+        setDigitalArs('');
+        setCashUsd('');
+        toast.info('F1: 100% asignado a Efectivo ARS');
+      } else if (e.key === 'F2') {
+        e.preventDefault();
+        setDigitalArs(String(Math.round(totals.finalTotalArsToCharge)));
+        setCashArs('');
+        setCashUsd('');
+        toast.info('F2: 100% asignado a Digital / Transferencia');
+      } else if (e.key === 'F3') {
+        e.preventDefault();
+        setCashUsd(totals.totalUsd.toFixed(2));
+        setCashArs('');
+        setDigitalArs('');
+        toast.info('F3: 100% asignado a Dólares Billete');
+      } else if (e.key === 'F4') {
+        e.preventDefault();
+        setCashArs('');
+        setDigitalArs('');
+        setCashUsd('');
+        toast.info('F4: Montos reiniciados para desglose manual');
+      }
+    };
+
+    window.addEventListener('keydown', handleCheckoutHotkeys);
+    return () => window.removeEventListener('keydown', handleCheckoutHotkeys);
+  }, [isOpen, step, totals.finalTotalArsToCharge, totals.totalUsd]);
+
+  if (!isOpen) return null;
 
   const handleCheckout = async (e: React.FormEvent) => {
     e.preventDefault();
