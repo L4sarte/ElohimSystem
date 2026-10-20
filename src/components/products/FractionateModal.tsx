@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { Product, UserRole } from '@/types';
 import { getDecantLiquids, fractionateBottle, createProduct } from '@/app/actions/products';
 import { CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
@@ -8,6 +9,7 @@ import { Modal } from '@/components/ui/modal';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { X, AlertTriangle, RefreshCw, AlertCircle, Sparkles, Check } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface FractionateModalProps {
   isOpen: boolean;
@@ -19,22 +21,36 @@ interface FractionateModalProps {
 }
 
 export function FractionateModal({ isOpen, onClose, onSuccess, bottle, role, availableBottles = [] }: FractionateModalProps) {
+  const router = useRouter();
   const [decants, setDecants] = useState<Product[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingData, setLoadingData] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [errorDetails, setErrorDetails] = useState<{
+    code?: string;
+    message?: string;
+    details?: string | null;
+    hint?: string | null;
+  } | null>(null);
 
   // Estados de Selección de Botella (si no fue provista externamente)
   const [selectedBottleId, setSelectedBottleId] = useState<string>(bottle?.id || '');
 
   useEffect(() => {
+    if (!isOpen) return;
+    setError(null);
+    setErrorDetails(null);
+
     if (bottle) {
       setSelectedBottleId(bottle.id);
-    } else if (availableBottles.length > 0 && !selectedBottleId) {
-      const firstWithStock = availableBottles.find(b => b.stock_quantity > 0) || availableBottles[0];
-      if (firstWithStock) setSelectedBottleId(firstWithStock.id);
+    } else if (availableBottles.length > 0) {
+      const currentValid = availableBottles.find(b => b.id === selectedBottleId && b.stock_quantity > 0);
+      if (!currentValid) {
+        const firstWithStock = availableBottles.find(b => b.stock_quantity > 0) || availableBottles[0];
+        if (firstWithStock) setSelectedBottleId(firstWithStock.id);
+      }
     }
-  }, [bottle, availableBottles]);
+  }, [bottle, availableBottles, isOpen]);
 
   const activeBottle = bottle || availableBottles.find(b => b.id === selectedBottleId) || null;
 
@@ -55,6 +71,7 @@ export function FractionateModal({ isOpen, onClose, onSuccess, bottle, role, ava
     async function loadDecants() {
       setLoadingData(true);
       setError(null);
+      setErrorDetails(null);
       const res = await getDecantLiquids();
       setLoadingData(false);
 
@@ -79,7 +96,7 @@ export function FractionateModal({ isOpen, onClose, onSuccess, bottle, role, ava
     }
 
     loadDecants();
-  }, [activeBottle, isOpen, role]);
+  }, [activeBottle?.id, isOpen, role]);
 
   // Pre-llenar formulario de nuevo decant
   useEffect(() => {
@@ -100,23 +117,37 @@ export function FractionateModal({ isOpen, onClose, onSuccess, bottle, role, ava
 
   const handleFractionate = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!activeBottle) {
-      setError('Debes seleccionar una botella para fraccionar.');
+    setError(null);
+    setErrorDetails(null);
+
+    if (!activeBottle || !activeBottle.id || !activeBottle.id.trim()) {
+      const msg = 'Debes seleccionar una botella válida para fraccionar.';
+      setError(msg);
+      toast.error(msg);
       return;
     }
+
     if (activeBottle.stock_quantity < 1) {
-      setError('No hay stock disponible de esta botella para realizar el fraccionamiento.');
+      const msg = `No hay stock disponible de "${activeBottle.name}" para realizar el fraccionamiento.`;
+      setError(msg);
+      toast.error(msg);
+      return;
+    }
+
+    if (!targetDecantId || !targetDecantId.trim()) {
+      const msg = 'Debes seleccionar un líquido a granel destino o la opción de crear uno nuevo.';
+      setError(msg);
+      toast.error(msg);
       return;
     }
 
     setLoading(true);
-    setError(null);
 
     try {
-      let finalDecantId = targetDecantId;
+      let finalDecantId = targetDecantId.trim();
 
       // 1. Si el usuario seleccionó crear un nuevo decant, lo registramos primero
-      if (targetDecantId === 'create_new') {
+      if (finalDecantId === 'create_new') {
         const createRes = await createProduct({
           sku: newDecantSku.trim(),
           name: newDecantName.trim(),
@@ -129,23 +160,68 @@ export function FractionateModal({ isOpen, onClose, onSuccess, bottle, role, ava
         });
 
         if (!createRes.success || !createRes.id) {
-          throw new Error(createRes.error || 'Error al crear el producto del decant destino');
+          const createErrMsg = createRes.error || 'Error al crear el producto del decant destino';
+          setError(createErrMsg);
+          toast.error(createErrMsg);
+          setLoading(false);
+          return;
         }
-        finalDecantId = createRes.id;
+        finalDecantId = createRes.id.trim();
+      }
+
+      if (!finalDecantId || finalDecantId === 'create_new') {
+        const idErr = 'ID de decant destino inválido o vacío.';
+        setError(idErr);
+        toast.error(idErr);
+        setLoading(false);
+        return;
       }
 
       // 2. Ejecutar la transacción de fraccionamiento seguro en Supabase
-      const volumeToFractionate = activeBottle.volume_ml || 100;
-      const fracRes = await fractionateBottle(activeBottle.id, finalDecantId, volumeToFractionate);
+      const volumeToFractionate = Number(activeBottle.volume_ml) > 0 ? Number(activeBottle.volume_ml) : 100;
+      const fracRes = await fractionateBottle(activeBottle.id.trim(), finalDecantId, volumeToFractionate);
 
       if (!fracRes.success) {
-        throw new Error(fracRes.error || 'Error al procesar el fraccionamiento en base de datos');
+        const dbMessage = fracRes.errorDetails?.message || fracRes.error || 'Error al procesar el fraccionamiento en base de datos';
+        console.error('[FractionateModal] Error retornado por Supabase:', {
+          error: fracRes.error,
+          errorDetails: fracRes.errorDetails,
+          bottleId: activeBottle.id,
+          decantId: finalDecantId,
+          volumeMl: volumeToFractionate,
+        });
+
+        setError(fracRes.error || dbMessage);
+        if (fracRes.errorDetails) {
+          setErrorDetails(fracRes.errorDetails);
+        }
+
+        toast.error(`Error en Base de Datos: ${dbMessage}`, {
+          description: fracRes.errorDetails?.hint || fracRes.errorDetails?.details || undefined,
+          duration: 6000,
+        });
+        setLoading(false);
+        return;
       }
 
-      onSuccess();
+      // 3. Éxito: Notificar, refrescar caché de rutas e invocar callback del padre
+      toast.success(
+        `¡Fraccionamiento exitoso! +${volumeToFractionate} ml sumados al granel.`,
+        {
+          description: fracRes.data?.new_weighted_avg_cost_ars
+            ? `Nuevo Costo Promedio Ponderado (PPP): $${fracRes.data.new_weighted_avg_cost_ars.toLocaleString('es-AR')} ARS/ml`
+            : undefined,
+        }
+      );
+
+      router.refresh();
+      await Promise.resolve(onSuccess());
       onClose();
-    } catch (err: any) {
-      setError(err.message || 'Error en la operación');
+    } catch (err: unknown) {
+      console.error('[FractionateModal] Excepción inesperada:', err);
+      const errMsg = err instanceof Error ? err.message : 'Error inesperado en la operación de fraccionamiento';
+      setError(errMsg);
+      toast.error(errMsg);
     } finally {
       setLoading(false);
     }
@@ -177,9 +253,18 @@ export function FractionateModal({ isOpen, onClose, onSuccess, bottle, role, ava
           <CardContent className="space-y-4 p-6 max-h-[60vh] overflow-y-auto">
             
             {error && (
-              <div className="flex gap-2.5 rounded-lg bg-rose-50 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-900/30 p-3 text-xs text-rose-600 dark:text-rose-400">
-                <AlertCircle className="h-4 w-4 shrink-0" />
-                <span className="font-medium">{error}</span>
+              <div className="flex flex-col gap-1.5 rounded-lg bg-rose-50 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-900/30 p-3 text-xs text-rose-600 dark:text-rose-400">
+                <div className="flex items-start gap-2.5">
+                  <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+                  <span className="font-semibold">{error}</span>
+                </div>
+                {errorDetails && (errorDetails.code || errorDetails.details || errorDetails.hint) && (
+                  <div className="pl-6 space-y-0.5 font-mono text-[11px] text-rose-500/90 dark:text-rose-300/80 border-t border-rose-200/60 dark:border-rose-900/40 pt-1.5">
+                    {errorDetails.code && <div>Código Postgres: {errorDetails.code}</div>}
+                    {errorDetails.details && <div>Detalle: {errorDetails.details}</div>}
+                    {errorDetails.hint && <div>Sugerencia: {errorDetails.hint}</div>}
+                  </div>
+                )}
               </div>
             )}
 

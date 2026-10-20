@@ -12,9 +12,10 @@ import {
 
 interface DecantYieldWidgetProps {
   role: UserRole;
+  refreshTrigger?: number;
 }
 
-export function DecantYieldWidget({ role }: DecantYieldWidgetProps) {
+export function DecantYieldWidget({ role, refreshTrigger = 0 }: DecantYieldWidgetProps) {
   const [data, setData] = useState<DecantYieldReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -34,7 +35,7 @@ export function DecantYieldWidget({ role }: DecantYieldWidgetProps) {
 
   useEffect(() => {
     fetchData();
-  }, [role]);
+  }, [role, refreshTrigger]);
 
   if (role !== 'admin') return null;
 

@@ -330,6 +330,26 @@ export async function getDecantLiquids(): Promise<{
   }
 }
 
+export interface FractionateBottleResponse {
+  success: boolean;
+  error?: string;
+  errorDetails?: {
+    code?: string;
+    message?: string;
+    details?: string | null;
+    hint?: string | null;
+  };
+  data?: {
+    log_id?: string;
+    bottle_id: string;
+    decant_id: string;
+    volume_fractionated_ml: number;
+    new_liquid_stock_ml: number;
+    new_weighted_avg_cost_ars: number;
+    cost_transferred_ars: number;
+  };
+}
+
 /**
  * Fraccionar una botella: resta 1 unidad de la botella y suma p_volume_ml al decant seleccionado.
  * Invoca la función transaccional de base de datos 'fractionate_bottle'.
@@ -338,14 +358,32 @@ export async function fractionateBottle(
   bottleId: string,
   decantId: string,
   volumeMl: number
-): Promise<{ success: boolean; error?: string }> {
+): Promise<FractionateBottleResponse> {
   try {
     const adminUser = await requireAdmin();
 
-    const validation = fractionateBottleSchema.safeParse({ bottleId, decantId, volumeMl });
+    const cleanBottleId = typeof bottleId === 'string' ? bottleId.trim() : '';
+    const cleanDecantId = typeof decantId === 'string' ? decantId.trim() : '';
+    const cleanVolumeMl = Number(volumeMl);
+
+    const validation = fractionateBottleSchema.safeParse({
+      bottleId: cleanBottleId,
+      decantId: cleanDecantId,
+      volumeMl: cleanVolumeMl,
+    });
+
     if (!validation.success) {
       const firstError = validation.error.issues[0]?.message || 'Parámetros de fraccionamiento inválidos.';
-      return { success: false, error: firstError };
+      return {
+        success: false,
+        error: firstError,
+        errorDetails: {
+          code: 'VALIDATION_ERROR',
+          message: firstError,
+          details: JSON.stringify(validation.error.flatten().fieldErrors),
+          hint: 'Verifica que la botella origen, el decant destino y el volumen en ml sean válidos.',
+        },
+      };
     }
 
     if (!isSupabaseConfigured()) {
@@ -354,7 +392,11 @@ export async function fractionateBottle(
 
     const supabase = getServiceSupabase();
 
-    // 1. Consultar estado previo de botella y granel para cálculo de Precio Promedio Ponderado (PPP)
+    // Validar que adminUser.id sea un UUID válido antes de enviarlo al RPC
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const validAdminId = adminUser?.id && uuidRegex.test(adminUser.id) ? adminUser.id : null;
+
+    // 1. Consultar estado previo de botella y granel para respaldo de cálculo PPP
     const { data: bottleData } = await supabase
       .from('products')
       .select('name, base_cost_ars, volume_ml, stock_quantity')
@@ -371,24 +413,65 @@ export async function fractionateBottle(
       p_bottle_id: validation.data.bottleId,
       p_decant_id: validation.data.decantId,
       p_volume_ml: validation.data.volumeMl,
-      p_admin_id: adminUser.id,
+      p_admin_id: validAdminId,
     });
 
-    if (rpcRes.error && (rpcRes.error.code === 'PGRST202' || rpcRes.error.message?.includes('parameters'))) {
-      // Fallback a versión de 3 parámetros si la migración aún no fue ejecutada
-      rpcRes = await supabase.rpc('fractionate_bottle', {
+    if (
+      rpcRes.error &&
+      (rpcRes.error.code === 'PGRST202' ||
+        rpcRes.error.code === '42883' ||
+        rpcRes.error.message?.includes('parameters') ||
+        rpcRes.error.message?.includes('function'))
+    ) {
+      // Fallback a versión de 3 parámetros si en base de datos existe solo la firma antigua (UUID, UUID, NUMERIC)
+      const fallbackRes = await supabase.rpc('fractionate_bottle', {
         p_bottle_id: validation.data.bottleId,
         p_decant_id: validation.data.decantId,
         p_volume_ml: validation.data.volumeMl,
       });
+      rpcRes = fallbackRes;
     }
 
     if (rpcRes.error) {
-      throw rpcRes.error;
+      const pgErr = rpcRes.error;
+      console.error('[FRACTIONATE_BOTTLE_RPC_ERROR]:', {
+        code: pgErr.code,
+        message: pgErr.message,
+        details: pgErr.details,
+        hint: pgErr.hint,
+        payload: {
+          p_bottle_id: validation.data.bottleId,
+          p_decant_id: validation.data.decantId,
+          p_volume_ml: validation.data.volumeMl,
+          p_admin_id: validAdminId,
+        },
+      });
+
+      const detailParts = [
+        pgErr.message,
+        pgErr.details ? `Detalles: ${pgErr.details}` : null,
+        pgErr.hint ? `Sugerencia: ${pgErr.hint}` : null,
+        pgErr.code ? `(Código PG: ${pgErr.code})` : null,
+      ].filter(Boolean);
+
+      return {
+        success: false,
+        error: detailParts.join(' | ') || 'Error al ejecutar fractionate_bottle en Postgres.',
+        errorDetails: {
+          code: pgErr.code,
+          message: pgErr.message,
+          details: pgErr.details,
+          hint: pgErr.hint,
+        },
+      };
     }
 
-    // 2. Garantizar recálculo de Precio Promedio Ponderado (PPP) y persistencia
-    if (bottleData && decantData) {
+    const rpcPayload = (rpcRes.data || null) as Record<string, unknown> | null;
+    const rpcAlreadyLogged = Boolean(rpcPayload && rpcPayload.log_id);
+
+    // 2. Si se ejecutó la firma legacy de 3 parámetros (que no retornaba JSONB con log_id),
+    // garantizamos el cálculo PPP y el registro en fractionation_logs sin duplicar si la RPC nueva ya lo hizo.
+    if (!rpcAlreadyLogged && bottleData && decantData) {
       const bottleVol = Number(bottleData.volume_ml) || validation.data.volumeMl || 100;
       const bottleCost = Number(bottleData.base_cost_ars || 0);
       const newCostPerMl = bottleVol > 0 ? bottleCost / bottleVol : 0;
@@ -403,34 +486,79 @@ export async function fractionateBottle(
         weightedCostPerMl = ((previousStockMl * currentCostPerMl) + (newVolumeMl * newCostPerMl)) / totalVolume;
       }
 
-      await supabase
-        .from('products')
-        .update({
-          base_cost_ars: Math.round(weightedCostPerMl * 100) / 100,
-        })
-        .eq('id', validation.data.decantId);
+      const roundedWeightedCost = Math.round(weightedCostPerMl * 100) / 100;
 
-      // Intentar insertar log si la tabla existe
-      try {
-        await supabase.from('fractionation_logs').insert({
+      // Solo actualizamos base_cost_ars si la RPC no retornó new_weighted_avg_cost_ars
+      if (!rpcPayload || rpcPayload.new_weighted_avg_cost_ars === undefined) {
+        await supabase
+          .from('products')
+          .update({
+            base_cost_ars: roundedWeightedCost,
+          })
+          .eq('id', validation.data.decantId);
+      }
+
+      // Si el RPC de 4 parámetros ya insertó en fractionation_logs (incluso sin log_id en versión intermedia),
+      // evitamos duplicar verificando si no retornó new_weighted_avg_cost_ars.
+      if (!rpcPayload || rpcPayload.new_weighted_avg_cost_ars === undefined) {
+        const { error: logErr } = await supabase.from('fractionation_logs').insert({
           source_bottle_id: validation.data.bottleId,
           target_liquid_id: validation.data.decantId,
           volume_ml: validation.data.volumeMl,
-          cost_transferred_ars: Math.round(newCostPerMl * newVolumeMl),
-          cost_per_ml_calculated: Math.round(weightedCostPerMl * 100) / 100,
-          admin_id: adminUser.id,
-          notes: `Fraccionamiento de 1 botella de ${bottleData.name} (${newVolumeMl}ml)`,
+          cost_transferred_ars: Math.round(newCostPerMl * newVolumeMl * 100) / 100,
+          cost_per_ml_calculated: roundedWeightedCost,
+          admin_id: validAdminId,
+          notes: `Fraccionamiento de 1 botella de ${bottleData.name} (+${newVolumeMl}ml)`,
         });
-      } catch (_) {}
+        if (logErr) {
+          console.warn('[FRACTIONATE_BOTTLE_LOG_WARNING]:', logErr.message, logErr.details, logErr.hint);
+        }
+      }
     }
 
     revalidatePath('/productos');
+    revalidatePath('/admin/inventario/decants');
+    revalidatePath('/admin/inventario/kardex');
     revalidatePath('/admin/inventario/recetas');
-    return { success: true };
+
+    return {
+      success: true,
+      data: rpcPayload
+        ? {
+            log_id: typeof rpcPayload.log_id === 'string' ? rpcPayload.log_id : undefined,
+            bottle_id: String(rpcPayload.bottle_id || validation.data.bottleId),
+            decant_id: String(rpcPayload.decant_id || validation.data.decantId),
+            volume_fractionated_ml: Number(rpcPayload.volume_fractionated_ml || validation.data.volumeMl),
+            new_liquid_stock_ml: Number(rpcPayload.new_liquid_stock_ml || 0),
+            new_weighted_avg_cost_ars: Number(rpcPayload.new_weighted_avg_cost_ars || 0),
+            cost_transferred_ars: Number(rpcPayload.cost_transferred_ars || 0),
+          }
+        : undefined,
+    };
   } catch (error: unknown) {
-    console.error('Error al fraccionar botella:', error);
-    const msg = error instanceof Error ? error.message : 'Error al procesar el fraccionamiento en base de datos';
-    return { success: false, error: msg };
+    console.error('[FRACTIONATE_BOTTLE_UNEXPECTED_ERROR]:', error);
+    if (error && typeof error === 'object' && 'message' in error) {
+      const errObj = error as { code?: string; message?: string; details?: string | null; hint?: string | null };
+      const parts = [
+        errObj.message,
+        errObj.details ? `Detalles: ${errObj.details}` : null,
+        errObj.hint ? `Sugerencia: ${errObj.hint}` : null,
+      ].filter(Boolean);
+      return {
+        success: false,
+        error: parts.join(' | ') || 'Error al procesar el fraccionamiento en base de datos',
+        errorDetails: {
+          code: errObj.code,
+          message: errObj.message,
+          details: errObj.details ?? null,
+          hint: errObj.hint ?? null,
+        },
+      };
+    }
+    return {
+      success: false,
+      error: 'Error inesperado al procesar el fraccionamiento en base de datos',
+    };
   }
 }
 

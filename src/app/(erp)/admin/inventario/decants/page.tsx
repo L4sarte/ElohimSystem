@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { useUserStore } from '@/hooks/use-user-store';
 import { useExchangeRate } from '@/hooks/use-exchange-rate';
 import { getProducts } from '@/app/actions/products';
@@ -21,6 +22,7 @@ import { toast } from 'sonner';
 import { DecantYieldWidget } from '@/components/analytics/DecantYieldWidget';
 
 export default function DecantsHubPage() {
+  const router = useRouter();
   const role = useUserStore((state) => state.role);
   const { rate: exchangeRate } = useExchangeRate();
 
@@ -28,6 +30,7 @@ export default function DecantsHubPage() {
   const [fractionationLogs, setFractionationLogs] = useState<FractionationLogRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
   
   // Modal de Fraccionamiento Rápido
   const [isFracModalOpen, setIsFracModalOpen] = useState(false);
@@ -51,6 +54,7 @@ export default function DecantsHubPage() {
     } else if (fRes.error) {
       toast.error(fRes.error || 'Error al cargar el libro de fraccionamientos.');
     }
+    setRefreshTrigger((prev) => prev + 1);
     setLoading(false);
   };
 
@@ -635,7 +639,7 @@ export default function DecantsHubPage() {
         </div>
 
         {/* WIDGET DE RENDIMIENTO DE FRACCIONAMIENTO Y MULTIPLICADOR BOM */}
-        <DecantYieldWidget role={role} />
+        <DecantYieldWidget role={role} refreshTrigger={refreshTrigger} />
 
       </main>
 
@@ -646,9 +650,9 @@ export default function DecantsHubPage() {
           setIsFracModalOpen(false);
           setSelectedBottleForFrac(null);
         }}
-        onSuccess={() => {
-          fetchData();
-          toast.success('¡Fraccionamiento completado exitosamente!');
+        onSuccess={async () => {
+          router.refresh();
+          await fetchData();
         }}
         bottle={selectedBottleForFrac}
         availableBottles={availableBottles}
