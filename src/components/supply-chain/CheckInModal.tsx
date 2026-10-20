@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card';
 import { Modal } from '@/components/ui/modal';
 import { toast } from 'sonner';
+import { checkInBatchSchema } from '@/lib/purchase-validation';
 
 interface CheckInModalProps {
   order: PurchaseOrder;
@@ -32,6 +33,20 @@ export function CheckInModal({ order, isOpen, onClose }: CheckInModalProps) {
     })) || []
   );
 
+  // Sincronizar items locales cuando la orden cambia o el modal se abre
+  useEffect(() => {
+    if (isOpen && order?.items) {
+      setReceivedItems(
+        order.items.map(item => ({
+          item_id: item.id!,
+          received_quantity: Number(item.expected_quantity || 0)
+        }))
+      );
+      setErrorMsg(null);
+      setSuccessMsg(null);
+    }
+  }, [isOpen, order]);
+
   // Timer de cierre automático — se limpia si el modal se desmonta antes (evita onClose() fantasma)
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -47,7 +62,7 @@ export function CheckInModal({ order, isOpen, onClose }: CheckInModalProps) {
   // Estados financieros de tesorería y condición de pago
   const [treasuryAccounts, setTreasuryAccounts] = useState<TreasuryAccount[]>([]);
   const [loadingAccounts, setLoadingAccounts] = useState(false);
-  const [paymentType, setPaymentType] = useState<'immediate' | 'cxp'>('immediate');
+  const [paymentType, setPaymentType] = useState<'immediate' | 'cxp' | 'already_paid'>('immediate');
   const [selectedTreasuryAccountId, setSelectedTreasuryAccountId] = useState<string>('');
   const [dueDate, setDueDate] = useState<string>(() => {
     const d = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
@@ -126,19 +141,47 @@ export function CheckInModal({ order, isOpen, onClose }: CheckInModalProps) {
       return;
     }
 
+    // Validación preventiva en cliente con esquema Zod
+    const isAlreadyPaid = paymentType === 'already_paid';
+    const isPaid = isAlreadyPaid ? true : paymentType === 'immediate';
+
+    const validationResult = checkInBatchSchema.safeParse({
+      po_id: order.id,
+      items: cleanedPayload,
+      paymentDetails: {
+        isPaid,
+        paymentType,
+        isAlreadyPaid,
+        treasuryAccountId: paymentType === 'immediate' ? selectedTreasuryAccountId : undefined,
+        dueDate: paymentType === 'cxp' ? dueDate : null,
+      },
+    });
+
+    if (!validationResult.success) {
+      const issue = validationResult.error.issues[0];
+      setErrorMsg(issue ? issue.message : 'Datos de verificación de recepción inválidos.');
+      return;
+    }
+
     try {
       const result = await confirmCheckIn(order.id, cleanedPayload, {
-        isPaid: paymentType === 'immediate',
+        isPaid,
+        paymentType,
+        isAlreadyPaid,
         treasuryAccountId: paymentType === 'immediate' ? selectedTreasuryAccountId : undefined,
         dueDate: paymentType === 'cxp' ? dueDate : null,
       });
 
-      setSuccessMsg(
-        result?.message ||
+      const successText = isAlreadyPaid
+        ? 'Mercadería ingresada al inventario exitosamente (sin impacto financiero en tesorería/CXP)'
+        : result?.message ||
           (paymentType === 'immediate'
             ? '¡Mercadería ingresada exitosamente! Fondos debitados contablemente de la cuenta de tesorería.'
-            : '¡Mercadería ingresada exitosamente! Registrada en Cuentas por Pagar (CxP) pendiente de liquidación.')
-      );
+            : '¡Mercadería ingresada exitosamente! Registrada en Cuentas por Pagar (CxP) pendiente de liquidación.');
+
+      setSuccessMsg(successText);
+      toast.success(successText);
+
       if (result?.warning) {
         toast.warning(result.warning);
       }
@@ -304,7 +347,7 @@ export function CheckInModal({ order, isOpen, onClose }: CheckInModalProps) {
               </span>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               {/* Opción A: Pagado al Contado / Inmediato */}
               <label 
                 className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
@@ -356,7 +399,43 @@ export function CheckInModal({ order, isOpen, onClose }: CheckInModalProps) {
                   </span>
                 </div>
               </label>
+
+              {/* Opción C: Ya pagado previamente / Pago adelantado */}
+              <label 
+                className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
+                  paymentType === 'already_paid'
+                    ? 'border-sky-500 bg-sky-500/10 text-slate-900 dark:text-white shadow-sm'
+                    : 'border-slate-200 dark:border-erp-border hover:bg-slate-100 dark:hover:bg-erp-surface text-slate-600 dark:text-zinc-400'
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="paymentType"
+                  value="already_paid"
+                  checked={paymentType === 'already_paid'}
+                  onChange={() => setPaymentType('already_paid')}
+                  className="mt-0.5 accent-sky-500"
+                />
+                <div className="text-xs">
+                  <span className="font-bold block text-sky-700 dark:text-sky-400">
+                    Ya pagado previamente / Pago adelantado
+                  </span>
+                  <span className="text-[11px] text-slate-500 dark:text-zinc-400 block mt-0.5 leading-snug">
+                    El pago ya fue liquidado con anterioridad o por un canal externo. No debita dinero de Tesorería ni genera deuda pendiente en CXP.
+                  </span>
+                </div>
+              </label>
             </div>
+
+            {/* Aviso informativo cuando se selecciona Ya Pagado Previamente */}
+            {paymentType === 'already_paid' && (
+              <div className="p-3 rounded-lg bg-sky-50 dark:bg-sky-950/20 border border-sky-200 dark:border-sky-900/40 text-xs text-sky-800 dark:text-sky-300 flex items-center gap-2">
+                <CheckCircle className="h-4 w-4 shrink-0 text-sky-600 dark:text-sky-400" />
+                <span>
+                  El stock físico y los costos ponderados se actualizarán normalmente. La orden quedará marcada como recibida y completada sin registrar movimientos en Tesorería ni pasivos en CXP.
+                </span>
+              </div>
+            )}
 
             {/* Selector de Cuenta de Tesorería */}
             {paymentType === 'immediate' && (

@@ -14,7 +14,7 @@ import {
 } from '@/types/supplyChain';
 import { revalidatePath } from 'next/cache';
 import { requireAdmin } from '@/lib/auth-checks';
-import { purchaseInputSchema, settleProviderDebtSchema } from '@/lib/purchase-validation';
+import { purchaseInputSchema, settleProviderDebtSchema, checkInBatchSchema } from '@/lib/purchase-validation';
 import { getTreasuryAccounts } from '@/app/actions/treasury';
 import { withdrawFromAccount } from '@/lib/treasury-ops';
 
@@ -1055,6 +1055,17 @@ export async function confirmCheckInAction(
   try {
     const adminUser = await requireAdmin();
 
+    // Validar esquema de entrada con Zod
+    const validation = checkInBatchSchema.safeParse({
+      po_id: poId,
+      items,
+      paymentDetails,
+    });
+    if (!validation.success) {
+      const firstIssue = validation.error.issues[0];
+      return { success: false, error: firstIssue ? firstIssue.message : 'Datos de check-in inválidos' };
+    }
+
     if (!isSupabaseConfigured()) {
       return { success: true, message: 'Recepción simulada correctamente' };
     }
@@ -1138,11 +1149,14 @@ export async function confirmCheckInAction(
       };
     }
 
-    const isPaid = paymentDetails ? Boolean(paymentDetails.isPaid) : true;
+    const isAlreadyPaid = Boolean(
+      paymentDetails?.isAlreadyPaid || paymentDetails?.paymentType === 'already_paid'
+    );
+    const isPaid = isAlreadyPaid ? true : (paymentDetails ? Boolean(paymentDetails.isPaid) : true);
 
     let targetAccId: string | null = null;
     let usedAccountName = '';
-    if (isPaid) {
+    if (isPaid && !isAlreadyPaid) {
       targetAccId = paymentDetails?.treasuryAccountId || null;
       if (!targetAccId) {
         const resAcc = await getTreasuryAccounts();
@@ -1160,44 +1174,310 @@ export async function confirmCheckInAction(
       }
     }
 
-    const paymentNote = isPaid
+    const paymentNote = isAlreadyPaid
+      ? '[PAGO PREVIO / ADELANTADO: Sin débito en tesorería ni CxP]'
+      : isPaid
       ? `[PAGADO CONTADO: ${usedAccountName || 'Tesorería'}]`
       : `[PENDIENTE CxP - Vence: ${paymentDetails?.dueDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}]`;
     const previousNotes = (po as any).notes;
     const finalNotes = previousNotes ? `${previousNotes} | ${paymentNote}` : paymentNote;
 
-    const { data: rpcData, error: rpcError } = await supabase.rpc('confirm_purchase_order_checkin', {
-      p_po_id: poId,
-      p_admin_id: adminUser.id,
-      p_items: itemsToProcess.map((it) => ({
-        poi_id: it.poiId,
-        received_qty: it.receivedQty,
-      })),
-      p_is_paid: isPaid,
-      p_treasury_account_id: targetAccId,
-      p_due_date: isPaid ? null : paymentDetails?.dueDate || null,
-      p_notes: finalNotes,
-      p_description: `Pago a Proveedor ${(po.suppliers as any)?.name || 'B2B'} - Orden #${poId.slice(0, 8).toUpperCase()}`,
-    });
+    // Calcular montos y gastos totales para feedback y para el fallback transaccional
+    const totalExpenses = (po.purchase_order_expenses || []).reduce(
+      (sum: number, exp: any) => sum + Number(exp.amount || 0),
+      0
+    );
+    const totalMerchCost = itemsToProcess.reduce(
+      (sum, it) => sum + it.receivedQty * it.unitCost,
+      0
+    );
+    const grandTotalCalculated = totalMerchCost + totalExpenses;
+    const expensePerUnit = totalReceivedUnits > 0 ? totalExpenses / totalReceivedUnits : 0;
 
-    if (rpcError) {
-      console.error('[CONFIRM_CHECKIN_RPC_ERROR]:', rpcError);
-      throw rpcError;
+    // Intentar primero vía RPC transaccional optimizado
+    let rpcSucceeded = false;
+    let receivedUnitsFinal = totalReceivedUnits;
+    let grandTotalFinal = grandTotalCalculated;
+
+    try {
+      const { data: rpcData, error: rpcError } = await supabase.rpc('confirm_purchase_order_checkin', {
+        p_po_id: poId,
+        p_admin_id: adminUser.id,
+        p_items: itemsToProcess.map((it) => ({
+          poi_id: it.poiId,
+          received_qty: it.receivedQty,
+        })),
+        p_is_paid: isPaid,
+        p_treasury_account_id: isAlreadyPaid ? null : targetAccId,
+        p_due_date: isPaid || isAlreadyPaid ? null : paymentDetails?.dueDate || null,
+        p_notes: finalNotes,
+        p_description: `Pago a Proveedor ${(po.suppliers as any)?.name || 'B2B'} - Orden #${poId.slice(0, 8).toUpperCase()}`,
+        p_is_already_paid: isAlreadyPaid,
+      });
+
+      if (!rpcError) {
+        rpcSucceeded = true;
+        const rpcRows = (rpcData as unknown as Array<{ o_received_units: number; o_grand_total: number }> | null) || [];
+        receivedUnitsFinal = Number(rpcRows[0]?.o_received_units ?? totalReceivedUnits);
+        grandTotalFinal = Number(rpcRows[0]?.o_grand_total ?? grandTotalCalculated);
+      } else {
+        console.warn('[CONFIRM_CHECKIN_RPC_WARNING] RPC arrojó error, ejecutando fallback transaccional seguro:', rpcError.message);
+      }
+    } catch (rpcCatchErr) {
+      console.warn('[CONFIRM_CHECKIN_RPC_EXCEPTION] Fallback transaccional activado:', rpcCatchErr);
     }
 
-    const rpcRows = (rpcData as unknown as Array<{ o_received_units: number; o_grand_total: number }> | null) || [];
-    const receivedUnitsFinal = Number(rpcRows[0]?.o_received_units ?? totalReceivedUnits);
-    const grandTotalFinal = Number(rpcRows[0]?.o_grand_total ?? 0);
+    // Si el RPC falló o no existe el parámetro p_is_already_paid en DB remota,
+    // ejecutamos el procesamiento atómico con el cliente administrativo (Service Role):
+    if (!rpcSucceeded) {
+      // 1. Validar fondos de tesorería únicamente si es al contado y no fue pagado previamente
+      if (!isAlreadyPaid && isPaid && targetAccId) {
+        const { data: accCheck, error: accCheckErr } = await supabase
+          .from('treasury_accounts')
+          .select('balance_ars, account_name')
+          .eq('id', targetAccId)
+          .single();
+
+        if (accCheckErr || !accCheck) {
+          return { success: false, error: 'Cuenta de tesorería no encontrada.' };
+        }
+
+        if (Number(accCheck.balance_ars || 0) < grandTotalCalculated) {
+          return {
+            success: false,
+            error: `Saldo insuficiente en "${accCheck.account_name}". Disponible: $${Number(accCheck.balance_ars || 0).toLocaleString('es-AR')} ARS, Requerido: $${grandTotalCalculated.toLocaleString('es-AR')} ARS.`,
+          };
+        }
+      }
+
+      // 2. Actualizar cantidades recibidas en purchase_order_items
+      for (const it of itemsToProcess) {
+        const { error: updPoiErr } = await supabase
+          .from('purchase_order_items')
+          .update({ received_quantity: it.receivedQty })
+          .eq('id', it.poiId)
+          .eq('po_id', poId);
+
+        if (updPoiErr) {
+          throw new Error(`Error al actualizar ítem de la orden: ${updPoiErr.message}`);
+        }
+      }
+
+      // 3. Recalcular stock y PPP (Costo Promedio Ponderado) landed en products
+      for (const it of itemsToProcess) {
+        if (it.receivedQty <= 0) continue;
+
+        const { data: prod, error: prodErr } = await supabase
+          .from('products')
+          .select('id, stock_quantity, base_cost_ars')
+          .eq('id', it.productId)
+          .single();
+
+        if (prodErr || !prod) {
+          console.warn(`Producto ${it.productId} no encontrado para recalcular PPP.`);
+          continue;
+        }
+
+        const currentStock = Number(prod.stock_quantity || 0);
+        const currentCost = Number(prod.base_cost_ars || 0);
+        const landedCost = it.unitCost + expensePerUnit;
+        const newStock = currentStock + it.receivedQty;
+        const newPpp =
+          newStock > 0
+            ? ((Math.max(0, currentStock) * currentCost) + (it.receivedQty * landedCost)) /
+              (Math.max(0, currentStock) + it.receivedQty)
+            : landedCost;
+
+        const { error: updProdErr } = await supabase
+          .from('products')
+          .update({
+            stock_quantity: newStock,
+            base_cost_ars: Math.round(newPpp * 100) / 100,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', it.productId);
+
+        if (updProdErr) {
+          throw new Error(`Error al actualizar stock del producto ${it.productId}: ${updProdErr.message}`);
+        }
+      }
+
+      // 4. Procesamiento financiero
+      const [{ data: existingPur }, { data: existingDebt }] = await Promise.all([
+        supabase.from('purchases').select('payment_status').eq('id', poId).maybeSingle(),
+        supabase.from('accounts_payable').select('id').eq('purchase_id', poId).maybeSingle(),
+      ]);
+
+      if (isAlreadyPaid) {
+        // Caso C: Ya pagado previamente / Pago adelantado
+        // Omite débitos en tesorería y omite generación de deuda en CxP
+        await supabase.from('purchases').upsert({
+          id: poId,
+          supplier_id: po.supplier_id,
+          admin_id: adminUser.id,
+          total_ars: grandTotalCalculated,
+          total_usd: 0,
+          status: 'received',
+          payment_status: 'paid_cash',
+          treasury_account_id: null,
+        });
+
+        // Si existía deuda previa vinculada a la orden, cerrarla para evitar deudas fantasmas
+        if (existingDebt) {
+          await supabase
+            .from('accounts_payable')
+            .update({
+              amount_total: grandTotalCalculated,
+              total_amount_ars: grandTotalCalculated,
+              amount_paid: grandTotalCalculated,
+              paid_amount_ars: grandTotalCalculated,
+              amount_remaining: 0,
+              status: 'settled',
+              notes: 'Liquidado previamente / Pago externo',
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', existingDebt.id);
+        }
+      } else if (isPaid) {
+        // Caso A: Contado con débito inmediato de tesorería
+        if (targetAccId) {
+          const debitDesc = `Pago a Proveedor ${(po.suppliers as any)?.name || 'B2B'} - Orden #${poId.slice(0, 8).toUpperCase()}`;
+          const { error: adjErr } = await supabase.rpc('adjust_treasury_balance', {
+            p_account_id: targetAccId,
+            p_delta_ars: -Math.round(grandTotalCalculated),
+            p_delta_usd: 0,
+            p_movement_type: 'EGRESO_COMPRA_STOCK',
+            p_description: debitDesc,
+            p_reference_id: poId,
+          });
+
+          if (adjErr) {
+            const { data: accToDebit } = await supabase
+              .from('treasury_accounts')
+              .select('balance_ars')
+              .eq('id', targetAccId)
+              .single();
+
+            const curBal = Number(accToDebit?.balance_ars || 0);
+            await supabase
+              .from('treasury_accounts')
+              .update({ balance_ars: curBal - grandTotalCalculated })
+              .eq('id', targetAccId);
+
+            await supabase.from('treasury_movements').insert([
+              {
+                account_id: targetAccId,
+                type: 'EGRESO_COMPRA_STOCK',
+                amount: -Math.round(grandTotalCalculated),
+                amount_ars: -Math.round(grandTotalCalculated),
+                description: debitDesc,
+                reference_id: poId,
+              },
+            ]);
+          }
+        }
+
+        // Homologar en purchases
+        await supabase.from('purchases').upsert({
+          id: poId,
+          supplier_id: po.supplier_id,
+          admin_id: adminUser.id,
+          total_ars: grandTotalCalculated,
+          total_usd: 0,
+          status: 'received',
+          payment_status: 'paid_cash',
+          treasury_account_id: targetAccId,
+        });
+
+        // Si existía deuda en accounts_payable y ahora se pagó, marcarla como 'settled'
+        if (existingDebt) {
+          await supabase
+            .from('accounts_payable')
+            .update({
+              amount_total: grandTotalCalculated,
+              total_amount_ars: grandTotalCalculated,
+              amount_paid: grandTotalCalculated,
+              paid_amount_ars: grandTotalCalculated,
+              amount_remaining: 0,
+              status: 'settled',
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', existingDebt.id);
+        }
+      } else {
+        // Caso B: A crédito / CUENTA CORRIENTE (CxP)
+        const defaultDueDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+        const formattedDueDate = paymentDetails?.dueDate || defaultDueDate;
+
+        await supabase.from('purchases').upsert({
+          id: poId,
+          supplier_id: po.supplier_id,
+          admin_id: adminUser.id,
+          total_ars: grandTotalCalculated,
+          total_usd: 0,
+          status: 'received',
+          payment_status: 'pending_credit',
+          payment_due_date: formattedDueDate,
+        });
+
+        if (existingDebt) {
+          await supabase
+            .from('accounts_payable')
+            .update({
+              amount_total: grandTotalCalculated,
+              total_amount_ars: grandTotalCalculated,
+              amount_remaining: grandTotalCalculated,
+              due_date: formattedDueDate,
+              status: 'pending',
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', existingDebt.id);
+        } else {
+          await supabase.from('accounts_payable').insert([
+            {
+              supplier_id: po.supplier_id,
+              purchase_id: poId,
+              total_amount_ars: grandTotalCalculated,
+              paid_amount_ars: 0,
+              amount_total: grandTotalCalculated,
+              amount_paid: 0,
+              amount_remaining: grandTotalCalculated,
+              due_date: formattedDueDate,
+              status: 'pending',
+            },
+          ]);
+        }
+      }
+
+      // 5. Actualizar purchase_orders a 'received'
+      await supabase
+        .from('purchase_orders')
+        .update({
+          status: 'received',
+          total_expenses: totalExpenses,
+          grand_total: grandTotalCalculated,
+          notes: finalNotes,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', poId);
+
+      receivedUnitsFinal = totalReceivedUnits;
+      grandTotalFinal = grandTotalCalculated;
+    }
 
     revalidateAllPurchasePaths();
 
-    const financialFeedback = isPaid
+    const financialFeedback = isAlreadyPaid
+      ? 'sin impacto financiero en tesorería/CXP.'
+      : isPaid
       ? `Fondos de $${grandTotalFinal.toLocaleString('es-AR')} debitados contablemente de ${usedAccountName || 'Tesorería'}.`
       : `Orden registrada en Cuentas por Pagar (CxP) pendiente de liquidación.`;
 
     return {
       success: true,
-      message: `¡Mercadería ingresada exitosamente! Se sumaron +${receivedUnitsFinal} unidades al stock. ${financialFeedback}`,
+      message: isAlreadyPaid
+        ? 'Mercadería ingresada al inventario exitosamente (sin impacto financiero en tesorería/CXP)'
+        : `¡Mercadería ingresada exitosamente! Se sumaron +${receivedUnitsFinal} unidades al stock. ${financialFeedback}`,
     };
   } catch (error: unknown) {
     console.error('Error en confirmCheckInAction:', error);

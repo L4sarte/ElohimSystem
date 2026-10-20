@@ -91,8 +91,12 @@ export interface CheckInItemPayload {
   received_quantity: number;
 }
 
+export type CheckInPaymentType = 'immediate' | 'cxp' | 'already_paid';
+
 export interface CheckInPaymentDetails {
   isPaid: boolean;
+  paymentType?: CheckInPaymentType;
+  isAlreadyPaid?: boolean;
   treasuryAccountId?: string;
   dueDate?: string | null;
   notes?: string;

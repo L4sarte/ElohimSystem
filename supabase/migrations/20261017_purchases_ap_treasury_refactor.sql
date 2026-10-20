@@ -791,7 +791,8 @@ AS $$
 DECLARE
     v_status TEXT;
     v_supplier_id UUID;
-    v_item JSONB;
+    v_json_item JSONB;
+    v_item RECORD;
     v_item_qty NUMERIC(12, 2);
     v_received_units NUMERIC(15, 2) := 0;
     v_merch_cost NUMERIC(15, 2) := 0;
@@ -838,16 +839,16 @@ BEGIN
     WHERE purchase_id = p_po_id
     LIMIT 1;
 
-    FOR v_item IN SELECT * FROM jsonb_array_elements(p_items) LOOP
-        v_item_qty := COALESCE((v_item->>'received_qty')::NUMERIC, 0);
+    FOR v_json_item IN SELECT * FROM jsonb_array_elements(p_items) LOOP
+        v_item_qty := COALESCE((v_json_item->>'received_qty')::NUMERIC, 0);
 
         UPDATE public.purchase_order_items poi
         SET received_quantity = v_item_qty
-        WHERE poi.id = (v_item->>'poi_id')::UUID
+        WHERE poi.id = (v_json_item->>'poi_id')::UUID
           AND poi.po_id = p_po_id;
 
         IF NOT FOUND THEN
-            RAISE EXCEPTION 'ITEM_NO_ENCONTRADO: El ítem % no pertenece a la orden %', v_item->>'poi_id', p_po_id;
+            RAISE EXCEPTION 'ITEM_NO_ENCONTRADO: El ítem % no pertenece a la orden %', v_json_item->>'poi_id', p_po_id;
         END IF;
     END LOOP;
 

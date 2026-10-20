@@ -96,7 +96,21 @@ export const checkInItemPayloadSchema = z.object({
   received_quantity: z.number().int().nonnegative('La cantidad recibida no puede ser negativa'),
 });
 
+export const checkInPaymentDetailsSchema = z
+  .object({
+    isPaid: z.boolean().default(true),
+    paymentType: z.enum(['immediate', 'cxp', 'already_paid']).optional(),
+    isAlreadyPaid: z.boolean().optional(),
+    treasuryAccountId: z.string().uuid('ID de cuenta de tesorería inválido').optional().nullable(),
+    dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Formato de fecha inválido (YYYY-MM-DD)').optional().nullable(),
+    notes: z.string().optional().nullable(),
+  })
+  .optional()
+  .nullable();
+
 export const checkInBatchSchema = z.object({
   po_id: z.string().uuid('ID de orden de compra inválido'),
   items: z.array(checkInItemPayloadSchema).min(1, 'Debe confirmar al menos un ítem'),
+  paymentDetails: checkInPaymentDetailsSchema,
 });
+
