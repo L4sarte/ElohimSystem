@@ -1298,7 +1298,6 @@ export async function confirmCheckInAction(
           .update({
             stock_quantity: newStock,
             base_cost_ars: Math.round(newPpp * 100) / 100,
-            updated_at: new Date().toISOString(),
           })
           .eq('id', it.productId);
 

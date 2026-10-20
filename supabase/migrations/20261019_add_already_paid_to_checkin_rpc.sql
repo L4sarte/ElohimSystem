@@ -1,30 +1,16 @@
 -- ==============================================================================
--- MIGRACIÓN: SOPORTE PARA RECEPCIÓN DE MERCADERÍA YA PAGADA PREVIAMENTE
--- Fecha: 2026-10-19
--- Módulo: /compras (Modal de Check-in / Recepción de Mercadería)
--- ==============================================================================
--- Permite recibir órdenes de compra que ya fueron liquidadas con anterioridad
--- o por canales externos (p_is_already_paid = true):
--- 1. Incrementa el stock físico y recalcula el Precio Promedio Ponderado (PPP)
---    con prorrateo landed exactamente igual que una recepción normal.
--- 2. Marca la orden como 'received' y 'paid_cash'.
--- 3. OMITE débitos en cuentas de tesorería y no genera pasivos en accounts_payable (CxP).
--- 4. Si la orden tenía una deuda previa por emitirse a crédito, la marca como 'settled'.
--- ==============================================================================
-
--- ==============================================================================
--- 1. ELIMINACIÓN DE VERSIONES SOBRECARGADAS PARA RESOLVER AMBIGÜEDAD
+-- 1. ELIMINAR CUALQUIER VERSIÓN PREVIA SOBRECARGADA
 -- ==============================================================================
 DROP FUNCTION IF EXISTS public.confirm_purchase_order_checkin(uuid, uuid, jsonb, boolean, uuid, date, text, text);
 DROP FUNCTION IF EXISTS public.confirm_purchase_order_checkin(uuid, uuid, jsonb, boolean, uuid, date, text, text, boolean);
 
 -- ==============================================================================
--- 2. FUNCIÓN ÚNICA OFICIAL CON SOPORTE PARA p_is_already_paid
+-- 2. DEFINICIÓN ÚNICA Y DEFINITIVA DE confirm_purchase_order_checkin
 -- ==============================================================================
 CREATE OR REPLACE FUNCTION public.confirm_purchase_order_checkin(
     p_po_id UUID,
     p_admin_id UUID,
-    p_items JSONB, -- [{"poi_id": "...", "received_qty": 10}]
+    p_items JSONB,
     p_is_paid BOOLEAN DEFAULT true,
     p_treasury_account_id UUID DEFAULT NULL,
     p_due_date DATE DEFAULT NULL,
@@ -159,20 +145,25 @@ BEGIN
         END IF;
     END LOOP;
 
-    -- D) Procesamiento financiero atómico
+    -- D) Procesamiento financiero
     IF p_is_already_paid THEN
-        -- Caso: Ya pagado previamente / Pago adelantado
-        -- Omite débitos en tesorería y omite generación de deuda en CxP
-        INSERT INTO public.purchases (id, supplier_id, admin_id, total_ars, total_usd, status, payment_status)
-        VALUES (p_po_id, v_supplier_id, p_admin_id, v_grand_total, 0, 'received', 'paid_cash')
-        ON CONFLICT (id) DO UPDATE SET
-            supplier_id = EXCLUDED.supplier_id,
-            admin_id = EXCLUDED.admin_id,
-            total_ars = EXCLUDED.total_ars,
+        -- Caso C: Ya pagado previamente / Pago adelantado
+        -- Actualiza compras como recibida y pagada, OMITIENDO tesorería y CXP
+        UPDATE public.purchases
+        SET supplier_id = v_supplier_id,
+            admin_id = p_admin_id,
+            total_ars = v_grand_total,
             status = 'received',
-            payment_status = 'paid_cash';
+            payment_status = 'paid_cash',
+            treasury_account_id = NULL
+        WHERE id = p_po_id;
 
-        -- Si existía una deuda previa en accounts_payable por estar en tránsito a crédito, cerrarla
+        IF NOT FOUND THEN
+            INSERT INTO public.purchases (id, supplier_id, admin_id, total_ars, total_usd, status, payment_status, treasury_account_id)
+            VALUES (p_po_id, v_supplier_id, p_admin_id, v_grand_total, 0, 'received', 'paid_cash', NULL);
+        END IF;
+
+        -- Si existía una deuda previa en accounts_payable por haberse emitido a crédito, cerrarla
         IF v_existing_debt_id IS NOT NULL THEN
             UPDATE public.accounts_payable
             SET amount_total = v_grand_total,
@@ -181,16 +172,20 @@ BEGIN
                 paid_amount_ars = v_grand_total,
                 amount_remaining = 0,
                 status = 'settled',
+                notes = COALESCE(notes || ' | ', '') || 'Liquidado previamente / Pago externo',
                 updated_at = NOW()
             WHERE id = v_existing_debt_id;
         END IF;
+
     ELSIF v_existing_payment_status IN ('paid', 'paid_cash') THEN
-        -- Si ya estaba pagada de contado al crearse la orden, solo actualizamos el monto final y estado
+        -- Si la orden ya estaba registrada como pagada de antemano
         UPDATE public.purchases
         SET status = 'received',
             total_ars = v_grand_total
         WHERE id = p_po_id;
+
     ELSIF p_is_paid THEN
+        -- Caso A: Pago al contado / Inmediato
         IF p_treasury_account_id IS NULL THEN
             RAISE EXCEPTION 'CUENTA_REQUERIDA: El pago al contado requiere una cuenta de tesorería de origen';
         END IF;
@@ -205,17 +200,21 @@ BEGIN
             p_po_id
         );
 
-        INSERT INTO public.purchases (id, supplier_id, admin_id, total_ars, total_usd, status, payment_status, treasury_account_id)
-        VALUES (p_po_id, v_supplier_id, p_admin_id, v_grand_total, 0, 'received', 'paid_cash', p_treasury_account_id)
-        ON CONFLICT (id) DO UPDATE SET
-            supplier_id = EXCLUDED.supplier_id,
-            admin_id = EXCLUDED.admin_id,
-            total_ars = EXCLUDED.total_ars,
+        UPDATE public.purchases
+        SET supplier_id = v_supplier_id,
+            admin_id = p_admin_id,
+            total_ars = v_grand_total,
             status = 'received',
             payment_status = 'paid_cash',
-            treasury_account_id = p_treasury_account_id;
+            treasury_account_id = p_treasury_account_id
+        WHERE id = p_po_id;
 
-        -- Si existía una CxP registrada previamente y se cancela aquí, marcarla settled
+        IF NOT FOUND THEN
+            INSERT INTO public.purchases (id, supplier_id, admin_id, total_ars, total_usd, status, payment_status, treasury_account_id)
+            VALUES (p_po_id, v_supplier_id, p_admin_id, v_grand_total, 0, 'received', 'paid_cash', p_treasury_account_id);
+        END IF;
+
+        -- Si existía una CxP registrada previamente y se cancela al recibir, marcarla settled
         IF v_existing_debt_id IS NOT NULL THEN
             UPDATE public.accounts_payable
             SET amount_total = v_grand_total,
@@ -227,29 +226,34 @@ BEGIN
                 updated_at = NOW()
             WHERE id = v_existing_debt_id;
         END IF;
+
     ELSE
-        -- Registrar o actualizar deuda en Cuentas por Pagar (CxP)
-        INSERT INTO public.purchases (id, supplier_id, admin_id, total_ars, total_usd, status, payment_status, payment_due_date)
-        VALUES (
-            p_po_id,
-            v_supplier_id,
-            p_admin_id,
-            v_grand_total,
-            0,
-            'received',
-            'pending_credit',
-            COALESCE(p_due_date, (NOW() + INTERVAL '30 days')::DATE)
-        )
-        ON CONFLICT (id) DO UPDATE SET
-            supplier_id = EXCLUDED.supplier_id,
-            admin_id = EXCLUDED.admin_id,
-            total_ars = EXCLUDED.total_ars,
+        -- Caso B: A crédito / Cuentas por Pagar (CXP)
+        UPDATE public.purchases
+        SET supplier_id = v_supplier_id,
+            admin_id = p_admin_id,
+            total_ars = v_grand_total,
             status = 'received',
             payment_status = CASE
                 WHEN public.purchases.payment_status = 'partial_payment' THEN 'partial_payment'
                 ELSE 'pending_credit'
             END,
-            payment_due_date = COALESCE(p_due_date, public.purchases.payment_due_date, (NOW() + INTERVAL '30 days')::DATE);
+            payment_due_date = COALESCE(p_due_date, public.purchases.payment_due_date, (NOW() + INTERVAL '30 days')::DATE)
+        WHERE id = p_po_id;
+
+        IF NOT FOUND THEN
+            INSERT INTO public.purchases (id, supplier_id, admin_id, total_ars, total_usd, status, payment_status, payment_due_date)
+            VALUES (
+                p_po_id,
+                v_supplier_id,
+                p_admin_id,
+                v_grand_total,
+                0,
+                'received',
+                'pending_credit',
+                COALESCE(p_due_date, (NOW() + INTERVAL '30 days')::DATE)
+            );
+        END IF;
 
         IF v_existing_debt_id IS NULL THEN
             INSERT INTO public.accounts_payable (
@@ -295,5 +299,6 @@ BEGIN
 END;
 $$;
 
+-- 3. Permisos exclusivos para service_role
 REVOKE EXECUTE ON FUNCTION public.confirm_purchase_order_checkin(UUID, UUID, JSONB, BOOLEAN, UUID, DATE, TEXT, TEXT, BOOLEAN) FROM anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.confirm_purchase_order_checkin(UUID, UUID, JSONB, BOOLEAN, UUID, DATE, TEXT, TEXT, BOOLEAN) TO service_role;
