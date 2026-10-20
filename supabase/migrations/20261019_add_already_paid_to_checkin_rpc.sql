@@ -12,6 +12,15 @@
 -- 4. Si la orden tenía una deuda previa por emitirse a crédito, la marca como 'settled'.
 -- ==============================================================================
 
+-- ==============================================================================
+-- 1. ELIMINACIÓN DE VERSIONES SOBRECARGADAS PARA RESOLVER AMBIGÜEDAD
+-- ==============================================================================
+DROP FUNCTION IF EXISTS public.confirm_purchase_order_checkin(uuid, uuid, jsonb, boolean, uuid, date, text, text);
+DROP FUNCTION IF EXISTS public.confirm_purchase_order_checkin(uuid, uuid, jsonb, boolean, uuid, date, text, text, boolean);
+
+-- ==============================================================================
+-- 2. FUNCIÓN ÚNICA OFICIAL CON SOPORTE PARA p_is_already_paid
+-- ==============================================================================
 CREATE OR REPLACE FUNCTION public.confirm_purchase_order_checkin(
     p_po_id UUID,
     p_admin_id UUID,

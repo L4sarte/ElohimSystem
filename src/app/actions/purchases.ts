@@ -1200,20 +1200,25 @@ export async function confirmCheckInAction(
     let grandTotalFinal = grandTotalCalculated;
 
     try {
-      const { data: rpcData, error: rpcError } = await supabase.rpc('confirm_purchase_order_checkin', {
+      const rpcPayload = {
         p_po_id: poId,
         p_admin_id: adminUser.id,
         p_items: itemsToProcess.map((it) => ({
           poi_id: it.poiId,
           received_qty: it.receivedQty,
         })),
-        p_is_paid: isPaid,
-        p_treasury_account_id: isAlreadyPaid ? null : targetAccId,
-        p_due_date: isPaid || isAlreadyPaid ? null : paymentDetails?.dueDate || null,
-        p_notes: finalNotes,
+        p_is_paid: Boolean(isPaid),
+        p_treasury_account_id: isAlreadyPaid ? null : (targetAccId || null),
+        p_due_date: (isPaid || isAlreadyPaid) ? null : (paymentDetails?.dueDate || null),
+        p_notes: finalNotes || null,
         p_description: `Pago a Proveedor ${(po.suppliers as any)?.name || 'B2B'} - Orden #${poId.slice(0, 8).toUpperCase()}`,
-        p_is_already_paid: isAlreadyPaid,
-      });
+        p_is_already_paid: Boolean(isAlreadyPaid),
+      };
+
+      const { data: rpcData, error: rpcError } = await supabase.rpc(
+        'confirm_purchase_order_checkin',
+        rpcPayload
+      );
 
       if (!rpcError) {
         rpcSucceeded = true;
