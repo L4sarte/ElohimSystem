@@ -31,6 +31,9 @@ export interface SystemSettingsData {
   bank_cbu_cvu: string;
   bank_alias: string;
 
+  // División de Utilidades & Retiros Personales
+  personal_payout_rate?: number;
+
   updated_at?: string;
 }
 
@@ -59,6 +62,8 @@ export const DEFAULT_SYSTEM_SETTINGS: SystemSettingsData = {
   bank_account_holder: 'Elohim Import S.R.L.',
   bank_cbu_cvu: '0070123400000012345678',
   bank_alias: 'ELOHIM.PERFUMES.ARS',
+
+  personal_payout_rate: 30.00,
 };
 
 // Helper para strings opcionales o vacíos
@@ -125,6 +130,14 @@ export const systemSettingsSchema = z.object({
   bank_account_holder: optionalString(150, DEFAULT_SYSTEM_SETTINGS.bank_account_holder),
   bank_cbu_cvu: optionalString(50, DEFAULT_SYSTEM_SETTINGS.bank_cbu_cvu),
   bank_alias: optionalString(50, DEFAULT_SYSTEM_SETTINGS.bank_alias),
+
+  // División de Utilidades & Retiros Personales
+  personal_payout_rate: z
+    .coerce
+    .number()
+    .min(0, 'El porcentaje de retiro personal no puede ser menor a 0%')
+    .max(100, 'El porcentaje de retiro personal no puede ser mayor a 100%')
+    .default(DEFAULT_SYSTEM_SETTINGS.personal_payout_rate ?? 30.00),
 });
 
 export type SystemSettingsInput = z.infer<typeof systemSettingsSchema>;

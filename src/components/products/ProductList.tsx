@@ -21,6 +21,8 @@ import { OlfactoryCatalogModal } from './OlfactoryCatalogModal';
 import { CatalogGeneratorModal } from './CatalogGeneratorModal';
 import { exportStockToCsv, exportStockToPdf } from '@/lib/stock-export';
 import { getSystemSettings } from '@/app/actions/systemSettings';
+import { calculateProfitSplit } from '@/lib/financial-math';
+import { Wallet } from 'lucide-react';
 import { getStockRunwayAnalysis, StockRunwayProduct } from '@/app/actions/inventoryAnalytics';
 
 interface ProductListProps {
@@ -38,6 +40,7 @@ export function ProductList({ role, excludeSupplies = true }: ProductListProps) 
   const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
   const [isCatalogModalOpen, setIsCatalogModalOpen] = useState(false);
   const [isOlfactoryModalOpen, setIsOlfactoryModalOpen] = useState(false);
+  const [personalPayoutRate, setPersonalPayoutRate] = useState<number>(30);
   
   // Filtros de búsqueda
   const [searchTerm, setSearchTerm] = useState('');
@@ -606,8 +609,28 @@ export function ProductList({ role, excludeSupplies = true }: ProductListProps) 
                       </td>
                     )}
 
-                    {/* Precio de Venta (ARS Fijo) */}
-                    <td className="p-4 font-mono font-bold text-slate-950 dark:text-zinc-50">
+                    {/* Precio de Venta (ARS Fijo) & Desglose de Utilidades */}
+                    <td className="p-4 font-mono text-slate-950 dark:text-zinc-50">
+                      {role === 'admin' && Number(product.base_cost_ars) > 0 && Number(product.base_price_ars) > Number(product.base_cost_ars) && (() => {
+                        const split = calculateProfitSplit(Number(product.base_price_ars), Number(product.base_cost_ars), personalPayoutRate);
+                        return (
+                          <div className="flex flex-wrap items-center gap-1 mb-1.5 text-[10px] font-mono">
+                            <span 
+                              className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded font-bold"
+                              title="Tu Retiro Estimado de Bolsillo según porcentaje configurado"
+                            >
+                              <Wallet className="h-2.5 w-2.5 text-erp-gold" />
+                              Tu Retiro: ${Math.round(split.ownerPayout).toLocaleString('es-AR')}
+                            </span>
+                            <span 
+                              className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 rounded font-bold"
+                              title="Costo de Reposición (COGS) + Utilidad Reinvertida retenida para la empresa"
+                            >
+                              Empresa: ${Math.round(split.totalBusinessKeep).toLocaleString('es-AR')}
+                            </span>
+                          </div>
+                        );
+                      })()}
                       {product.type === 'decant_liquid' ? (
                         <div>
                           <div className="flex items-baseline gap-1">

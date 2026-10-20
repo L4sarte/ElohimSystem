@@ -87,6 +87,8 @@ export async function getSystemSettings(): Promise<{
         bank_cbu_cvu: row.bank_cbu_cvu ?? DEFAULT_SYSTEM_SETTINGS.bank_cbu_cvu,
         bank_alias: row.bank_alias ?? DEFAULT_SYSTEM_SETTINGS.bank_alias,
 
+        personal_payout_rate: Number(row.personal_payout_rate ?? DEFAULT_SYSTEM_SETTINGS.personal_payout_rate),
+
         updated_at: row.updated_at || undefined,
       },
     };
@@ -158,6 +160,8 @@ export async function updateSystemSettings(
       bank_account_holder: clean.bank_account_holder || '',
       bank_cbu_cvu: clean.bank_cbu_cvu || '',
       bank_alias: clean.bank_alias || '',
+
+      personal_payout_rate: clean.personal_payout_rate !== undefined ? clean.personal_payout_rate : DEFAULT_SYSTEM_SETTINGS.personal_payout_rate,
 
       updated_at: new Date().toISOString(),
     };

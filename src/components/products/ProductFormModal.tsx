@@ -11,6 +11,9 @@ import { X, Save, RefreshCw, AlertCircle, Sparkles, Wand2, UploadCloud, Image as
 import { extractPerfumeData } from '@/app/actions/aiPerfume';
 import { getOlfactoryFamilies, getOlfactoryNotes } from '@/app/actions/olfactory';
 import { toast } from 'sonner';
+import { calculateProfitSplit } from '@/lib/financial-math';
+import { getSystemSettings } from '@/app/actions/systemSettings';
+import { Wallet, ShieldCheck } from 'lucide-react';
 
 interface ProductFormModalProps {
   isOpen: boolean;
@@ -33,6 +36,7 @@ export function ProductFormModal({ isOpen, onClose, onSuccess, product, role = '
   const [olfactoryFamily, setOlfactoryFamily] = useState('');
   const [olfactoryNotesText, setOlfactoryNotesText] = useState('');
   const [baseCostArs, setBaseCostArs] = useState('');
+  const [personalPayoutRate, setPersonalPayoutRate] = useState<number>(30);
   const [basePriceArs, setBasePriceArs] = useState('');
   const [stockQuantity, setStockQuantity] = useState('');
   const [volumeMl, setVolumeMl] = useState('');
@@ -766,17 +770,50 @@ export function ProductFormModal({ isOpen, onClose, onSuccess, product, role = '
                 </div>
               )}
 
-              {/* FEEDBACK VISUAL EN TIEMPO REAL: GANANCIA NETA PROYECTADA */}
-              {type !== 'supply' && numCost > 0 && numPrice > 0 && (
-                <div className="flex items-center justify-between text-xs pt-2 border-t border-erp-border/60 font-mono">
-                  <span className="text-zinc-400">
-                    {type === 'decant_liquid' ? 'Ganancia neta proyectada por ml:' : 'Ganancia neta proyectada por unidad:'}
-                  </span>
-                  <span className={projectedNetProfit >= 0 ? 'text-erp-gold font-extrabold text-sm' : 'text-rose-400 font-extrabold text-sm'}>
-                    ${Math.round(projectedNetProfit).toLocaleString('es-AR')} ARS
-                  </span>
-                </div>
-              )}
+              {/* FEEDBACK VISUAL EN TIEMPO REAL: GANANCIA NETA PROYECTADA Y REPARTO DE UTILIDADES */}
+              {type !== 'supply' && numCost > 0 && numPrice > 0 && (() => {
+                const split = calculateProfitSplit(numPrice, numCost, personalPayoutRate);
+                return (
+                  <div className="space-y-3 pt-3 border-t border-erp-border/60">
+                    <div className="flex items-center justify-between text-xs font-mono">
+                      <span className="text-zinc-400">
+                        {type === 'decant_liquid' ? 'Ganancia neta limpia por ml:' : 'Ganancia neta limpia por unidad:'}
+                      </span>
+                      <span className={projectedNetProfit >= 0 ? 'text-erp-gold font-extrabold text-sm' : 'text-rose-400 font-extrabold text-sm'}>
+                        ${Math.round(projectedNetProfit).toLocaleString('es-AR')} ARS
+                      </span>
+                    </div>
+
+                    {/* INDICADORES DE DIVISIÓN DE UTILIDADES (BADGES UNITARIOS) */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs font-mono">
+                      <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-between">
+                        <div className="flex items-center gap-1.5 text-emerald-400 font-bold">
+                          <Wallet className="h-3.5 w-3.5 shrink-0" />
+                          <span>Tu Retiro Estimado:</span>
+                        </div>
+                        <span className="font-extrabold text-emerald-300">
+                          ${Math.round(split.ownerPayout).toLocaleString('es-AR')}
+                        </span>
+                      </div>
+
+                      <div className="p-2.5 rounded-xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-between">
+                        <div className="flex items-center gap-1.5 text-cyan-400 font-bold">
+                          <ShieldCheck className="h-3.5 w-3.5 shrink-0" />
+                          <span>Reinversión + Costo:</span>
+                        </div>
+                        <span className="font-extrabold text-cyan-300">
+                          ${Math.round(split.totalBusinessKeep).toLocaleString('es-AR')}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between text-[11px] text-zinc-400 font-mono">
+                      <span>División: {personalPayoutRate}% Bolsillo / {100 - personalPayoutRate}% Empresa</span>
+                      <span className="text-zinc-500">COGS 100% Protegido</span>
+                    </div>
+                  </div>
+                );
+              })()}
 
             </div>
 

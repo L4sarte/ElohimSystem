@@ -12,9 +12,11 @@ import { Input } from '@/components/ui/input';
 import { 
   ArrowLeft, Settings, ShieldAlert, Save, RefreshCw, Sparkles, Building, 
   FileText, Bell, CheckCircle2, Upload, Image as ImageIcon, Phone, Mail, 
-  MapPin, Globe, AtSign, Landmark, CreditCard, Receipt, ShieldCheck, Crown, Copy
+  MapPin, Globe, AtSign, Landmark, CreditCard, Receipt, ShieldCheck, Crown, Copy,
+  Wallet, Coins, Percent, PiggyBank, TrendingUp, Info, SlidersHorizontal
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { calculateProfitSplit } from '@/lib/financial-math';
 import { 
   updateSystemSettings, 
   uploadCompanyLogo 
@@ -32,7 +34,9 @@ export function ConfiguracionClient({ initialSettings = DEFAULT_SYSTEM_SETTINGS 
   const role = useUserStore((state) => state.role);
   const { refresh: refreshRate } = useExchangeRate();
 
-  const [activeTab, setActiveTab] = useState<'branding' | 'contact' | 'pos' | 'banking'>('branding');
+  const [activeTab, setActiveTab] = useState<'branding' | 'contact' | 'pos' | 'banking' | 'profit_split'>('branding');
+  const [simNetProfit, setSimNetProfit] = useState<number>(30000);
+  const [simCostPrice, setSimCostPrice] = useState<number>(45000);
   const [settings, setSettings] = useState<SystemSettingsData>(initialSettings);
 
   const [saving, setSaving] = useState(false);
@@ -265,6 +269,19 @@ export function ConfiguracionClient({ initialSettings = DEFAULT_SYSTEM_SETTINGS 
           >
             <Landmark className="h-4 w-4" />
             <span>Datos Bancarios (Transferencias)</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('profit_split')}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl transition-all cursor-pointer shrink-0 ${
+              activeTab === 'profit_split'
+                ? 'bg-secondary text-erp-gold border border-erp-gold/40 shadow-sm'
+                : 'text-zinc-400 hover:text-white'
+            }`}
+          >
+            <Coins className="h-4 w-4 text-emerald-400" />
+            <span>Reparto & Retiros</span>
           </button>
         </div>
 
@@ -799,6 +816,277 @@ export function ConfiguracionClient({ initialSettings = DEFAULT_SYSTEM_SETTINGS 
               </CardContent>
             </Card>
           )}
+
+          
+          {/* PESTAÑA 5: REPARTO DE GANANCIAS & RETIROS PERSONALES */}
+          {activeTab === 'profit_split' && (
+            <Card className="border border-erp-border bg-erp-surface/90 rounded-2xl shadow-xl overflow-hidden animate-in fade-in duration-200">
+              <CardHeader className="border-b border-erp-border p-6 bg-gradient-to-r from-emerald-950/20 via-erp-surface to-erp-surface">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <CardTitle className="text-lg font-bold text-white font-serif flex items-center gap-2">
+                      <Coins className="h-5 w-5 text-emerald-400" />
+                      División de Utilidades & Retiros Personales
+                    </CardTitle>
+                    <CardDescription className="text-xs text-zinc-400 mt-1">
+                      Configura el porcentaje de ganancia neta destinado a tu sueldo/retiro de bolsillo vs. reinversión estratégica de stock.
+                    </CardDescription>
+                  </div>
+                  <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-mono font-bold self-start sm:self-auto">
+                    <Percent className="h-3.5 w-3.5" />
+                    Tasa Actual: {Number(settings.personal_payout_rate ?? 30)}%
+                  </div>
+                </div>
+              </CardHeader>
+
+              <CardContent className="p-6 space-y-8">
+                
+                {/* 1. LOS TRES CUBOS FINANCIEROS */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="p-4 rounded-xl bg-erp-bg border border-erp-border/80 space-y-2">
+                    <div className="flex items-center gap-2 text-xs font-extrabold uppercase tracking-wider text-amber-400">
+                      <ShieldCheck className="h-4 w-4" />
+                      1. Costo del Producto (COGS)
+                    </div>
+                    <p className="text-xs text-zinc-300 font-medium leading-relaxed">
+                      <span className="font-bold text-amber-300">100% Intocable.</span> Vuelve de forma íntegra e inmediata a la caja para reponer el inventario y stock importado.
+                    </p>
+                  </div>
+
+                  <div className="p-4 rounded-xl bg-erp-bg border border-emerald-500/30 space-y-2">
+                    <div className="flex items-center gap-2 text-xs font-extrabold uppercase tracking-wider text-emerald-400">
+                      <Wallet className="h-4 w-4" />
+                      2. Retiro Personal ({Number(settings.personal_payout_rate ?? 30)}%)
+                    </div>
+                    <p className="text-xs text-zinc-300 font-medium leading-relaxed">
+                      <span className="font-bold text-emerald-300">Tu sueldo / bolsillo.</span> Porcentaje de la Ganancia Neta Limpia disponible para transferir a tus cuentas personales.
+                    </p>
+                  </div>
+
+                  <div className="p-4 rounded-xl bg-erp-bg border border-cyan-500/30 space-y-2">
+                    <div className="flex items-center gap-2 text-xs font-extrabold uppercase tracking-wider text-cyan-400">
+                      <TrendingUp className="h-4 w-4" />
+                      3. Reinversión ({100 - Number(settings.personal_payout_rate ?? 30)}%)
+                    </div>
+                    <p className="text-xs text-zinc-300 font-medium leading-relaxed">
+                      <span className="font-bold text-cyan-300">Crecimiento y Reserva.</span> Ganancia retenida en la empresa para escalar catálogo, insumos de decants y colchón financiero.
+                    </p>
+                  </div>
+                </div>
+
+                {/* 2. CONTROL INTERACTIVO SLIDER & INPUT */}
+                <div className="p-6 rounded-2xl bg-erp-bg border border-erp-border space-y-6">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                      <label className="text-sm font-bold text-white flex items-center gap-2 font-serif">
+                        <SlidersHorizontal className="h-4 w-4 text-erp-gold" />
+                        Porcentaje de Retiro Personal (<span className="text-emerald-400 font-mono font-bold">{settings.personal_payout_rate ?? 30}%</span>)
+                      </label>
+                      <p className="text-xs text-zinc-400 mt-0.5">
+                        Define qué porcentaje de la utilidad neta limpia se asigna a retiros personales. El resto ({100 - Number(settings.personal_payout_rate ?? 30)}%) se retiene para reinvertir.
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      <Input
+                        type="number"
+                        min={0}
+                        max={100}
+                        step={1}
+                        value={settings.personal_payout_rate ?? 30}
+                        onChange={(e) => {
+                          const val = Number(e.target.value);
+                          if (!isNaN(val)) {
+                            handleChange('personal_payout_rate', Math.min(100, Math.max(0, val)));
+                          }
+                        }}
+                        className="w-24 text-center font-mono font-bold text-lg bg-erp-surface border-erp-border text-emerald-400 focus:ring-emerald-500"
+                      />
+                      <span className="text-sm font-bold text-zinc-400">%</span>
+                    </div>
+                  </div>
+
+                  {/* SLIDER RANGE ESTILIZADO */}
+                  <div className="space-y-3">
+                    <input
+                      type="range"
+                      min={0}
+                      max={100}
+                      step={1}
+                      value={settings.personal_payout_rate ?? 30}
+                      onChange={(e) => handleChange('personal_payout_rate', Number(e.target.value))}
+                      className="w-full h-2.5 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-emerald-500 hover:accent-emerald-400 transition-all"
+                    />
+
+                    <div className="flex justify-between text-[11px] font-mono text-zinc-400">
+                      <span className="text-cyan-400">0% (100% Reinversión Total)</span>
+                      <span className="text-zinc-500">50% (Reparto Equitativo)</span>
+                      <span className="text-emerald-400">100% (Retiro Total Ganancia)</span>
+                    </div>
+                  </div>
+
+                  {/* BOTONES PREESTABLECIDOS RÁPIDOS */}
+                  <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-erp-border/60">
+                    <span className="text-xs text-zinc-400 font-medium mr-2">Estrategias recomendadas:</span>
+                    {[
+                      { label: '20% Crecimiento Agresivo', rate: 20 },
+                      { label: '30% Balance Elohim (Estándar)', rate: 30 },
+                      { label: '35% Retiro Moderado', rate: 35 },
+                      { label: '50% Regla 50/50', rate: 50 },
+                    ].map((preset) => (
+                      <button
+                        key={preset.rate}
+                        type="button"
+                        onClick={() => handleChange('personal_payout_rate', preset.rate)}
+                        className={`px-3 py-1 text-xs rounded-lg font-mono transition-all border ${
+                          Number(settings.personal_payout_rate) === preset.rate
+                            ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 font-bold'
+                            : 'bg-erp-surface text-zinc-400 border-erp-border hover:text-white hover:border-zinc-700'
+                        }`}
+                      >
+                        {preset.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 3. SIMULADOR & PREVIEW EN TIEMPO REAL */}
+                {(() => {
+                  const currentRate = Number(settings.personal_payout_rate ?? 30);
+                  const split = calculateProfitSplit(
+                    simCostPrice + simNetProfit,
+                    simCostPrice,
+                    currentRate
+                  );
+
+                  return (
+                    <div className="p-6 rounded-2xl bg-gradient-to-b from-erp-bg via-erp-bg to-emerald-950/10 border border-emerald-500/30 space-y-6">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div className="flex items-center gap-2">
+                          <Sparkles className="h-5 w-5 text-erp-gold" />
+                          <h3 className="text-sm font-bold text-white uppercase tracking-wider font-serif">
+                            Simulador y Preview en Tiempo Real
+                          </h3>
+                        </div>
+                        <span className="text-[11px] text-zinc-400 font-mono">
+                          Simulación con margen comercial configurable
+                        </span>
+                      </div>
+
+                      {/* CONTROLES DEL SIMULADOR */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-erp-surface/60 p-4 rounded-xl border border-erp-border">
+                        <div className="space-y-1.5">
+                          <label className="text-xs text-zinc-400 font-medium">
+                            Ganancia Neta Limpia Simular ($)
+                          </label>
+                          <Input
+                            type="number"
+                            min={0}
+                            step={1000}
+                            value={simNetProfit}
+                            onChange={(e) => setSimNetProfit(Math.max(0, Number(e.target.value)))}
+                            className="bg-erp-bg border-erp-border font-mono font-bold text-emerald-400"
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <label className="text-xs text-zinc-400 font-medium">
+                            Costo Reposición (COGS) Simular ($)
+                          </label>
+                          <Input
+                            type="number"
+                            min={0}
+                            step={1000}
+                            value={simCostPrice}
+                            onChange={(e) => setSimCostPrice(Math.max(0, Number(e.target.value)))}
+                            className="bg-erp-bg border-erp-border font-mono font-bold text-amber-300"
+                          />
+                        </div>
+                      </div>
+
+                      {/* FRASE DE PREVIEW EXACTA DESTACADA */}
+                      <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-zinc-100 flex items-start gap-3">
+                        <Info className="h-5 w-5 text-emerald-400 shrink-0 mt-0.5" />
+                        <div className="text-sm leading-relaxed">
+                          Si vendés un perfume con{' '}
+                          <span className="font-mono font-bold text-emerald-300">
+                            ${Math.round(simNetProfit).toLocaleString('es-AR')}
+                          </span>{' '}
+                          de ganancia limpia, retirás{' '}
+                          <span className="font-mono font-extrabold text-erp-gold bg-erp-gold/10 px-1.5 py-0.5 rounded border border-erp-gold/30">
+                            ${Math.round(split.ownerPayout).toLocaleString('es-AR')}
+                          </span>{' '}
+                          para tu bolsillo y se retienen{' '}
+                          <span className="font-mono font-extrabold text-cyan-300 bg-cyan-500/10 px-1.5 py-0.5 rounded border border-cyan-500/30">
+                            ${Math.round(split.totalBusinessKeep).toLocaleString('es-AR')}
+                          </span>{' '}
+                          para la empresa{' '}
+                          <span className="text-xs text-zinc-400">
+                            (Costo reposición: ${Math.round(simCostPrice).toLocaleString('es-AR')} + Reinversión: ${Math.round(split.reinvestmentProfit).toLocaleString('es-AR')})
+                          </span>.
+                        </div>
+                      </div>
+
+                      {/* TARJETAS DEL DESGLOSE DEL SIMULADOR */}
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <div className="p-4 rounded-xl bg-erp-surface border border-emerald-500/20 space-y-1">
+                          <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
+                            <Wallet className="h-3.5 w-3.5" /> Bolsillo / Sueldo ({currentRate}%)
+                          </span>
+                          <div className="text-xl font-bold font-mono text-emerald-300">
+                            ${Math.round(split.ownerPayout).toLocaleString('es-AR')}
+                          </div>
+                          <p className="text-[11px] text-zinc-400">Extraíble inmediatamente</p>
+                        </div>
+
+                        <div className="p-4 rounded-xl bg-erp-surface border border-cyan-500/20 space-y-1">
+                          <span className="text-[11px] font-bold uppercase tracking-wider text-cyan-400 flex items-center gap-1.5">
+                            <TrendingUp className="h-3.5 w-3.5" /> Utilidad Reinvertida ({100 - currentRate}%)
+                          </span>
+                          <div className="text-xl font-bold font-mono text-cyan-300">
+                            ${Math.round(split.reinvestmentProfit).toLocaleString('es-AR')}
+                          </div>
+                          <p className="text-[11px] text-zinc-400">Fondo para escalar catálogo</p>
+                        </div>
+
+                        <div className="p-4 rounded-xl bg-erp-surface border border-amber-500/20 space-y-1">
+                          <span className="text-[11px] font-bold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
+                            <ShieldCheck className="h-3.5 w-3.5" /> Retenido Total Empresa
+                          </span>
+                          <div className="text-xl font-bold font-mono text-amber-300">
+                            ${Math.round(split.totalBusinessKeep).toLocaleString('es-AR')}
+                          </div>
+                          <p className="text-[11px] text-zinc-400">Costo + Utilidad reinvertida</p>
+                        </div>
+                      </div>
+
+                      {/* BARRA DE PROGRESO BICOLOR */}
+                      <div className="space-y-2">
+                        <div className="flex justify-between text-xs font-mono font-bold">
+                          <span className="text-emerald-400">Tu Bolsillo: {currentRate}%</span>
+                          <span className="text-cyan-400">Crecimiento Empresa: {100 - currentRate}%</span>
+                        </div>
+                        <div className="h-3.5 w-full bg-zinc-900 rounded-full overflow-hidden flex border border-erp-border p-0.5">
+                          <div
+                            style={{ width: `${currentRate}%` }}
+                            className="h-full bg-gradient-to-r from-emerald-500 to-erp-gold rounded-l-full transition-all duration-300"
+                            title={`Retiro Personal: ${currentRate}%`}
+                          />
+                          <div
+                            style={{ width: `${100 - currentRate}%` }}
+                            className="h-full bg-gradient-to-r from-blue-500 to-cyan-400 rounded-r-full transition-all duration-300"
+                            title={`Reinversión Negocio: ${100 - currentRate}%`}
+                          />
+                        </div>
+                      </div>
+
+                    </div>
+                  );
+                })()}
+
+              </CardContent>
+            </Card>
+          )}
+
 
           <CardFooter className="border-t border-erp-border p-6 bg-erp-bg/60 flex items-center justify-end mt-4 rounded-2xl">
             <Button

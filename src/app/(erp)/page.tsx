@@ -5,7 +5,7 @@ import { useExchangeRate } from '@/hooks/use-exchange-rate';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { 
-  Activity, CreditCard, Database, DollarSign, RefreshCw, ShoppingBag, 
+  Wallet, Activity, CreditCard, Database, DollarSign, RefreshCw, ShoppingBag, 
   ShieldCheck, HelpCircle, ShoppingCart, User, ShieldCheck as AuditIcon, 
   AlertCircle, Coins, TrendingUp, Percent, Users, AlertTriangle, Clock, 
   ChevronRight, ArrowRight, Sparkles, Check, PackagePlus, Truck, FileText, Printer, ExternalLink 
@@ -98,6 +98,12 @@ const CustomTooltip = ({ active, payload, label, currency = 'ARS' }: { active?: 
 
 import { SaleDetailModal } from '@/components/pos/SaleDetailModal';
 
+import { RegisterOwnerDrawModal } from '@/components/dashboard/RegisterOwnerDrawModal';
+import { getSystemSettings } from '@/app/actions/systemSettings';
+import { calculateConsolidatedProfitSplit } from '@/lib/financial-math';
+import { getMonthOwnerDrawsTotal } from '@/app/actions/ownerDraws';
+
+
 export default function DashboardPage() {
   const role = useUserStore((state) => state.role);
   const { refresh: refreshRate, rate: activeStoreRate } = useExchangeRate();
@@ -111,6 +117,11 @@ export default function DashboardPage() {
   });
   const [loadingStats, setLoadingStats] = useState<boolean>(true);
   const [selectedSaleId, setSelectedSaleId] = useState<string | null>(null);
+
+  const [personalPayoutRate, setPersonalPayoutRate] = useState<number>(30);
+  const [isDrawModalOpen, setIsDrawModalOpen] = useState<boolean>(false);
+  const [monthDraws, setMonthDraws] = useState<{ totalArs: number; totalUsd: number; count: number }>({ totalArs: 0, totalUsd: 0, count: 0 });
+
 
   const loadDashboardData = async (selectedPeriod: 'current_month' | 'all_time' = period) => {
     if (role === 'admin') {
@@ -332,27 +343,107 @@ export default function DashboardPage() {
                     </CardHeader>
                   </Card>
 
-                  {/* Card 4: Ganancia Neta Final (de Bolsillo) */}
-                  <Card className="border border-erp-border bg-erp-surface/90 rounded-2xl shadow-xl transition-all duration-300 hover:border-emerald-500/40">
-                    <CardHeader className="pb-3 flex flex-row items-center justify-between space-y-0">
-                      <div>
-                        <CardDescription className="text-[11px] font-extrabold uppercase tracking-widest text-zinc-400">
-                          Ganancia Neta Final (de Bolsillo)
-                        </CardDescription>
-                        <CardTitle className="text-3xl font-bold tracking-tight text-emerald-400 mt-1.5 font-serif">
-                          ${Math.round(stats.estimatedProfitArs).toLocaleString('es-AR')}
-                        </CardTitle>
-                        <p className="text-[11px] text-emerald-400/90 font-mono mt-1">
-                          {stats.totalRevenueArs > 0 
-                            ? `${((stats.estimatedProfitArs / stats.totalRevenueArs) * 100).toFixed(1)}% margen neto` 
-                            : '0.0% margen neto'} (deduciendo OPEX y pasarelas)
-                        </p>
-                      </div>
-                      <div className="h-11 w-11 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0">
-                        <DollarSign className="h-6 w-6 text-erp-gold" />
-                      </div>
-                    </CardHeader>
-                  </Card>
+                  {/* Card 4: División de Utilidades y Retiro Personal */}
+                  {(() => {
+                    const netProfit = stats?.estimatedProfitArs || 0;
+                    const split = calculateConsolidatedProfitSplit(netProfit, personalPayoutRate);
+                    const netMarginPct = stats.totalRevenueArs > 0 
+                      ? ((netProfit / stats.totalRevenueArs) * 100).toFixed(1) 
+                      : '0.0';
+
+                    return (
+                      <Card className="border border-erp-border bg-erp-surface/90 rounded-2xl shadow-xl transition-all duration-300 hover:border-emerald-500/40 flex flex-col justify-between overflow-hidden">
+                        <CardHeader className="pb-3 flex flex-row items-start justify-between space-y-0">
+                          <div>
+                            <div className="flex items-center gap-1.5">
+                              <CardDescription className="text-[11px] font-extrabold uppercase tracking-widest text-zinc-400">
+                                Ganancia Neta & División de Utilidades
+                              </CardDescription>
+                              <span className="px-1.5 py-0.2 rounded text-[10px] font-mono font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                                {personalPayoutRate}% Bolsillo
+                              </span>
+                            </div>
+
+                            <CardTitle className="text-3xl font-bold tracking-tight text-emerald-400 mt-1 font-serif">
+                              ${Math.round(netProfit).toLocaleString('es-AR')}
+                            </CardTitle>
+                            
+                            <p className="text-[11px] text-emerald-400/90 font-mono mt-0.5">
+                              {netMarginPct}% margen neto (deduciendo OPEX y pasarelas)
+                            </p>
+                          </div>
+
+                          <div className="h-11 w-11 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0">
+                            <Wallet className="h-6 w-6 text-erp-gold" />
+                          </div>
+                        </CardHeader>
+
+                        <CardContent className="pb-4 pt-1 space-y-3">
+                          {/* DESGLOSE EN 2 CUBOS */}
+                          <div className="grid grid-cols-2 gap-2 text-xs font-mono pt-1 border-t border-erp-border/60">
+                            <div className="p-2.5 rounded-xl bg-erp-bg/80 border border-emerald-500/20">
+                              <span className="text-[10px] uppercase tracking-wider text-emerald-400 block font-bold">
+                                Disponible Retiro ({personalPayoutRate}%)
+                              </span>
+                              <span className="text-sm font-bold text-emerald-300 block mt-0.5">
+                                ${Math.round(split.ownerPayout).toLocaleString('es-AR')}
+                              </span>
+                              <span className="text-[10px] text-zinc-400">Sueldo de socio</span>
+                            </div>
+
+                            <div className="p-2.5 rounded-xl bg-erp-bg/80 border border-cyan-500/20">
+                              <span className="text-[10px] uppercase tracking-wider text-cyan-400 block font-bold">
+                                Fondo Reinversión ({100 - personalPayoutRate}%)
+                              </span>
+                              <span className="text-sm font-bold text-cyan-300 block mt-0.5">
+                                ${Math.round(split.reinvestmentProfit).toLocaleString('es-AR')}
+                              </span>
+                              <span className="text-[10px] text-zinc-400">Stock & Crecimiento</span>
+                            </div>
+                          </div>
+
+                          {/* BARRA DE PROGRESO BICOLOR */}
+                          <div className="space-y-1">
+                            <div className="flex justify-between text-[10px] font-mono font-bold">
+                              <span className="text-emerald-400">Bolsillo: {personalPayoutRate}%</span>
+                              <span className="text-cyan-400">Empresa: {100 - personalPayoutRate}%</span>
+                            </div>
+                            <div className="h-2 w-full bg-zinc-900 rounded-full overflow-hidden flex border border-erp-border/60 p-0.5">
+                              <div
+                                style={{ width: `${personalPayoutRate}%` }}
+                                className="h-full bg-gradient-to-r from-emerald-500 to-erp-gold rounded-l-full transition-all duration-300"
+                              />
+                              <div
+                                style={{ width: `${100 - personalPayoutRate}%` }}
+                                className="h-full bg-gradient-to-r from-blue-500 to-cyan-400 rounded-r-full transition-all duration-300"
+                              />
+                            </div>
+                          </div>
+
+                          {/* RESUMEN DE RETIROS REALIZADOS EN EL MES */}
+                          {monthDraws.totalArs > 0 && (
+                            <div className="text-[10px] font-mono text-zinc-400 flex items-center justify-between pt-0.5">
+                              <span>Retirado este mes:</span>
+                              <span className="text-amber-300 font-bold">
+                                ${monthDraws.totalArs.toLocaleString('es-AR')} ARS
+                              </span>
+                            </div>
+                          )}
+                        </CardContent>
+
+                        <CardFooter className="pt-0 pb-3 px-6">
+                          <Button
+                            type="button"
+                            onClick={() => setIsDrawModalOpen(true)}
+                            className="w-full bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 hover:border-emerald-500/50 text-xs font-bold py-2 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                          >
+                            <Wallet className="h-3.5 w-3.5 text-erp-gold" />
+                            <span>Registrar Retiro</span>
+                          </Button>
+                        </CardFooter>
+                      </Card>
+                    );
+                  })()}
                 </div>
 
                 {/* WIDGET DE VALORACIÓN Y PROYECCIÓN DE INVENTARIO (NUEVA FILA EXCLUSIVA) */}
@@ -705,6 +796,19 @@ export default function DashboardPage() {
       </footer>
 
       {/* MODAL DE DETALLE Y COMPROBANTE DE VENTA */}
+      
+      {/* MODAL DE REGISTRO DE RETIRO PERSONAL (CONTRA TESORERÍA SIN OPEX) */}
+      <RegisterOwnerDrawModal
+        isOpen={isDrawModalOpen}
+        onClose={() => setIsDrawModalOpen(false)}
+        availableProfitArs={stats?.estimatedProfitArs ? Math.round(stats.estimatedProfitArs * (personalPayoutRate / 100)) : 0}
+        personalPayoutRate={personalPayoutRate}
+        onSuccess={() => {
+          loadDashboardData(period);
+          getMonthOwnerDrawsTotal().then(res => setMonthDraws(res));
+        }}
+      />
+
       <SaleDetailModal
         isOpen={!!selectedSaleId}
         onClose={() => setSelectedSaleId(null)}
