@@ -2,6 +2,7 @@
 
 import React, { useState, useRef } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useUserStore } from '@/hooks/use-user-store';
 import { useExchangeRate } from '@/hooks/use-exchange-rate';
 import { RoleSelector } from '@/components/products/RoleSelector';
@@ -33,6 +34,7 @@ interface ConfiguracionClientProps {
 export function ConfiguracionClient({ initialSettings = DEFAULT_SYSTEM_SETTINGS }: ConfiguracionClientProps) {
   const role = useUserStore((state) => state.role);
   const { refresh: refreshRate } = useExchangeRate();
+  const router = useRouter();
 
   const [activeTab, setActiveTab] = useState<'branding' | 'contact' | 'pos' | 'banking' | 'profit_split'>('branding');
   const [simNetProfit, setSimNetProfit] = useState<number>(30000);
@@ -103,7 +105,11 @@ export function ConfiguracionClient({ initialSettings = DEFAULT_SYSTEM_SETTINGS 
 
     if (res.success) {
       setErrorMessage(null);
-      toast.success('¡Configuración global guardada exitosamente!');
+      if (res.data) {
+        setSettings(res.data);
+      }
+      toast.success('¡Configuración global guardada y sincronizada exitosamente!');
+      router.refresh();
     } else {
       const err = res.error || 'Error al guardar la configuración';
       setErrorMessage(err);

@@ -11,6 +11,9 @@ export interface BarcodeScannerOptions {
  * Custom Hook que detecta lecturas de escáneres de código de barras por hardware.
  * Los lectores emiten secuencias ultrarrápidas de teclas (<35ms entre caracteres)
  * y finalizan con un evento 'Enter'.
+ *
+ * Optimizado para rendimiento: utiliza un ref para el callback onScan evitando
+ * desmontar y re-registrar el event listener en cada render del componente consumidor.
  */
 export function useBarcodeScanner(
   onScan: (barcode: string) => void,
@@ -19,6 +22,12 @@ export function useBarcodeScanner(
   const { maxIntervalMs = 35, minLength = 3 } = options;
   const bufferRef = useRef<string>('');
   const lastKeyTimeRef = useRef<number>(0);
+  const onScanRef = useRef(onScan);
+
+  // Mantener actualizado el callback sin invalidar el listener global
+  useEffect(() => {
+    onScanRef.current = onScan;
+  });
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -37,7 +46,7 @@ export function useBarcodeScanner(
           const scannedCode = bufferRef.current.trim();
           bufferRef.current = '';
           if (scannedCode) {
-            onScan(scannedCode);
+            onScanRef.current(scannedCode);
           }
         } else {
           bufferRef.current = '';
@@ -60,5 +69,5 @@ export function useBarcodeScanner(
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [onScan, maxIntervalMs, minLength]);
+  }, [maxIntervalMs, minLength]);
 }

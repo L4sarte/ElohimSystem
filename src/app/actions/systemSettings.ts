@@ -28,6 +28,43 @@ function extractErrorMessage(error: unknown, fallback: string): string {
 }
 
 /**
+ * Mapeador normalizado de fila PostgreSQL -> SystemSettingsData
+ */
+function mapRowToSystemSettings(row: Record<string, any>): SystemSettingsData {
+  return {
+    id: row.id !== undefined ? String(row.id) : undefined,
+    company_name: row.company_name ?? DEFAULT_SYSTEM_SETTINGS.company_name,
+    trade_name: row.trade_name ?? row.store_name ?? DEFAULT_SYSTEM_SETTINGS.trade_name,
+    store_name: row.store_name ?? row.trade_name ?? DEFAULT_SYSTEM_SETTINGS.store_name,
+    slogan: row.slogan ?? DEFAULT_SYSTEM_SETTINGS.slogan,
+    logo_url: row.logo_url ?? DEFAULT_SYSTEM_SETTINGS.logo_url,
+    cuit_tax_id: row.cuit_tax_id ?? DEFAULT_SYSTEM_SETTINGS.cuit_tax_id,
+
+    phone: row.phone ?? DEFAULT_SYSTEM_SETTINGS.phone,
+    email: row.email ?? DEFAULT_SYSTEM_SETTINGS.email,
+    address: row.address ?? DEFAULT_SYSTEM_SETTINGS.address,
+    city: row.city ?? DEFAULT_SYSTEM_SETTINGS.city,
+    instagram_handle: row.instagram_handle ?? DEFAULT_SYSTEM_SETTINGS.instagram_handle,
+
+    receipt_header: row.receipt_header ?? DEFAULT_SYSTEM_SETTINGS.receipt_header,
+    receipt_footer_text: row.receipt_footer_text ?? row.receipt_footer_message ?? DEFAULT_SYSTEM_SETTINGS.receipt_footer_text,
+    receipt_footer_message: row.receipt_footer_message ?? row.receipt_footer_text ?? DEFAULT_SYSTEM_SETTINGS.receipt_footer_message,
+    warranty_policy_days: Number(row.warranty_policy_days ?? DEFAULT_SYSTEM_SETTINGS.warranty_policy_days),
+    enable_auto_stock_alerts: row.enable_auto_stock_alerts ?? DEFAULT_SYSTEM_SETTINGS.enable_auto_stock_alerts,
+    default_min_stock_alert: Number(row.default_min_stock_alert ?? DEFAULT_SYSTEM_SETTINGS.default_min_stock_alert),
+
+    bank_name: row.bank_name ?? DEFAULT_SYSTEM_SETTINGS.bank_name,
+    bank_account_holder: row.bank_account_holder ?? DEFAULT_SYSTEM_SETTINGS.bank_account_holder,
+    bank_cbu_cvu: row.bank_cbu_cvu ?? DEFAULT_SYSTEM_SETTINGS.bank_cbu_cvu,
+    bank_alias: row.bank_alias ?? DEFAULT_SYSTEM_SETTINGS.bank_alias,
+
+    personal_payout_rate: Number(row.personal_payout_rate ?? DEFAULT_SYSTEM_SETTINGS.personal_payout_rate),
+
+    updated_at: row.updated_at || undefined,
+  };
+}
+
+/**
  * Consultar la configuración general del sistema desde public.system_settings.
  */
 export async function getSystemSettings(): Promise<{
@@ -56,41 +93,9 @@ export async function getSystemSettings(): Promise<{
       return { success: true, data: DEFAULT_SYSTEM_SETTINGS };
     }
 
-    const row = data as Record<string, any>;
-
     return {
       success: true,
-      data: {
-        id: row.id,
-        company_name: row.company_name ?? DEFAULT_SYSTEM_SETTINGS.company_name,
-        trade_name: row.trade_name ?? row.store_name ?? DEFAULT_SYSTEM_SETTINGS.trade_name,
-        store_name: row.store_name ?? row.trade_name ?? DEFAULT_SYSTEM_SETTINGS.store_name,
-        slogan: row.slogan ?? DEFAULT_SYSTEM_SETTINGS.slogan,
-        logo_url: row.logo_url ?? DEFAULT_SYSTEM_SETTINGS.logo_url,
-        cuit_tax_id: row.cuit_tax_id ?? DEFAULT_SYSTEM_SETTINGS.cuit_tax_id,
-
-        phone: row.phone ?? DEFAULT_SYSTEM_SETTINGS.phone,
-        email: row.email ?? DEFAULT_SYSTEM_SETTINGS.email,
-        address: row.address ?? DEFAULT_SYSTEM_SETTINGS.address,
-        city: row.city ?? DEFAULT_SYSTEM_SETTINGS.city,
-        instagram_handle: row.instagram_handle ?? DEFAULT_SYSTEM_SETTINGS.instagram_handle,
-
-        receipt_header: row.receipt_header ?? DEFAULT_SYSTEM_SETTINGS.receipt_header,
-        receipt_footer_text: row.receipt_footer_text ?? row.receipt_footer_message ?? DEFAULT_SYSTEM_SETTINGS.receipt_footer_text,
-        receipt_footer_message: row.receipt_footer_message ?? row.receipt_footer_text ?? DEFAULT_SYSTEM_SETTINGS.receipt_footer_message,
-        warranty_policy_days: Number(row.warranty_policy_days ?? DEFAULT_SYSTEM_SETTINGS.warranty_policy_days),
-        enable_auto_stock_alerts: row.enable_auto_stock_alerts ?? DEFAULT_SYSTEM_SETTINGS.enable_auto_stock_alerts,
-        default_min_stock_alert: Number(row.default_min_stock_alert ?? DEFAULT_SYSTEM_SETTINGS.default_min_stock_alert),
-
-        bank_name: row.bank_name ?? DEFAULT_SYSTEM_SETTINGS.bank_name,
-        bank_account_holder: row.bank_account_holder ?? DEFAULT_SYSTEM_SETTINGS.bank_account_holder,
-        bank_cbu_cvu: row.bank_cbu_cvu ?? DEFAULT_SYSTEM_SETTINGS.bank_cbu_cvu,
-        bank_alias: row.bank_alias ?? DEFAULT_SYSTEM_SETTINGS.bank_alias,
-
-        personal_payout_rate: Number(row.personal_payout_rate ?? DEFAULT_SYSTEM_SETTINGS.personal_payout_rate),
-
-        updated_at: row.updated_at || undefined,
-      },
+      data: mapRowToSystemSettings(data as Record<string, any>),
     };
   } catch (error: unknown) {
     console.error('Error al consultar configuración del sistema:', error);
@@ -104,7 +109,7 @@ export async function getSystemSettings(): Promise<{
  */
 export async function updateSystemSettings(
   settings: Partial<SystemSettingsData>
-): Promise<{ success: boolean; error?: string }> {
+): Promise<{ success: boolean; data?: SystemSettingsData; error?: string }> {
   try {
     // 1. Verificación estricta de privilegios de Administrador en el backend
     await requireAdmin();
@@ -119,7 +124,7 @@ export async function updateSystemSettings(
     const clean = validation.data;
 
     if (!isSupabaseConfigured()) {
-      return { success: true };
+      return { success: true, data: clean as unknown as SystemSettingsData };
     }
 
     const supabase = getServiceSupabase();
@@ -166,19 +171,71 @@ export async function updateSystemSettings(
       updated_at: new Date().toISOString(),
     };
 
-    let dbError;
-    if (existing?.id) {
-      payload.id = existing.id;
-      const res = await supabase
-        .from('system_settings')
-        .update(payload)
-        .eq('id', existing.id);
-      dbError = res.error;
+    let savedRow: Record<string, any> | null = null;
+    let dbError: any = null;
+
+    // 4. Intento con RPC transaccional segura
+    const { data: rpcData, error: rpcError } = await supabase.rpc('save_system_settings_atomic', {
+      p_company_name: payload.company_name,
+      p_trade_name: payload.trade_name,
+      p_store_name: payload.store_name,
+      p_slogan: payload.slogan,
+      p_logo_url: payload.logo_url,
+      p_cuit_tax_id: payload.cuit_tax_id,
+      p_phone: payload.phone,
+      p_email: payload.email,
+      p_address: payload.address,
+      p_city: payload.city,
+      p_instagram_handle: payload.instagram_handle,
+      p_receipt_header: payload.receipt_header,
+      p_receipt_footer_text: payload.receipt_footer_text,
+      p_receipt_footer_message: payload.receipt_footer_message,
+      p_warranty_policy_days: payload.warranty_policy_days,
+      p_enable_auto_stock_alerts: payload.enable_auto_stock_alerts,
+      p_default_min_stock_alert: payload.default_min_stock_alert,
+      p_bank_name: payload.bank_name,
+      p_bank_account_holder: payload.bank_account_holder,
+      p_bank_cbu_cvu: payload.bank_cbu_cvu,
+      p_bank_alias: payload.bank_alias,
+      p_personal_payout_rate: payload.personal_payout_rate,
+    });
+
+    if (!rpcError && rpcData) {
+      savedRow = rpcData;
     } else {
-      const res = await supabase
-        .from('system_settings')
-        .insert([payload]);
-      dbError = res.error;
+      if (rpcError) {
+        console.warn('[SYSTEM_SETTINGS_RPC_FALLBACK] RPC no disponible, aplicando update directo:', rpcError.message);
+      }
+
+      // 5. Fallback directo con verificación estricta de filas afectadas
+      if (existing?.id) {
+        const res = await supabase
+          .from('system_settings')
+          .update(payload)
+          .eq('id', existing.id)
+          .select();
+
+        dbError = res.error;
+        if (!dbError && res.data && res.data.length > 0) {
+          savedRow = res.data[0];
+        } else if (!dbError && (!res.data || res.data.length === 0)) {
+          // Detectar fallo silencioso de RLS (PostgreSQL retorna 0 rows affected sin error)
+          return {
+            success: false,
+            error: 'Fallo de persistencia: 0 filas modificadas en system_settings. Esto ocurre si las políticas RLS bloquean la actualización. Ejecuta la migración de RLS provista en Supabase.',
+          };
+        }
+      } else {
+        const res = await supabase
+          .from('system_settings')
+          .insert([payload])
+          .select();
+
+        dbError = res.error;
+        if (!dbError && res.data && res.data.length > 0) {
+          savedRow = res.data[0];
+        }
+      }
     }
 
     if (dbError) {
@@ -187,13 +244,17 @@ export async function updateSystemSettings(
       return { success: false, error: `Error en base de datos: ${formattedErr}` };
     }
 
-    // 4. Revalidación de caché en todas las vistas afectadas
+    // 6. Revalidación de caché en todas las vistas afectadas
     revalidatePath('/admin/configuracion');
+    revalidatePath('/settings');
     revalidatePath('/pos');
     revalidatePath('/admin/reportes');
     revalidatePath('/');
 
-    return { success: true };
+    return {
+      success: true,
+      data: savedRow ? mapRowToSystemSettings(savedRow) : (clean as unknown as SystemSettingsData),
+    };
   } catch (error: unknown) {
     console.error('Error al actualizar configuración del sistema:', error);
     const msg = extractErrorMessage(error, 'Error al guardar la configuración');
@@ -250,23 +311,17 @@ export async function uploadCompanyLogo(formData: FormData): Promise<{
       console.warn('[STORAGE_WARN] Bucket company-assets no disponible o sin permisos, aplicando fallback en Data URL:', uploadError.message);
       const base64 = buffer.toString('base64');
       const dataUrl = `data:${file.type};base64,${base64}`;
-      return { 
-        success: true, 
-        url: dataUrl 
-      };
+      return { success: true, url: dataUrl };
     }
 
     const { data: publicUrlData } = supabase.storage
       .from(bucketName)
-      .getPublicUrl(uploadData.path);
+      .getPublicUrl(filename);
 
-    return {
-      success: true,
-      url: publicUrlData.publicUrl,
-    };
+    return { success: true, url: publicUrlData.publicUrl };
   } catch (error: unknown) {
-    console.error('Error al subir logotipo de la compañía:', error);
-    const msg = extractErrorMessage(error, 'Error al procesar la subida del logotipo');
+    console.error('Error al subir logotipo corporativo:', error);
+    const msg = extractErrorMessage(error, 'Error al procesar y subir la imagen');
     return { success: false, error: msg };
   }
 }
