@@ -68,13 +68,16 @@ export async function getProducts(): Promise<{
     let query;
 
     if (isUserAdmin) {
-      // Admin tiene acceso total
-      query = supabase.from('products').select('*').order('created_at', { ascending: false });
+      // Admin tiene acceso total pero solicitamos únicamente las columnas necesarias para el catálogo
+      query = supabase
+        .from('products')
+        .select('id, sku, name, brand, type, batch_code, olfactory_family, olfactory_notes, is_public, min_stock_alert, base_cost_ars, base_price_ars, stock_quantity, volume_ml, image_url, created_at')
+        .order('created_at', { ascending: false });
     } else {
       // Vendedor o público no tienen acceso a base_cost_ars
       query = supabase
         .from('products')
-        .select('id, sku, name, brand, type, batch_code, olfactory_family, olfactory_notes, is_public, min_stock_alert, base_price_ars, stock_quantity, volume_ml, created_at')
+        .select('id, sku, name, brand, type, batch_code, olfactory_family, olfactory_notes, is_public, min_stock_alert, base_price_ars, stock_quantity, volume_ml, image_url, created_at')
         .order('created_at', { ascending: false });
     }
 

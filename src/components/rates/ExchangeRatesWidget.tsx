@@ -25,7 +25,7 @@ const DEFAULT_RATES: RatesData = {
   lemon: { compra: 1530, venta: 1595 }
 };
 
-export function ExchangeRatesWidget() {
+export const ExchangeRatesWidget = React.memo(function ExchangeRatesWidget() {
   const [rates, setRates] = useState<RatesData>(DEFAULT_RATES);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -269,4 +269,4 @@ export function ExchangeRatesWidget() {
 
     </Card>
   );
-}
+});

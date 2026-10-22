@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useDeferredValue } from 'react';
 import { useUserStore } from '@/hooks/use-user-store';
 import { useExchangeRate } from '@/hooks/use-exchange-rate';
 import { getPendingSales, registerInstallment, PendingSale } from '@/app/actions/installments';
@@ -18,8 +18,6 @@ import {
   TrendingUp, Coins, FileText, CheckCircle, Calendar, History, Download, Landmark 
 } from 'lucide-react';
 import Link from 'next/link';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
 import { toast } from 'sonner';
 
 export default function CxCobrarPage() {
@@ -145,7 +143,13 @@ export default function CxCobrarPage() {
       const debtors = res.data;
       const totalMoneyOnTheStreet = res.totalOutstandingArs || 0;
 
-      // 1. Inicialización de jsPDF A4 (595 x 842 pt)
+      // 1. Carga diferida de jsPDF + autoTable bajo demanda
+      const [{ default: jsPDF }, { default: autoTable }] = await Promise.all([
+        import('jspdf'),
+        import('jspdf-autotable'),
+      ]);
+
+      // Inicialización de jsPDF A4 (595 x 842 pt)
       const doc = new jsPDF('p', 'pt', 'a4');
       const pageWidth = doc.internal.pageSize.getWidth();
 
@@ -278,21 +282,35 @@ export default function CxCobrarPage() {
     }
   };
 
-  // Filtrado de lista
-  const filteredSales = sales.filter(item => {
-    const clientName = (item.clients?.name || 'Consumidor Final').toLowerCase();
-    const phone = (item.clients?.phone || '').toLowerCase();
-    const search = searchTerm.toLowerCase();
-    return clientName.includes(search) || phone.includes(search) || item.id.includes(search);
-  });
+  const deferredSearchTerm = useDeferredValue(searchTerm);
 
-  // Métricas KPI
-  const totalAmountDueGlobal = sales.reduce((sum, s) => sum + s.amount_due_ars, 0);
-  const pendingSalesCount = sales.length;
-  const totalCollectedInstallments = sales.reduce((sum, s) => {
-    const totalInst = (s.sale_installments || []).reduce((instSum, inst) => instSum + inst.amount_paid_ars, 0);
-    return sum + totalInst;
-  }, 0);
+  // Filtrado de lista memoizado con useDeferredValue para escritura fluida sin lag
+  const filteredSales = useMemo(() => {
+    const search = deferredSearchTerm.toLowerCase().trim();
+    if (!search) return sales;
+    return sales.filter(item => {
+      const clientName = (item.clients?.name || 'Consumidor Final').toLowerCase();
+      const phone = (item.clients?.phone || '').toLowerCase();
+      return clientName.includes(search) || phone.includes(search) || item.id.toLowerCase().includes(search);
+    });
+  }, [sales, deferredSearchTerm]);
+
+  // Métricas KPI calculadas en una única pasada memoizada
+  const { totalAmountDueGlobal, pendingSalesCount, totalCollectedInstallments } = useMemo(() => {
+    let totalDue = 0;
+    let totalCollected = 0;
+    sales.forEach((s) => {
+      totalDue += Number(s.amount_due_ars || 0);
+      (s.sale_installments || []).forEach((inst) => {
+        totalCollected += Number(inst.amount_paid_ars || 0);
+      });
+    });
+    return {
+      totalAmountDueGlobal: totalDue,
+      pendingSalesCount: sales.length,
+      totalCollectedInstallments: totalCollected,
+    };
+  }, [sales]);
 
   return (
     <div className="flex flex-col min-h-screen bg-erp-bg text-zinc-50 transition-colors duration-300">

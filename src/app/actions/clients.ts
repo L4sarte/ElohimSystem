@@ -70,10 +70,12 @@ export async function getClientsDetailed(role?: UserRole): Promise<{
 
     const supabase = getServiceSupabase();
 
-    // Agregación SQL (GROUP BY en el motor): una fila por cliente en lugar de
-    // traer TODO el historial de ventas a memoria para sumar en el cliente.
+    // Agregación SQL (GROUP BY en el motor): una fila por cliente seleccionando columnas específicas
     const [{ data, error }, { data: salesTotals, error: totalsError }] = await Promise.all([
-      supabase.from('clients').select('*').order('name', { ascending: true }),
+      supabase
+        .from('clients')
+        .select('id, name, email, phone, preferred_notes, points_balance, created_at, total_spent_ars')
+        .order('name', { ascending: true }),
       supabase.rpc('get_client_sales_totals'),
     ]);
 

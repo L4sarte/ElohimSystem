@@ -678,7 +678,24 @@ export async function getSalesHistory(
     const { data, error, count } = await serviceClient
       .from('sales')
       .select(`
-        *,
+        id,
+        subtotal_ars,
+        discount_type,
+        discount_value,
+        discount_amount_ars,
+        discount_percentage,
+        total_ars,
+        total_usd_equivalent,
+        exchange_rate_used,
+        payment_status,
+        amount_due_ars,
+        payment_methods,
+        created_at,
+        status,
+        has_returns,
+        shipping_provider,
+        tracking_number,
+        shipping_status,
         clients (
           id,
           name,

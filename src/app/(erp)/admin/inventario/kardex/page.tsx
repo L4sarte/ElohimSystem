@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useDeferredValue } from 'react';
 import { useUserStore } from '@/hooks/use-user-store';
 import { useExchangeRate } from '@/hooks/use-exchange-rate';
 import { getKardexMovements, KardexMovement, KardexMovementType } from '@/app/actions/inventory';
@@ -118,7 +118,9 @@ export default function KardexPage() {
     }
   }, [role, limit]);
 
-  // Filtrado reactivo en memoria
+  const deferredSearchTerm = useDeferredValue(searchTerm);
+
+  // Filtrado reactivo en memoria con useDeferredValue para evitar stuttering en búsquedas
   const filteredMovements = useMemo(() => {
     return movements.filter((m) => {
       // Filtro por tipo de movimiento
@@ -130,8 +132,8 @@ export default function KardexPage() {
         return false;
       }
       // Filtro por texto
-      if (searchTerm.trim()) {
-        const term = searchTerm.toLowerCase().trim();
+      if (deferredSearchTerm.trim()) {
+        const term = deferredSearchTerm.toLowerCase().trim();
         const matchName = m.product_name.toLowerCase().includes(term);
         const matchBrand = m.product_brand.toLowerCase().includes(term);
         const matchSku = m.product_sku.toLowerCase().includes(term);
@@ -143,7 +145,7 @@ export default function KardexPage() {
       }
       return true;
     });
-  }, [movements, selectedType, selectedProductType, searchTerm]);
+  }, [movements, selectedType, selectedProductType, deferredSearchTerm]);
 
   // KPIs calculados
   const kpis = useMemo(() => {

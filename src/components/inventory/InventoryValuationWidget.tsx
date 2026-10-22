@@ -22,7 +22,7 @@ const DEFAULT_METRICS: InventoryValuationMetrics = {
   potentialMarkupPercent: 0
 };
 
-export function InventoryValuationWidget() {
+export const InventoryValuationWidget = React.memo(function InventoryValuationWidget() {
   const role = useUserStore((state) => state.role);
   const [metrics, setMetrics] = useState<InventoryValuationMetrics>(DEFAULT_METRICS);
   const [isLoading, setIsLoading] = useState(true);
@@ -213,4 +213,4 @@ export function InventoryValuationWidget() {
       )}
     </div>
   );
-}
+});

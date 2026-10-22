@@ -452,22 +452,75 @@ export async function getKardexMovements(params: GetKardexParams = {}): Promise<
     const supabase = getServiceSupabase();
     const movements: KardexMovement[] = [];
 
-    // 1. Consultar Ajustes Manuales / Mermas / Testers
-    const { data: adjData } = await supabase
-      .from('inventory_adjustments')
-      .select(`
-        id,
-        product_id,
-        admin_id,
-        adjustment_type,
-        quantity_adjusted,
-        reason,
-        created_at,
-        products ( id, name, brand, sku, type, base_cost_ars )
-      `)
-      .order('created_at', { ascending: false })
-      .limit(150);
+    // Ejecutar consultas concurrentes en paralelo (reduce latencia de 4 round-trips a 1)
+    const [
+      { data: adjData },
+      { data: salesData },
+      { data: poData },
+      { data: fracLogs }
+    ] = await Promise.all([
+      supabase
+        .from('inventory_adjustments')
+        .select(`
+          id,
+          product_id,
+          admin_id,
+          adjustment_type,
+          quantity_adjusted,
+          reason,
+          created_at,
+          products ( id, name, brand, sku, type, base_cost_ars )
+        `)
+        .order('created_at', { ascending: false })
+        .limit(150),
+      supabase
+        .from('sale_items')
+        .select(`
+          id,
+          product_id,
+          quantity,
+          price_ars_at_moment,
+          unit_cost_at_moment,
+          products ( id, name, brand, sku, type, base_cost_ars ),
+          sales ( id, created_at, payment_methods, seller_id, status )
+        `)
+        .order('id', { ascending: false })
+        .limit(200),
+      supabase
+        .from('purchase_orders')
+        .select(`
+          id,
+          created_at,
+          suppliers ( name ),
+          purchase_order_items (
+            id,
+            product_id,
+            expected_quantity,
+            received_quantity,
+            unit_cost,
+            products ( id, name, brand, sku, type )
+          )
+        `)
+        .eq('status', 'received')
+        .order('created_at', { ascending: false })
+        .limit(50),
+      supabase
+        .from('fractionation_logs')
+        .select(`
+          id,
+          source_bottle_id,
+          target_liquid_id,
+          volume_ml,
+          cost_transferred_ars,
+          cost_per_ml_calculated,
+          notes,
+          created_at
+        `)
+        .order('created_at', { ascending: false })
+        .limit(50)
+    ]);
 
+    // 1. Procesar Ajustes Manuales / Mermas / Testers
     if (adjData) {
       adjData.forEach((adj: any) => {
         const prod = Array.isArray(adj.products) ? adj.products[0] : adj.products;
@@ -503,21 +556,7 @@ export async function getKardexMovements(params: GetKardexParams = {}): Promise<
       });
     }
 
-    // 2. Consultar Ventas (POS y Tienda WhatsApp)
-    const { data: salesData } = await supabase
-      .from('sale_items')
-      .select(`
-        id,
-        product_id,
-        quantity,
-        price_ars_at_moment,
-        unit_cost_at_moment,
-        products ( id, name, brand, sku, type, base_cost_ars ),
-        sales ( id, created_at, payment_methods, seller_id, status )
-      `)
-      .order('id', { ascending: false })
-      .limit(200);
-
+    // 2. Procesar Ventas (POS y Tienda WhatsApp)
     if (salesData) {
       salesData.forEach((item: any) => {
         const prod = Array.isArray(item.products) ? item.products[0] : item.products;
@@ -552,26 +591,7 @@ export async function getKardexMovements(params: GetKardexParams = {}): Promise<
       });
     }
 
-    // 3. Consultar Recepciones de Compra (COMPRA_IN)
-    const { data: poData } = await supabase
-      .from('purchase_orders')
-      .select(`
-        id,
-        created_at,
-        suppliers ( name ),
-        purchase_order_items (
-          id,
-          product_id,
-          expected_quantity,
-          received_quantity,
-          unit_cost,
-          products ( id, name, brand, sku, type )
-        )
-      `)
-      .eq('status', 'received')
-      .order('created_at', { ascending: false })
-      .limit(50);
-
+    // 3. Procesar Recepciones de Compra (COMPRA_IN)
     if (poData) {
       poData.forEach((po: any) => {
         const supp = Array.isArray(po.suppliers) ? po.suppliers[0] : po.suppliers;
@@ -605,22 +625,7 @@ export async function getKardexMovements(params: GetKardexParams = {}): Promise<
       });
     }
 
-    // 4. Consultar Fraccionamientos de Botellas a Granel
-    const { data: fracLogs } = await supabase
-      .from('fractionation_logs')
-      .select(`
-        id,
-        source_bottle_id,
-        target_liquid_id,
-        volume_ml,
-        cost_transferred_ars,
-        cost_per_ml_calculated,
-        notes,
-        created_at
-      `)
-      .order('created_at', { ascending: false })
-      .limit(50);
-
+    // 4. Procesar Fraccionamientos de Botellas a Granel
     if (fracLogs && fracLogs.length > 0) {
       const pIds = new Set<string>();
       fracLogs.forEach((l) => {

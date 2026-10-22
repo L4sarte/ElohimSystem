@@ -10,7 +10,7 @@ interface CurrencyConverterWidgetProps {
   usdtLemonVenta: number;
 }
 
-export function CurrencyConverterWidget({
+export const CurrencyConverterWidget = React.memo(function CurrencyConverterWidget({
   dolarBlueVenta = 1570,
   usdtBinanceVenta = 1595,
   usdtLemonVenta = 1595
@@ -89,4 +89,4 @@ export function CurrencyConverterWidget({
       </div>
     </div>
   );
-}
+});

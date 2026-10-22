@@ -1,20 +1,27 @@
 'use client';
 
 import React from 'react';
+import dynamic from 'next/dynamic';
 import { useUserStore } from '@/hooks/use-user-store';
-import { useExchangeRate } from '@/hooks/use-exchange-rate';
 import { RoleSelector } from '@/components/products/RoleSelector';
 import { ExchangeRateWidget } from '@/components/rates/ExchangeRateWidget';
 import { ProductList } from '@/components/products/ProductList';
-import { BundleManager } from '@/components/products/BundleManager';
 import { InventoryValuationWidget } from '@/components/inventory/InventoryValuationWidget';
-import { ReorderAssistant } from '@/components/inventory/ReorderAssistant';
 import Link from 'next/link';
 import { ArrowLeft, Package, RefreshCw, Layers, AlertTriangle } from 'lucide-react';
 
+const BundleManager = dynamic(
+  () => import('@/components/products/BundleManager').then((m) => m.BundleManager),
+  { ssr: false }
+);
+
+const ReorderAssistant = dynamic(
+  () => import('@/components/inventory/ReorderAssistant').then((m) => m.ReorderAssistant),
+  { ssr: false }
+);
+
 export default function ProductosPage() {
   const role = useUserStore((state) => state.role);
-  const { rate, loading: loadingRate, error: rateError } = useExchangeRate();
   const [activeTab, setActiveTab] = React.useState<'perfumes' | 'combos' | 'insumos' | 'reorden'>('perfumes');
 
   return (

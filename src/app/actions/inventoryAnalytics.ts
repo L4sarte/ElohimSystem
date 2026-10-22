@@ -60,9 +60,10 @@ export async function getInventoryValuation(): Promise<InventoryValuationRespons
     }
 
     // Consultar productos inventariables con stock mayor a 0, excluyendo packaging (type = 'supply')
+    // Optimizamos seleccionando únicamente las columnas requeridas para el cálculo financiero
     const { data: products, error } = await supabase
       .from('products')
-      .select('*')
+      .select('id, name, brand, sku, type, stock_quantity, base_price_ars, base_cost_ars, volume_ml')
       .gt('stock_quantity', 0)
       .neq('type', 'supply');
 
@@ -249,21 +250,32 @@ export async function getStockRunwayAnalysis(): Promise<{
     const products = productsRes.data || [];
     const saleIds = (salesRes.data || []).map((s) => s.id);
 
-    // 2. Consultar unidades vendidas por producto
+    // 2. Consultar unidades vendidas por producto de forma paralelizada y particionada (evita URL overflow en Supabase)
     const unitsSoldMap = new Map<string, Decimal>();
     if (saleIds.length > 0) {
-      const { data: itemsData, error: itemsErr } = await supabase
-        .from('sale_items')
-        .select('product_id, quantity')
-        .in('sale_id', saleIds);
+      const BATCH_SIZE = 100;
+      const chunks: string[][] = [];
+      for (let i = 0; i < saleIds.length; i += BATCH_SIZE) {
+        chunks.push(saleIds.slice(i, i + BATCH_SIZE));
+      }
 
-      if (itemsErr) throw itemsErr;
+      const itemResults = await Promise.all(
+        chunks.map((chunk) =>
+          supabase
+            .from('sale_items')
+            .select('product_id, quantity')
+            .in('sale_id', chunk)
+        )
+      );
 
-      (itemsData || []).forEach((row) => {
-        if (!row.product_id) return;
-        const qty = new Decimal(row.quantity || 1);
-        const curr = unitsSoldMap.get(row.product_id) || new Decimal(0);
-        unitsSoldMap.set(row.product_id, curr.plus(qty));
+      itemResults.forEach((res) => {
+        if (res.error) throw res.error;
+        (res.data || []).forEach((row) => {
+          if (!row.product_id) return;
+          const qty = new Decimal(row.quantity || 1);
+          const curr = unitsSoldMap.get(row.product_id) || new Decimal(0);
+          unitsSoldMap.set(row.product_id, curr.plus(qty));
+        });
       });
     }
 

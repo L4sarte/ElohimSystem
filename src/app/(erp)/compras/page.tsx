@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useDeferredValue } from 'react';
+import dynamic from 'next/dynamic';
 import { useUserStore } from '@/hooks/use-user-store';
 import { useExchangeRate } from '@/hooks/use-exchange-rate';
 import {
@@ -51,12 +52,22 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 
-import { InTransitDashboard } from '@/components/supply-chain/InTransitDashboard';
-import {
-  RegisterPaymentModal,
-  DebtForPayment,
-} from '@/components/supply-chain/RegisterPaymentModal';
-import { NewPurchaseModal } from '@/components/supply-chain/NewPurchaseModal';
+import type { DebtForPayment } from '@/components/supply-chain/RegisterPaymentModal';
+
+const InTransitDashboard = dynamic(
+  () => import('@/components/supply-chain/InTransitDashboard').then((m) => m.InTransitDashboard),
+  { ssr: false }
+);
+
+const RegisterPaymentModal = dynamic(
+  () => import('@/components/supply-chain/RegisterPaymentModal').then((m) => m.RegisterPaymentModal),
+  { ssr: false }
+);
+
+const NewPurchaseModal = dynamic(
+  () => import('@/components/supply-chain/NewPurchaseModal').then((m) => m.NewPurchaseModal),
+  { ssr: false }
+);
 
 type ComprasTab = 'purchases' | 'payables' | 'in_transit' | 'providers';
 
@@ -242,9 +253,12 @@ function ComprasDashboardContent() {
     [payables]
   );
 
-  // Filtrado de Historial de Compras
+  const deferredPurchaseSearch = useDeferredValue(purchaseSearch);
+  const deferredProviderSearch = useDeferredValue(providerSearch);
+
+  // Filtrado de Historial de Compras con useDeferredValue
   const filteredPurchases = useMemo(() => {
-    const q = purchaseSearch.trim().toLowerCase();
+    const q = deferredPurchaseSearch.trim().toLowerCase();
     if (!q) return purchases;
     return purchases.filter((p) => {
       const matchId = p.id.toLowerCase().includes(q);
@@ -256,7 +270,7 @@ function ComprasDashboardContent() {
       );
       return matchId || matchSup || matchProd;
     });
-  }, [purchases, purchaseSearch]);
+  }, [purchases, deferredPurchaseSearch]);
 
   // Filtrado de Cuentas por Pagar (CXP)
   const filteredPayables = useMemo(() => {

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useDeferredValue } from 'react';
 import { useUserStore } from '@/hooks/use-user-store';
 import { useExchangeRate } from '@/hooks/use-exchange-rate';
 import { getClientsDetailed, createClient, updateClient, getClientPurchaseHistory, ClientRecord, ClientSaleHistoryRecord } from '@/app/actions/clients';
@@ -174,11 +174,17 @@ export default function ClientesPage() {
     router.push('/pos');
   };
 
-  const filteredClients = clients.filter(c => 
-    c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (c.phone || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (c.email || '').toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const deferredSearchTerm = useDeferredValue(searchTerm);
+
+  const filteredClients = useMemo(() => {
+    const term = deferredSearchTerm.toLowerCase().trim();
+    if (!term) return clients;
+    return clients.filter(c => 
+      c.name.toLowerCase().includes(term) ||
+      (c.phone || '').toLowerCase().includes(term) ||
+      (c.email || '').toLowerCase().includes(term)
+    );
+  }, [clients, deferredSearchTerm]);
 
   const getNoteBadgeColor = (note: string) => {
     switch (note) {

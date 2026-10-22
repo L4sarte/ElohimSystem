@@ -31,7 +31,6 @@ import { FamilyRotationWidget } from '@/components/analytics/FamilyRotationWidge
 import { DeadStockAlertWidget } from '@/components/analytics/DeadStockAlertWidget';
 
 import { toast } from 'sonner';
-import { generateFinancialReportPDF, exportFinancialReportToCsv } from '@/lib/pdf-financial-report';
 import { getSystemSettings } from '@/app/actions/systemSettings';
 import { getTreasuryAccounts } from '@/app/actions/treasury';
 import { getFormatMarginAnalysis } from '@/app/actions/retailMetrics';
@@ -213,6 +212,7 @@ export default function ReportesPage() {
 
       const periodLabel = getPeriodLabel(goalsData);
 
+      const { generateFinancialReportPDF } = await import('@/lib/pdf-financial-report');
       const doc = generateFinancialReportPDF({
         report,
         retailData,
@@ -236,7 +236,7 @@ export default function ReportesPage() {
     }
   };
 
-  const handleDownloadCSV = () => {
+  const handleDownloadCSV = async () => {
     if (!report) {
       toast.error('No hay datos analíticos disponibles para exportar.');
       return;
@@ -244,6 +244,7 @@ export default function ReportesPage() {
 
     try {
       const periodLabel = getPeriodLabel();
+      const { exportFinancialReportToCsv } = await import('@/lib/pdf-financial-report');
       exportFinancialReportToCsv({
         report,
         periodLabel,

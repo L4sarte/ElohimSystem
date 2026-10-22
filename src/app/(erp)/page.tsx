@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import dynamic from 'next/dynamic';
 import { useExchangeRate } from '@/hooks/use-exchange-rate';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -24,13 +25,32 @@ import { InventoryValuationWidget } from '@/components/inventory/InventoryValuat
 import { ExchangeRatesWidget } from '@/components/rates/ExchangeRatesWidget';
 import { QuickActions } from '@/components/dashboard/QuickActions';
 import { QuickAccessPills } from '@/components/dashboard/QuickAccessPills';
-import { DashboardProfitChart } from '@/components/dashboard/DashboardProfitChart';
-import { SaleDetailModal } from '@/components/pos/SaleDetailModal';
-
-import { RegisterOwnerDrawModal } from '@/components/dashboard/RegisterOwnerDrawModal';
 import { getSystemSettings } from '@/app/actions/systemSettings';
 import { calculateConsolidatedProfitSplit } from '@/lib/financial-math';
 import { getMonthOwnerDrawsTotal } from '@/app/actions/ownerDraws';
+
+// Carga diferida con dynamic import para optimizar el bundle inicial y tiempo de hidratación
+const DashboardProfitChart = dynamic(
+  () => import('@/components/dashboard/DashboardProfitChart').then((m) => m.DashboardProfitChart),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="h-[360px] w-full rounded-2xl border border-erp-border bg-erp-surface animate-pulse flex items-center justify-center text-xs text-zinc-500">
+        Cargando gráfico analítico...
+      </div>
+    ),
+  }
+);
+
+const SaleDetailModal = dynamic(
+  () => import('@/components/pos/SaleDetailModal').then((m) => m.SaleDetailModal),
+  { ssr: false }
+);
+
+const RegisterOwnerDrawModal = dynamic(
+  () => import('@/components/dashboard/RegisterOwnerDrawModal').then((m) => m.RegisterOwnerDrawModal),
+  { ssr: false }
+);
 
 
 export default function DashboardPage() {

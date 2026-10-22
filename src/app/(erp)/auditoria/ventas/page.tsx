@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useDeferredValue } from 'react';
+import dynamic from 'next/dynamic';
 import { useUserStore } from '@/hooks/use-user-store';
 import { useExchangeRate } from '@/hooks/use-exchange-rate';
 import { getSalesHistory, voidSale } from '@/app/actions/sales';
@@ -14,8 +15,12 @@ import {
   Search, FileText, CheckCircle2, X, Ban, AlertTriangle, RotateCcw, Download 
 } from 'lucide-react';
 import Link from 'next/link';
-import { ReturnModal } from '@/components/pos/ReturnModal';
 import { toast } from 'sonner';
+
+const ReturnModal = dynamic(
+  () => import('@/components/pos/ReturnModal').then((m) => m.ReturnModal),
+  { ssr: false }
+);
 
 const SALES_PAGE_SIZE = 50;
 
@@ -161,13 +166,18 @@ export default function HistorialVentasPage() {
     }, 300);
   };
 
-  // Filtrado predictivo por cliente o ID de ticket
-  const filteredSales = sales.filter(s => {
-    const term = search.toLowerCase();
-    const ticketId = s.id.toLowerCase();
-    const clientName = s.clients?.name?.toLowerCase() || 'consumidor final';
-    return ticketId.includes(term) || clientName.includes(term);
-  });
+  const deferredSearch = useDeferredValue(search);
+
+  // Filtrado predictivo por cliente o ID de ticket con useDeferredValue
+  const filteredSales = useMemo(() => {
+    const term = deferredSearch.toLowerCase().trim();
+    if (!term) return sales;
+    return sales.filter(s => {
+      const ticketId = (s.id || '').toLowerCase();
+      const clientName = (s.clients?.name || 'consumidor final').toLowerCase();
+      return ticketId.includes(term) || clientName.includes(term);
+    });
+  }, [sales, deferredSearch]);
 
   const totalPages = Math.max(1, Math.ceil(totalCount / SALES_PAGE_SIZE));
 

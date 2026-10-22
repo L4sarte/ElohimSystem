@@ -17,7 +17,7 @@ interface ExchangeRateWidgetProps {
   onRateChange?: () => void; // Callback opcional para avisar a otros componentes que el dólar cambió
 }
 
-export function ExchangeRateWidget({ role, onRateChange }: ExchangeRateWidgetProps) {
+export const ExchangeRateWidget = React.memo(function ExchangeRateWidget({ role, onRateChange }: ExchangeRateWidgetProps) {
   const { rate, isManual, loading, error, refresh } = useExchangeRate();
   const [isOpen, setIsOpen] = useState(false);
   const [customValue, setCustomValue] = useState('');
@@ -214,4 +214,4 @@ export function ExchangeRateWidget({ role, onRateChange }: ExchangeRateWidgetPro
 
     </div>
   );
-}
+});
