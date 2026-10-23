@@ -68,48 +68,62 @@ export async function getProducts(): Promise<{
     let query;
 
     if (isUserAdmin) {
-      // Admin tiene acceso total pero solicitamos únicamente las columnas necesarias para el catálogo
+      // Admin tiene acceso total pero solicitamos únicamente las columnas existentes en el esquema
       query = supabase
         .from('products')
-        .select('id, sku, name, brand, type, batch_code, olfactory_family, olfactory_notes, is_public, min_stock_alert, base_cost_ars, base_price_ars, stock_quantity, volume_ml, image_url, created_at')
+        .select('id, sku, name, brand, type, batch_code, olfactory_family, olfactory_notes, is_public, min_stock_alert, base_cost_ars, base_price_ars, stock_quantity, volume_ml, created_at')
         .order('created_at', { ascending: false });
     } else {
       // Vendedor o público no tienen acceso a base_cost_ars
       query = supabase
         .from('products')
-        .select('id, sku, name, brand, type, batch_code, olfactory_family, olfactory_notes, is_public, min_stock_alert, base_price_ars, stock_quantity, volume_ml, image_url, created_at')
+        .select('id, sku, name, brand, type, batch_code, olfactory_family, olfactory_notes, is_public, min_stock_alert, base_price_ars, stock_quantity, volume_ml, created_at')
         .order('created_at', { ascending: false });
     }
 
     const { data, error } = await query;
 
     if (error) {
-      throw error;
+      console.error("DEBUG PRODUCTS ERROR:", error);
+      return {
+        success: false,
+        error: error.message || error.details || String(error),
+      };
     }
 
     const rows = (data || []) as unknown as DbProductRow[];
-    const products: Product[] = rows.map((item) => ({
-      id: item.id,
-      sku: item.sku,
-      name: item.name,
-      brand: item.brand,
-      type: item.type as Product['type'],
-      batch_code: item.batch_code || undefined,
-      olfactory_family: item.olfactory_family || undefined,
-      olfactory_notes: item.olfactory_notes || undefined,
-      is_public: Boolean(item.is_public),
-      min_stock_alert: Number(item.min_stock_alert || 5),
-      base_cost_ars: item.base_cost_ars !== undefined && item.base_cost_ars !== null ? Number(item.base_cost_ars) : 0,
-      base_price_ars: Number(item.base_price_ars || 0),
-      stock_quantity: Number(item.stock_quantity || 0),
-      volume_ml: item.volume_ml !== null && item.volume_ml !== undefined ? Number(item.volume_ml) : undefined,
-      created_at: item.created_at,
-    }));
+    const products: Product[] = rows.map((item) => {
+      const costNum = Number(item.base_cost_ars);
+      const priceNum = Number(item.base_price_ars);
+      const stockNum = Number(item.stock_quantity);
+      const minStockNum = Number(item.min_stock_alert);
+      const volNum = item.volume_ml !== null && item.volume_ml !== undefined ? Number(item.volume_ml) : undefined;
+
+      return {
+        id: String(item.id || ''),
+        sku: String(item.sku || 'SIN-SKU'),
+        name: String(item.name || 'Sin nombre'),
+        brand: String(item.brand || 'Genérico'),
+        type: (item.type as Product['type']) || 'bottle',
+        batch_code: item.batch_code ? String(item.batch_code) : undefined,
+        olfactory_family: item.olfactory_family ? String(item.olfactory_family) : undefined,
+        olfactory_notes: Array.isArray(item.olfactory_notes) ? item.olfactory_notes.filter(Boolean) : undefined,
+        is_public: item.is_public !== false,
+        min_stock_alert: Number.isFinite(minStockNum) ? minStockNum : 5,
+        base_cost_ars: Number.isFinite(costNum) ? Math.max(0, costNum) : 0,
+        base_price_ars: Number.isFinite(priceNum) ? Math.max(0, priceNum) : 0,
+        stock_quantity: Number.isFinite(stockNum) ? stockNum : 0,
+        volume_ml: volNum !== undefined && Number.isFinite(volNum) ? volNum : undefined,
+        created_at: item.created_at || new Date().toISOString(),
+      };
+    });
 
     return { success: true, data: products };
-  } catch (error: unknown) {
-    console.error('Error al obtener productos:', error);
-    const msg = error instanceof Error ? error.message : 'Error desconocido al cargar productos';
+  } catch (err: unknown) {
+    console.error("DEBUG PRODUCTS ERROR:", err);
+    const msg = err && typeof err === 'object' && 'message' in err
+      ? String((err as { message: unknown }).message)
+      : String(err || 'Error desconocido al cargar productos');
     return { success: false, error: msg };
   }
 }

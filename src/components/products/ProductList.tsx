@@ -88,18 +88,27 @@ const ProductTableRow = React.memo(function ProductTableRow({
   // Cálculo de división de ganancias memoizado por fila
   const profitSplit = useMemo(() => {
     if (role !== 'admin') return null;
-    const price = Number(product.base_price_ars) || 0;
-    const cost = Number(product.base_cost_ars) || 0;
+    const price = Number(product?.base_price_ars) || 0;
+    const cost = Number(product?.base_cost_ars) || 0;
+    const payoutRate = Number(personalPayoutRate);
+    const safeRate = Number.isFinite(payoutRate) ? payoutRate : 30;
     if (cost <= 0 || price <= cost) return null;
-    return calculateProfitSplit(price, cost, personalPayoutRate);
-  }, [role, product.base_price_ars, product.base_cost_ars, personalPayoutRate]);
+    try {
+      return calculateProfitSplit(price, cost, safeRate);
+    } catch (calcErr) {
+      console.error("DEBUG CALC ERROR on product:", product?.id, calcErr);
+      return null;
+    }
+  }, [role, product?.base_price_ars, product?.base_cost_ars, personalPayoutRate, product?.id]);
 
-  // Conversión informativa a USD
+  // Conversión informativa a USD protegida
   const usdReference = useMemo(() => {
-    if (!exchangeRate || exchangeRate <= 0) return 'u$s --';
-    const usd = (Number(product.base_price_ars) || 0) / exchangeRate;
-    return `u$s ${usd.toFixed(2)}`;
-  }, [product.base_price_ars, exchangeRate]);
+    const rateNum = Number(exchangeRate);
+    if (!rateNum || rateNum <= 0 || !Number.isFinite(rateNum)) return 'u$s --';
+    const priceNum = Number(product?.base_price_ars) || 0;
+    const usd = priceNum / rateNum;
+    return `u$s ${Number.isFinite(usd) ? usd.toFixed(2) : '--'}`;
+  }, [product?.base_price_ars, exchangeRate]);
 
   const renderTypeBadge = (type: ProductType) => {
     switch (type) {
@@ -237,7 +246,7 @@ const ProductTableRow = React.memo(function ProductTableRow({
           {product.type === 'decant_liquid' ? (
             <div>
               <div className="flex items-baseline gap-1">
-                <span>{formatArs(product.base_cost_ars)}</span>
+                <span>{formatArs(Number(product.base_cost_ars) || 0)}</span>
                 <span className="text-[11px] text-slate-400 font-normal">/ ml</span>
               </div>
               <div className="text-[11px] text-slate-400 font-normal mt-0.5">
@@ -245,7 +254,7 @@ const ProductTableRow = React.memo(function ProductTableRow({
               </div>
             </div>
           ) : (
-            formatArs(product.base_cost_ars)
+            formatArs(Number(product.base_cost_ars) || 0)
           )}
         </td>
       )}
@@ -272,20 +281,20 @@ const ProductTableRow = React.memo(function ProductTableRow({
         {product.type === 'decant_liquid' ? (
           <div>
             <div className="flex items-baseline gap-1">
-              <span>{formatArs(product.base_price_ars)}</span>
+              <span>{formatArs(Number(product.base_price_ars) || 0)}</span>
               <span className="text-[11px] font-normal text-slate-400">/ ml</span>
             </div>
             <div className="flex flex-wrap gap-1 mt-1">
               <span className="inline-block px-1.5 py-0.5 text-xs font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 rounded">
-                5ml: {formatArs(product.base_price_ars * 5)}
+                5ml: {formatArs((Number(product.base_price_ars) || 0) * 5)}
               </span>
               <span className="inline-block px-1.5 py-0.5 text-xs font-bold bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 rounded">
-                10ml: {formatArs(product.base_price_ars * 10)}
+                10ml: {formatArs((Number(product.base_price_ars) || 0) * 10)}
               </span>
             </div>
           </div>
         ) : (
-          formatArs(product.base_price_ars)
+          formatArs(Number(product.base_price_ars) || 0)
         )}
       </td>
 
@@ -423,19 +432,30 @@ export function ProductList({ role, excludeSupplies = true }: ProductListProps) 
   const fetchProductsList = useCallback(async () => {
     setLoading(true);
     setError(null);
-    const [res, runwayRes] = await Promise.all([
-      getProducts(),
-      role === 'admin' ? getStockRunwayAnalysis() : Promise.resolve({ success: true, data: undefined }),
-    ]);
-    if (res.success && res.data) {
-      setProducts(res.data);
-    } else {
-      setError(res.error || 'Error al cargar productos');
+    try {
+      const [res, runwayRes] = await Promise.all([
+        getProducts(),
+        role === 'admin' ? getStockRunwayAnalysis() : Promise.resolve({ success: true, data: undefined }),
+      ]);
+      if (res.success && res.data) {
+        setProducts(res.data);
+      } else {
+        const errMsg = res.error || 'Error al cargar productos';
+        console.error("DEBUG PRODUCTS ERROR:", errMsg);
+        setError(errMsg);
+      }
+      if (runwayRes.success && runwayRes.data) {
+        setRunwayMap(runwayRes.data.byProductId || {});
+      }
+    } catch (err: unknown) {
+      console.error("DEBUG PRODUCTS ERROR:", err);
+      const errMsg = err && typeof err === 'object' && 'message' in err
+        ? String((err as { message: unknown }).message)
+        : String(err || 'Error inesperado al cargar catálogo');
+      setError(errMsg);
+    } finally {
+      setLoading(false);
     }
-    if (runwayRes.success && runwayRes.data) {
-      setRunwayMap(runwayRes.data.byProductId);
-    }
-    setLoading(false);
   }, [role]);
 
   useEffect(() => {
@@ -766,11 +786,16 @@ export function ProductList({ role, excludeSupplies = true }: ProductListProps) 
               <span className="text-sm font-medium text-slate-500 dark:text-zinc-400">Cargando catálogo de productos...</span>
             </div>
           ) : error ? (
-            <div className="flex flex-col items-center justify-center py-20 text-rose-500 gap-2 px-4 text-center">
+            <div className="flex flex-col items-center justify-center py-20 text-rose-500 gap-3 px-4 text-center">
               <AlertCircle className="h-10 w-10 text-rose-600 dark:text-rose-400" />
-              <h3 className="font-bold text-lg">Error al Cargar</h3>
-              <p className="text-sm text-slate-500 max-w-sm">{error}</p>
-              <Button variant="outline" onClick={fetchProductsList} className="mt-4">Reintentar</Button>
+              <h3 className="font-bold text-lg text-slate-900 dark:text-white">Error al Cargar Catálogo</h3>
+              <div className="text-xs text-rose-700 dark:text-rose-300 max-w-lg font-mono bg-rose-50 dark:bg-rose-950/40 p-3.5 rounded-xl border border-rose-200 dark:border-rose-900/50 break-words text-left">
+                <span className="font-bold block mb-1">Detalle del error:</span>
+                {error}
+              </div>
+              <Button variant="outline" onClick={fetchProductsList} className="mt-2 cursor-pointer font-bold">
+                Reintentar Carga
+              </Button>
             </div>
           ) : filteredProducts.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-24 gap-3 text-center px-4">
