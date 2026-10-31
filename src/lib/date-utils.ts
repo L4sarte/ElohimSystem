@@ -12,7 +12,15 @@
  * y determinista todo el año (sin depender de la base ICU del runtime).
  */
 
-/** Offset fijo de la zona horaria comercial (ART = UTC-3) en milisegundos. */
+/**
+ * Offset fijo de la zona horaria comercial (ART = UTC-3) en milisegundos.
+ *
+ * DOS direcciones, NO confundirlas:
+ *  - Civil ART → instante UTC (límites de rango): SUMAR (+3h). La medianoche
+ *    ART de un día ocurre a las 03:00 UTC de ese día → artMidnightUtc/artDayEndUtc.
+ *  - Instante UTC → reloj de pared ART (businessNow/toBusinessInstant): RESTAR
+ *    (−3h) para que los getters getUTC* lean la fecha civil argentina.
+ */
 export const ART_OFFSET_MS = 3 * 60 * 60 * 1000;
 
 /** Identificador IANA de la zona horaria comercial. */
@@ -28,9 +36,18 @@ export function artDayEndUtc(year: number, month0: number, day: number): Date {
   return new Date(Date.UTC(year, month0, day, 23, 59, 59, 999) + ART_OFFSET_MS);
 }
 
-/** "Ahora" trasladado al marco de negocio (leer año/mes/día ART con getUTC*). */
+/**
+ * "Ahora" trasladado al marco de negocio (leer año/mes/día ART con getUTC*).
+ *
+ * ART = UTC-3: la hora de pared argentina es la hora UTC MENOS 3. Para que los
+ * getters getUTC* rendericen el reloj de pared ART hay que RESTAR el offset al
+ * epoch. Sumarlo invertía el marco: entre las 18:00 y las 23:59 ART del último
+ * día de cada mes el sistema creía estar en el mes SIGUIENTE (el "Mes Actual"
+ * del dashboard mostraba $0) y businessDayKey asignaba las ventas nocturnas al
+ * día siguiente.
+ */
 export function businessNow(reference: Date = new Date()): Date {
-  return new Date(reference.getTime() + ART_OFFSET_MS);
+  return new Date(reference.getTime() - ART_OFFSET_MS);
 }
 
 /** Convierte un instante UTC al marco de negocio (getUTC* lee día/mes ART). */
@@ -38,7 +55,7 @@ export function toBusinessInstant(instant: Date | string | null | undefined): Da
   if (!instant) return null;
   const d = typeof instant === 'string' ? new Date(instant) : instant;
   if (isNaN(d.getTime())) return null;
-  return new Date(d.getTime() + ART_OFFSET_MS);
+  return new Date(d.getTime() - ART_OFFSET_MS);
 }
 
 /**
