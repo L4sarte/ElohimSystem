@@ -144,7 +144,7 @@ export function RecipeBuilderModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 overflow-y-auto">
-      <div className="relative w-full max-w-4xl bg-erp-bg border border-erp-border rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+      <div className="relative w-full max-w-4xl bg-erp-bg border border-erp-border rounded-2xl shadow-xl overflow-hidden flex flex-col max-h-[90vh]">
         
         {/* CABECERA MODAL */}
         <div className="p-6 border-b border-erp-border bg-erp-surface/50 flex items-center justify-between">
@@ -184,7 +184,7 @@ export function RecipeBuilderModal({
                     key={size}
                     type="button"
                     onClick={() => setSizeMl(size)}
-                    className={`px-3 py-1 rounded-md text-xs font-bold transition-all cursor-pointer ${
+                    className={`px-3 py-1 rounded-md text-xs font-bold transition cursor-pointer ${
                       sizeMl === size
                         ? 'bg-erp-gold text-erp-bg shadow'
                         : 'text-zinc-400 hover:text-white'
@@ -210,10 +210,10 @@ export function RecipeBuilderModal({
           {/* NOMBRE DE LA RECETA Y CONFIGURACIÓN */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="md:col-span-2">
-              <label className="block text-xs font-bold uppercase tracking-wider text-zinc-400 mb-1">
+              <label htmlFor="recipebuildermodal-f1" className="block text-xs font-bold uppercase tracking-wider text-zinc-400 mb-1">
                 Nombre de la Receta / Modelo de Costeo
               </label>
-              <input
+              <input id="recipebuildermodal-f1"
                 type="text"
                 value={recipeName}
                 onChange={e => setRecipeName(e.target.value)}
@@ -266,7 +266,7 @@ export function RecipeBuilderModal({
 
             <div className="space-y-2">
               {items.length === 0 ? (
-                <div className="p-8 text-center border border-dashed border-erp-border rounded-xl text-zinc-500 text-xs">
+                <div className="p-8 text-center border border-dashed border-erp-border rounded-xl text-zinc-400 text-xs">
                   No has agregado insumos a esta receta. Haz clic arriba para añadir líquido o packaging.
                 </div>
               ) : (
@@ -364,7 +364,7 @@ export function RecipeBuilderModal({
                   <p className="text-lg font-black text-amber-400 font-mono mt-1">
                     ${calcResult.liquid_cost_ars.toLocaleString('es-AR')} ARS
                   </p>
-                  <p className="text-[11px] text-zinc-500 font-mono">
+                  <p className="text-[11px] text-zinc-400 font-mono">
                     ~USD ${(calcResult.liquid_cost_ars / calcResult.exchange_rate_used).toFixed(2)}
                   </p>
                 </div>
@@ -375,7 +375,7 @@ export function RecipeBuilderModal({
                   <p className="text-lg font-black text-indigo-400 font-mono mt-1">
                     ${calcResult.packaging_cost_ars.toLocaleString('es-AR')} ARS
                   </p>
-                  <p className="text-[11px] text-zinc-500 font-mono">
+                  <p className="text-[11px] text-zinc-400 font-mono">
                     ~USD ${(calcResult.packaging_cost_ars / calcResult.exchange_rate_used).toFixed(2)}
                   </p>
                 </div>
@@ -408,7 +408,7 @@ export function RecipeBuilderModal({
 
               </div>
             ) : (
-              <p className="text-xs text-zinc-500">
+              <p className="text-xs text-zinc-400">
                 Selecciona al menos 1 insumo válido para simular el costo dinámico y margen en tiempo real.
               </p>
             )}

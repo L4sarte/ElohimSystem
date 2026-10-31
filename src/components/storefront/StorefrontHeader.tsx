@@ -48,7 +48,7 @@ export function StorefrontHeader({ settings = DEFAULT_SYSTEM_SETTINGS }: Storefr
       </div>
 
       {/* HEADER PRINCIPAL GLASSMORPHISM */}
-      <header className="sticky top-0 z-40 w-full border-b border-erp-border bg-erp-bg/90 backdrop-blur-md transition-all">
+      <header className="sticky top-0 z-40 w-full border-b border-erp-border bg-erp-bg/90 transition">
         <div className="container mx-auto max-w-6xl flex h-16 sm:h-20 items-center justify-between px-4 sm:px-6">
           
           {/* LOGO & BRANDING */}
@@ -96,7 +96,7 @@ export function StorefrontHeader({ settings = DEFAULT_SYSTEM_SETTINGS }: Storefr
             {/* BOTÓN CARRITO */}
             <button
               onClick={toggleDrawer}
-              className="relative flex items-center gap-2 px-3.5 py-2 rounded-xl bg-erp-surface border border-erp-border hover:border-erp-gold/60 text-white transition-all cursor-pointer shadow-md group"
+              className="relative flex items-center gap-2 px-3.5 py-2 rounded-xl bg-erp-surface border border-erp-border hover:border-erp-gold/60 text-white transition cursor-pointer shadow-md group"
               title="Ver Carrito de Compras"
             >
               <div className="relative">

@@ -147,8 +147,8 @@ export default function GastosPage() {
   // Denegar acceso a vendedores
   if (role !== 'admin') {
     return (
-      <div className="flex flex-col min-h-screen bg-slate-50 text-slate-900 dark:bg-erp-bg dark:text-zinc-50 transition-colors duration-300">
-        <header className="sticky top-0 z-40 w-full border-b border-slate-200/80 bg-white/80 backdrop-blur-md dark:border-erp-border dark:bg-erp-bg/80">
+      <div className="flex flex-col min-h-screen bg-erp-bg text-zinc-50 transition-colors duration-300">
+        <header className="sticky top-0 z-40 w-full border-b border-slate-200/80 dark:border-erp-border bg-erp-bg/95">
           <div className="container mx-auto flex h-16 items-center justify-between px-4 sm:px-6 max-w-6xl">
             <Link 
               href="/"
@@ -162,12 +162,12 @@ export default function GastosPage() {
         </header>
 
         <main className="flex-1 flex items-center justify-center p-4">
-          <Card className="w-full max-w-md border-rose-200 dark:border-rose-900/30 bg-rose-50/20 dark:bg-rose-950/5 shadow-lg">
+          <Card className="w-full max-w-md border-rose-900/30 bg-rose-950/5 shadow-lg">
             <CardHeader className="text-center pb-2">
-              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-rose-100 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 mb-4">
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-rose-500/10 text-rose-400 mb-4">
                 <ShieldAlert className="h-6 w-6" />
               </div>
-              <CardTitle className="text-lg font-bold text-rose-800 dark:text-rose-400">Acceso Restringido</CardTitle>
+              <CardTitle className="text-lg font-bold text-rose-400">Acceso Restringido</CardTitle>
               <CardDescription className="dark:text-rose-500/80">
                 La gestión de gastos operativos y costos fijos es exclusiva para administradores.
               </CardDescription>
@@ -188,10 +188,10 @@ export default function GastosPage() {
   const totalOpexArs = expenses.reduce((acc, curr) => acc + Number(curr.amount_ars || 0), 0);
 
   return (
-    <div className="flex flex-col min-h-screen bg-slate-50 text-slate-900 dark:bg-erp-bg dark:text-zinc-50 transition-colors duration-300">
+    <div className="flex flex-col min-h-screen bg-erp-bg text-zinc-50 transition-colors duration-300">
       
       {/* NAVBAR */}
-      <header className="sticky top-0 z-40 w-full border-b border-slate-200/80 bg-white/80 backdrop-blur-md dark:border-erp-border dark:bg-erp-bg/80">
+      <header className="sticky top-0 z-40 w-full border-b border-slate-200/80 dark:border-erp-border bg-erp-bg/95">
         <div className="container mx-auto flex h-16 items-center justify-between px-4 sm:px-6 max-w-6xl">
           <div className="flex items-center gap-4">
             <Link 
@@ -201,12 +201,12 @@ export default function GastosPage() {
               <ArrowLeft className="h-4.5 w-4.5" />
               <span>Dashboard</span>
             </Link>
-            <span className="text-slate-300 dark:text-zinc-800">|</span>
+            <span className="text-zinc-800">|</span>
             <div className="flex items-center gap-2">
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-rose-600 text-white shadow-md shadow-rose-500/20">
                 <FileText className="h-4.5 w-4.5" />
               </div>
-              <span className="text-sm font-bold tracking-tight text-slate-800 dark:text-zinc-100 uppercase">
+              <span className="text-sm font-bold tracking-tight text-zinc-100 uppercase">
                 Gastos Operativos (OPEX)
               </span>
             </div>
@@ -225,10 +225,10 @@ export default function GastosPage() {
         {/* Cabecera */}
         <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
+            <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
               Gestor de Gastos Operativos y Costos Fijos
             </h1>
-            <p className="text-sm text-slate-500 dark:text-zinc-400 mt-1">
+            <p className="text-sm text-zinc-400 mt-1">
               Registra alquileres, marketing, servicios y honorarios para calcular la Ganancia Neta exacta.
             </p>
           </div>
@@ -248,12 +248,12 @@ export default function GastosPage() {
         </div>
 
         {/* DATA TABLE DE GASTOS */}
-        <Card className="border-slate-200 dark:border-erp-border">
+        <Card className="border-erp-border">
           <CardContent className="p-0 overflow-x-auto">
             {loading ? (
               <div className="flex flex-col items-center justify-center py-20 gap-3">
                 <RefreshCw className="h-8 w-8 animate-spin text-rose-600" />
-                <span className="text-sm font-medium text-slate-500 dark:text-zinc-400">Cargando registro de gastos...</span>
+                <span className="text-sm font-medium text-zinc-400">Cargando registro de gastos...</span>
               </div>
             ) : error ? (
               <div className="flex flex-col items-center justify-center py-20 text-rose-500 gap-2">
@@ -263,15 +263,15 @@ export default function GastosPage() {
               </div>
             ) : expenses.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-24 gap-3 text-center">
-                <Layers className="h-10 w-10 text-slate-300 dark:text-zinc-700" />
-                <h3 className="font-bold text-slate-900 dark:text-white">Sin Gastos Registrados</h3>
-                <p className="text-sm text-slate-500 dark:text-zinc-400 max-w-sm">No hay compras o gastos fijos ingresados en la plataforma aún.</p>
+                <Layers className="h-10 w-10 text-zinc-700" />
+                <h3 className="font-bold text-white">Sin Gastos Registrados</h3>
+                <p className="text-sm text-zinc-400 max-w-sm">No hay compras o gastos fijos ingresados en la plataforma aún.</p>
                 <Button onClick={() => handleOpenForm()} className="mt-2 bg-rose-600 text-white">Registrar Primer Gasto</Button>
               </div>
             ) : (
               <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="border-b border-slate-200 dark:border-erp-border bg-slate-50/50 dark:bg-erp-surface/40 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400">
+                  <tr className="border-b border-erp-border bg-erp-surface/40 text-xs font-bold uppercase tracking-wider text-zinc-400">
                     <th className="p-4 pl-6">Fecha</th>
                     <th className="p-4">Categoría</th>
                     <th className="p-4">Descripción</th>
@@ -280,29 +280,29 @@ export default function GastosPage() {
                     <th className="p-4 pr-6 text-right">Acciones</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-zinc-900 text-sm">
+                <tbody className="divide-y divide-zinc-900 text-sm">
                   {expenses.map((e) => (
                     <tr key={e.id} className="hover:bg-slate-50/60 dark:hover:bg-erp-surface/30 transition-colors">
                       
                       {/* Fecha */}
-                      <td className="p-4 pl-6 font-mono text-xs font-semibold text-slate-600 dark:text-zinc-400">
+                      <td className="p-4 pl-6 font-mono text-xs font-semibold text-zinc-400">
                         {new Date(e.expense_date).toLocaleDateString('es-AR')}
                       </td>
 
                       {/* Categoría */}
                       <td className="p-4">
-                        <span className="inline-flex items-center gap-1 text-xs px-2.5 py-0.5 rounded-full font-bold bg-slate-100 text-slate-800 dark:bg-zinc-800 dark:text-zinc-300">
+                        <span className="inline-flex items-center gap-1 text-xs px-2.5 py-0.5 rounded-full font-bold text-slate-800 bg-zinc-800 dark:text-zinc-300">
                           {e.category}
                         </span>
                       </td>
 
                       {/* Descripción */}
-                      <td className="p-4 font-medium text-slate-900 dark:text-white">
+                      <td className="p-4 font-medium text-white">
                         {e.description}
                       </td>
 
                       {/* Monto ARS */}
-                      <td className="p-4 text-right font-mono font-bold text-rose-600 dark:text-rose-400">
+                      <td className="p-4 text-right font-mono font-bold text-rose-400">
                         ${Number(e.amount_ars).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
                       </td>
 
@@ -346,11 +346,11 @@ export default function GastosPage() {
       {/* MODAL ALTA / EDICIÓN */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="w-full max-w-md bg-white dark:bg-erp-bg border border-slate-200 dark:border-erp-border rounded-xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+          <div className="w-full max-w-md bg-erp-bg border border-erp-border rounded-xl shadow-xl overflow-hidden animate-in zoom-in-95 duration-200">
             <form onSubmit={handleSubmitForm}>
-              <CardHeader className="border-b border-slate-100 dark:border-zinc-900 pb-4">
+              <CardHeader className="border-b border-zinc-900 pb-4">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <CardTitle className="text-lg font-bold text-white flex items-center gap-2">
                     <FileText className="h-5 w-5 text-rose-600" />
                     {editingItem ? 'Editar Gasto Operativo' : 'Registrar Gasto Operativo'}
                   </CardTitle>
@@ -372,14 +372,14 @@ export default function GastosPage() {
                 {/* Cuenta de Origen en Tesorería */}
                 {!editingItem && (
                   <div className="space-y-1">
-                    <label className="text-xs font-bold uppercase tracking-wider text-erp-gold flex items-center gap-1">
+                    <label htmlFor="page-f1" className="text-xs font-bold uppercase tracking-wider text-erp-gold flex items-center gap-1">
                       <Landmark className="h-3.5 w-3.5" /> Cuenta de Origen (Egreso de Tesorería) *
                     </label>
-                    <select
+                    <select id="page-f1"
                       value={selectedTreasuryAccountId}
                       onChange={(e) => setSelectedTreasuryAccountId(e.target.value)}
                       disabled={submitting}
-                      className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-1 text-xs shadow-sm transition-colors focus:outline-none focus:ring-1 focus:ring-ring dark:border-erp-border dark:bg-erp-bg dark:text-white font-bold disabled:opacity-50"
+                      className="flex h-10 w-full rounded-lg border border-input px-3 py-1 shadow-sm transition-colors focus:outline-none focus:ring-1 focus:ring-ring dark:border-erp-border bg-erp-bg text-white font-bold disabled:opacity-50"
                     >
                       {treasuryAccounts.map(acc => (
                         <option key={acc.id} value={acc.id}>
@@ -392,12 +392,12 @@ export default function GastosPage() {
 
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
-                    <label className="text-xs font-bold uppercase tracking-wider text-slate-400">Categoría *</label>
-                    <select
+                    <label htmlFor="page-f2" className="text-xs font-bold uppercase tracking-wider text-slate-400">Categoría *</label>
+                    <select id="page-f2"
                       value={category}
                       onChange={(e) => setCategory(e.target.value)}
                       disabled={submitting}
-                      className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus:outline-none focus:ring-1 focus:ring-ring dark:border-input/40 dark:bg-input/10 dark:text-white font-semibold disabled:opacity-50"
+                      className="flex h-10 w-full rounded-lg border border-input px-3 py-1 shadow-sm transition-colors focus:outline-none focus:ring-1 focus:ring-ring dark:border-input/40 bg-input/10 text-white font-semibold disabled:opacity-50"
                     >
                       {CATEGORIES.map(c => (
                         <option key={c} value={c}>{c}</option>
@@ -406,8 +406,8 @@ export default function GastosPage() {
                   </div>
 
                   <div className="space-y-1">
-                    <label className="text-xs font-bold uppercase tracking-wider text-slate-400">Fecha del Gasto *</label>
-                    <Input
+                    <label htmlFor="page-f3" className="text-xs font-bold uppercase tracking-wider text-slate-400">Fecha del Gasto *</label>
+                    <Input id="page-f3"
                       type="date"
                       required
                       value={expenseDate}
@@ -420,8 +420,8 @@ export default function GastosPage() {
 
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
-                    <label className="text-xs font-bold uppercase tracking-wider text-slate-400">Monto ARS ($) *</label>
-                    <Input
+                    <label htmlFor="page-f4" className="text-xs font-bold uppercase tracking-wider text-slate-400">Monto ARS ($) *</label>
+                    <Input id="page-f4"
                       type="number"
                       min="0"
                       step="0.01"
@@ -435,8 +435,8 @@ export default function GastosPage() {
                   </div>
 
                   <div className="space-y-1">
-                    <label className="text-xs font-bold uppercase tracking-wider text-slate-400">Monto USD (Opcional)</label>
-                    <Input
+                    <label htmlFor="page-f5" className="text-xs font-bold uppercase tracking-wider text-slate-400">Monto USD (Opcional)</label>
+                    <Input id="page-f5"
                       type="number"
                       min="0"
                       step="0.01"
@@ -450,8 +450,8 @@ export default function GastosPage() {
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-xs font-bold uppercase tracking-wider text-slate-400">Descripción / Concepto *</label>
-                  <Input
+                  <label htmlFor="page-f6" className="text-xs font-bold uppercase tracking-wider text-slate-400">Descripción / Concepto *</label>
+                  <Input id="page-f6"
                     required
                     placeholder="Ej. Campaña publicitaria Instagram / Alquiler local..."
                     value={description}
@@ -463,7 +463,7 @@ export default function GastosPage() {
 
               </CardContent>
 
-              <CardFooter className="border-t border-slate-100 dark:border-zinc-900 pt-4 flex justify-end gap-3 bg-slate-50/50 dark:bg-erp-surface/20 px-6 py-4">
+              <CardFooter className="border-t border-zinc-900 pt-4 flex justify-end gap-3 bg-erp-surface/20 px-6 py-4">
                 <Button
                   type="button"
                   variant="outline"

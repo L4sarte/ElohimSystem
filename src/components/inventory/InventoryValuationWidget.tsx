@@ -112,7 +112,7 @@ export const InventoryValuationWidget = React.memo(function InventoryValuationWi
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           
           {/* CARD 1: CAPITAL INVERTIDO (COSTO) */}
-          <Card className="border border-erp-border bg-erp-surface/90 rounded-2xl p-5 shadow-xl hover:border-erp-gold/50 transition-all">
+          <Card className="border border-erp-border bg-erp-surface/90 rounded-2xl p-5 shadow-xl hover:border-erp-gold/50 transition">
             <CardHeader className="p-0 space-y-2">
               <div className="flex items-center justify-between">
                 <CardDescription className="text-[11px] font-bold uppercase tracking-wider text-zinc-400 flex items-center gap-1">
@@ -139,7 +139,7 @@ export const InventoryValuationWidget = React.memo(function InventoryValuationWi
           </Card>
 
           {/* CARD 2: VALOR BRUTO POTENCIAL (VENTA TOTAL) */}
-          <Card className="border border-erp-border bg-erp-surface/90 rounded-2xl p-5 shadow-xl hover:border-erp-gold/50 transition-all">
+          <Card className="border border-erp-border bg-erp-surface/90 rounded-2xl p-5 shadow-xl hover:border-erp-gold/50 transition">
             <CardHeader className="p-0 space-y-2">
               <div className="flex items-center justify-between">
                 <CardDescription className="text-[11px] font-bold uppercase tracking-wider text-erp-gold flex items-center gap-1">
@@ -166,7 +166,7 @@ export const InventoryValuationWidget = React.memo(function InventoryValuationWi
           </Card>
 
           {/* CARD 3: GANANCIA NETA POTENCIAL */}
-          <Card className="border border-erp-border bg-erp-surface/90 rounded-2xl p-5 shadow-xl hover:border-emerald-500/50 transition-all">
+          <Card className="border border-erp-border bg-erp-surface/90 rounded-2xl p-5 shadow-xl hover:border-emerald-500/50 transition">
             <CardHeader className="p-0 space-y-2">
               <div className="flex items-center justify-between">
                 <CardDescription className="text-[11px] font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-1">
@@ -202,7 +202,7 @@ export const InventoryValuationWidget = React.memo(function InventoryValuationWi
 
               <div className="text-[11px] text-zinc-400 leading-snug pt-1 border-t border-erp-border/60 flex flex-col gap-0.5">
                 <span>Utilidad neta proyectada tras recuperar la inversión.</span>
-                <span className="text-[11px] text-zinc-500 font-mono">
+                <span className="text-[11px] text-zinc-400 font-mono">
                   Margen s/ Venta: {metrics.potentialProfitMarginPercent}% • Markup s/ Costo: {metrics.potentialMarkupPercent}%
                 </span>
               </div>

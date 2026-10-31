@@ -254,12 +254,12 @@ export function ProductFormModal({ isOpen, onClose, onSuccess, product, role = '
   if (role !== 'admin') {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-        <div className="w-full max-w-md bg-white dark:bg-erp-bg p-6 rounded-xl border border-rose-200 dark:border-rose-900/30 shadow-2xl">
-          <div className="flex gap-3 text-rose-600 dark:text-rose-400">
+        <div className="w-full max-w-md bg-erp-bg p-6 rounded-xl border border-rose-900/30 shadow-xl">
+          <div className="flex gap-3 text-rose-400">
             <AlertCircle className="h-6 w-6 shrink-0" />
             <div>
               <h3 className="font-bold text-lg">Acceso Restringido</h3>
-              <p className="text-sm mt-1 text-slate-600 dark:text-zinc-400">
+              <p className="text-sm mt-1 text-zinc-400">
                 Solo los usuarios con rol de administrador pueden agregar o editar productos del catálogo.
               </p>
             </div>
@@ -320,12 +320,12 @@ export function ProductFormModal({ isOpen, onClose, onSuccess, product, role = '
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200 overflow-y-auto">
-      <div className="w-[95vw] sm:max-w-xl bg-white dark:bg-erp-bg border border-slate-200 dark:border-erp-border rounded-xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 my-auto">
+      <div className="w-[95vw] sm:max-w-xl bg-erp-bg border border-erp-border rounded-xl shadow-xl overflow-hidden animate-in zoom-in-95 duration-200 my-auto">
         <form onSubmit={handleSubmit}>
           
-          <CardHeader className="border-b border-slate-100 dark:border-zinc-900 pb-4">
+          <CardHeader className="border-b border-zinc-900 pb-4">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-xl font-bold text-slate-900 dark:text-white">
+              <CardTitle className="text-xl font-bold text-white">
                 {isEditing ? 'Editar Producto' : 'Nuevo Producto'}
               </CardTitle>
               <button
@@ -344,7 +344,7 @@ export function ProductFormModal({ isOpen, onClose, onSuccess, product, role = '
           <CardContent className="space-y-4 max-h-[65vh] overflow-y-auto p-6">
             
             {error && (
-              <div className="flex gap-2.5 rounded-lg bg-rose-50 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-900/30 p-3 text-xs text-rose-600 dark:text-rose-400">
+              <div className="flex gap-2.5 rounded-lg bg-rose-950/20 border border-rose-900/30 p-3 text-xs text-rose-400">
                 <AlertCircle className="h-4 w-4 shrink-0" />
                 <span className="font-medium">{error}</span>
               </div>
@@ -353,10 +353,10 @@ export function ProductFormModal({ isOpen, onClose, onSuccess, product, role = '
             <div className="grid grid-cols-2 gap-4">
               {/* SKU */}
               <div className="space-y-1.5">
-                <label className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400">
+                <label htmlFor="productformmodal-f1" className="text-xs font-bold uppercase tracking-wider text-zinc-400">
                   SKU / Código *
                 </label>
-                <Input
+                <Input id="productformmodal-f1"
                   required
                   placeholder="Ej. BATCH-A100"
                   value={sku}
@@ -367,13 +367,13 @@ export function ProductFormModal({ isOpen, onClose, onSuccess, product, role = '
 
               {/* TIPO */}
               <div className="space-y-1.5">
-                <label className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400">
+                <label htmlFor="productformmodal-f2" className="text-xs font-bold uppercase tracking-wider text-zinc-400">
                   Categoría / Tipo *
                 </label>
-                <select
+                <select id="productformmodal-f2"
                   value={type}
                   onChange={(e) => setType(e.target.value as ProductType)}
-                  className="flex h-9 w-full rounded-lg border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus:outline-none focus:ring-1 focus:ring-ring dark:border-input/40 dark:bg-input/10 dark:text-white"
+                  className="flex h-9 w-full rounded-lg border border-input px-3 py-1 shadow-sm transition-colors focus:outline-none focus:ring-1 focus:ring-ring dark:border-input/40 bg-input/10 text-white"
                 >
                   <option value="bottle">Botella Sellada</option>
                   <option value="decant_liquid">Líquido a Granel (Decant)</option>
@@ -385,10 +385,10 @@ export function ProductFormModal({ isOpen, onClose, onSuccess, product, role = '
             {/* SECCIÓN IMAGEN DEL PRODUCTO CON OPTIMIZADOR AUTOMÁTICO WEBP */}
             <div className="space-y-2 p-3.5 rounded-2xl bg-erp-surface/80 border border-erp-border">
               <div className="flex items-center justify-between">
-                <label className="text-xs font-bold uppercase tracking-wider text-erp-gold flex items-center gap-1.5">
+                <span className="text-xs font-bold uppercase tracking-wider text-erp-gold flex items-center gap-1.5">
                   <ImageIcon className="h-3.5 w-3.5" />
                   <span>Foto de Catálogo (Optimizador WebP Automático)</span>
-                </label>
+                </span>
                 {imageStats && (
                   <span className="text-[11px] font-mono font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
                     {imageStats.originalSize} ➔ {imageStats.compressedSize} (-{imageStats.ratio}%)
@@ -409,7 +409,7 @@ export function ProductFormModal({ isOpen, onClose, onSuccess, product, role = '
                     </button>
                   </div>
                 ) : (
-                  <div className="h-20 w-20 rounded-xl border border-dashed border-erp-border bg-erp-bg flex flex-col items-center justify-center text-zinc-500 shrink-0">
+                  <div className="h-20 w-20 rounded-xl border border-dashed border-erp-border bg-erp-bg flex flex-col items-center justify-center text-zinc-400 shrink-0">
                     <UploadCloud className="h-6 w-6 text-zinc-400" />
                     <span className="text-xs mt-1 text-zinc-400 font-medium">Sin foto</span>
                   </div>
@@ -446,10 +446,10 @@ export function ProductFormModal({ isOpen, onClose, onSuccess, product, role = '
             <div className="grid grid-cols-2 gap-4">
               {/* NOMBRE */}
               <div className="space-y-1.5">
-                <label className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400">
+                <label htmlFor="productformmodal-f3" className="text-xs font-bold uppercase tracking-wider text-zinc-400">
                   Nombre del Perfume/Insumo *
                 </label>
-                <Input
+                <Input id="productformmodal-f3"
                   required
                   placeholder="Ej. Bleu de Chanel EDP"
                   value={name}
@@ -459,10 +459,10 @@ export function ProductFormModal({ isOpen, onClose, onSuccess, product, role = '
 
               {/* MARCA */}
               <div className="space-y-1.5">
-                <label className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400">
+                <label htmlFor="productformmodal-f4" className="text-xs font-bold uppercase tracking-wider text-zinc-400">
                   Marca / Fabricante *
                 </label>
-                <Input
+                <Input id="productformmodal-f4"
                   required
                   placeholder="Ej. Chanel"
                   value={brand}
@@ -494,10 +494,10 @@ export function ProductFormModal({ isOpen, onClose, onSuccess, product, role = '
             <div className="grid grid-cols-2 gap-4">
               {/* BATCH CODE */}
               <div className="space-y-1.5">
-                <label className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400">
+                <label htmlFor="productformmodal-f5" className="text-xs font-bold uppercase tracking-wider text-zinc-400">
                   Batch Code
                 </label>
-                <Input
+                <Input id="productformmodal-f5"
                   placeholder="Ej. 8201"
                   value={batchCode}
                   onChange={(e) => setBatchCode(e.target.value)}
@@ -507,13 +507,13 @@ export function ProductFormModal({ isOpen, onClose, onSuccess, product, role = '
               {/* FAMILIA OLFATIVA SELECT (Solo Perfumes y Decants) */}
               {type !== 'supply' ? (
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400">
+                  <label htmlFor="productformmodal-f6" className="text-xs font-bold uppercase tracking-wider text-zinc-400">
                     Familia Olfativa
                   </label>
-                  <select
+                  <select id="productformmodal-f6"
                     value={olfactoryFamily}
                     onChange={(e) => setOlfactoryFamily(e.target.value)}
-                    className="flex h-9 w-full rounded-lg border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus:outline-none focus:ring-1 focus:ring-ring dark:border-input/40 dark:bg-input/10 dark:text-white"
+                    className="flex h-9 w-full rounded-lg border border-input px-3 py-1 shadow-sm transition-colors focus:outline-none focus:ring-1 focus:ring-ring dark:border-input/40 bg-input/10 text-white"
                   >
                     <option value="">Seleccionar familia...</option>
                     {(dynamicFamilies.length > 0 ? dynamicFamilies : [
@@ -525,10 +525,10 @@ export function ProductFormModal({ isOpen, onClose, onSuccess, product, role = '
                 </div>
               ) : (
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400">
+                  <label htmlFor="productformmodal-f7" className="text-xs font-bold uppercase tracking-wider text-zinc-400">
                     Capacidad Frasco (ml)
                   </label>
-                  <Input
+                  <Input id="productformmodal-f7"
                     type="number"
                     placeholder="Ej. 5, 10, 50 ml"
                     value={volumeMl}
@@ -541,10 +541,10 @@ export function ProductFormModal({ isOpen, onClose, onSuccess, product, role = '
             {/* NOTAS OLFATIVAS CON CHIPS INTERACTIVOS (Solo Perfumes y Decants) */}
             {type !== 'supply' && (
               <div className="space-y-2">
-                <label className="text-xs font-bold uppercase tracking-wider text-erp-gold">
+                <label htmlFor="productformmodal-f8" className="text-xs font-bold uppercase tracking-wider text-erp-gold">
                   Notas Olfativas (separadas por coma)
                 </label>
-                <Input
+                <Input id="productformmodal-f8"
                   placeholder="Ej. Vainilla, Tabaco, Bergamota, Cuero, Sándalo"
                   value={olfactoryNotesText}
                   onChange={(e) => setOlfactoryNotesText(e.target.value)}
@@ -572,7 +572,7 @@ export function ProductFormModal({ isOpen, onClose, onSuccess, product, role = '
                                 setOlfactoryNotesText([...currentNotes, note].join(', '));
                               }
                             }}
-                            className={`text-xs px-2 py-0.5 rounded-md font-semibold transition-all cursor-pointer ${
+                            className={`text-xs px-2 py-0.5 rounded-md font-semibold transition cursor-pointer ${
                               isSelected
                                 ? 'bg-erp-gold text-erp-bg font-bold'
                                 : 'bg-erp-surface text-zinc-300 hover:text-white border border-erp-border'
@@ -592,10 +592,10 @@ export function ProductFormModal({ isOpen, onClose, onSuccess, product, role = '
               {/* CAPACIDAD ML (Solo para botellas o decants) */}
               {type !== 'supply' ? (
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400">
+                  <label htmlFor="productformmodal-f9" className="text-xs font-bold uppercase tracking-wider text-zinc-400">
                     Volumen (ml) *
                   </label>
-                  <Input
+                  <Input id="productformmodal-f9"
                     type="number"
                     placeholder="Ej. 100"
                     required
@@ -605,9 +605,9 @@ export function ProductFormModal({ isOpen, onClose, onSuccess, product, role = '
                 </div>
               ) : (
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold uppercase tracking-wider text-amber-500 dark:text-amber-400">
+                  <span className="text-xs font-bold uppercase tracking-wider text-amber-400">
                     Tipo de Insumo
-                  </label>
+                  </span>
                   <div className="text-xs text-zinc-400 p-2 rounded-lg bg-erp-surface border border-erp-border font-mono">
                     Packaging / Envase Vacio (JIT)
                   </div>
@@ -616,10 +616,10 @@ export function ProductFormModal({ isOpen, onClose, onSuccess, product, role = '
 
               {/* STOCK QUANTITY */}
               <div className="space-y-1.5">
-                <label className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400">
+                <label htmlFor="productformmodal-f10" className="text-xs font-bold uppercase tracking-wider text-zinc-400">
                   {type === 'decant_liquid' ? 'Stock Líquido (ml) *' : 'Cantidad en Stock *'}
                 </label>
-                <Input
+                <Input id="productformmodal-f10"
                   type="number"
                   required
                   placeholder="Ej. 10"
@@ -631,11 +631,11 @@ export function ProductFormModal({ isOpen, onClose, onSuccess, product, role = '
 
             {/* ALERTA DE STOCK MINIMO */}
             <div className="space-y-1.5">
-              <label className="text-xs font-bold uppercase tracking-wider text-amber-500 dark:text-amber-400 flex items-center justify-between">
+              <label htmlFor="productformmodal-f11" className="text-xs font-bold uppercase tracking-wider text-amber-400 flex items-center justify-between">
                 <span>Límite de Alerta de Stock Mínimo *</span>
-                <span className="text-[11px] text-zinc-500 font-normal">Dispara alerta en Radar de Re-Stock</span>
+                <span className="text-[11px] text-zinc-400 font-normal">Dispara alerta en Radar de Re-Stock</span>
               </label>
-              <Input
+              <Input id="productformmodal-f11"
                 type="number"
                 required
                 min="0"
@@ -661,7 +661,7 @@ export function ProductFormModal({ isOpen, onClose, onSuccess, product, role = '
                     <button
                       type="button"
                       onClick={() => handleModeChange('real_margin')}
-                      className={`px-2 py-1 rounded-md text-[11px] font-bold transition-all cursor-pointer ${
+                      className={`px-2 py-1 rounded-md text-[11px] font-bold transition cursor-pointer ${
                         profitMode === 'real_margin'
                           ? 'bg-erp-gold text-erp-bg shadow-sm'
                           : 'text-zinc-400 hover:text-white'
@@ -673,7 +673,7 @@ export function ProductFormModal({ isOpen, onClose, onSuccess, product, role = '
                     <button
                       type="button"
                       onClick={() => handleModeChange('markup')}
-                      className={`px-2 py-1 rounded-md text-[11px] font-bold transition-all cursor-pointer ${
+                      className={`px-2 py-1 rounded-md text-[11px] font-bold transition cursor-pointer ${
                         profitMode === 'markup'
                           ? 'bg-erp-gold text-erp-bg shadow-sm'
                           : 'text-zinc-400 hover:text-white'
@@ -691,12 +691,13 @@ export function ProductFormModal({ isOpen, onClose, onSuccess, product, role = '
                 
                 {/* 1. COSTO ADQUISICIÓN ARS */}
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold uppercase tracking-wider text-erp-gold">
+                  <label htmlFor="producto-costo-ars" className="text-xs font-bold uppercase tracking-wider text-erp-gold">
                     {type === 'decant_liquid' ? 'Costo por ml (ARS/ml) *' : 'Costo (ARS) *'}
                   </label>
                   <div className="relative">
                     <span className="absolute left-3 top-2 px-0.5 text-sm text-slate-400 font-medium">$</span>
                     <Input
+                      id="producto-costo-ars"
                       required
                       type="number"
                       placeholder={type === 'decant_liquid' ? 'Ej. 1000' : 'Ej. 45000'}
@@ -710,11 +711,11 @@ export function ProductFormModal({ isOpen, onClose, onSuccess, product, role = '
                 {/* 2. RENTABILIDAD DESEADA (%) - SOLO PERFUMES Y DECANTS */}
                 {type !== 'supply' && (
                   <div className="space-y-1.5">
-                    <label className="text-xs font-bold uppercase tracking-wider text-erp-gold-hover">
+                    <label htmlFor="productformmodal-f12" className="text-xs font-bold uppercase tracking-wider text-erp-gold-hover">
                       Rentabilidad (%)
                     </label>
                     <div className="relative">
-                      <Input
+                      <Input id="productformmodal-f12"
                         type="number"
                         step="0.5"
                         placeholder="Ej. 40"
@@ -730,12 +731,13 @@ export function ProductFormModal({ isOpen, onClose, onSuccess, product, role = '
                 {/* 3. PRECIO DE VENTA BASE ARS */}
                 {type !== 'supply' ? (
                   <div className="space-y-1.5">
-                    <label className="text-xs font-bold uppercase tracking-wider text-emerald-400">
+                    <label htmlFor="producto-precio-venta" className="text-xs font-bold uppercase tracking-wider text-emerald-400">
                       {type === 'decant_liquid' ? 'Precio Venta por ml (ARS/ml) *' : 'Precio Venta (ARS) *'}
                     </label>
                     <div className="relative">
                       <span className="absolute left-3 top-2 px-0.5 text-sm text-erp-gold font-bold">$</span>
                       <Input
+                        id="producto-precio-venta"
                         required
                         type="number"
                         placeholder={type === 'decant_liquid' ? 'Ej. 2000' : 'Ej. 75000'}
@@ -747,9 +749,9 @@ export function ProductFormModal({ isOpen, onClose, onSuccess, product, role = '
                   </div>
                 ) : (
                   <div className="space-y-1.5 opacity-60">
-                    <label className="text-xs font-bold uppercase tracking-wider text-zinc-500">
+                    <span className="text-xs font-bold uppercase tracking-wider text-zinc-400">
                       Precio Venta Directa
-                    </label>
+                    </span>
                     <div className="text-xs text-zinc-400 p-2 rounded-lg bg-erp-bg border border-erp-border font-mono italic">
                       Sin venta al público ($0)
                     </div>
@@ -809,7 +811,7 @@ export function ProductFormModal({ isOpen, onClose, onSuccess, product, role = '
 
                     <div className="flex items-center justify-between text-[11px] text-zinc-400 font-mono">
                       <span>División: {personalPayoutRate}% Bolsillo / {100 - personalPayoutRate}% Empresa</span>
-                      <span className="text-zinc-500">COGS 100% Protegido</span>
+                      <span className="text-zinc-400">COGS 100% Protegido</span>
                     </div>
                   </div>
                 );
@@ -819,7 +821,7 @@ export function ProductFormModal({ isOpen, onClose, onSuccess, product, role = '
 
           </CardContent>
 
-          <CardFooter className="border-t border-slate-100 dark:border-zinc-900 pt-4 flex justify-end gap-3 bg-slate-50/50 dark:bg-erp-surface/20 px-6 py-4">
+          <CardFooter className="border-t border-zinc-900 pt-4 flex justify-end gap-3 bg-erp-surface/20 px-6 py-4">
             <Button
               type="button"
               variant="outline"
@@ -851,7 +853,7 @@ export function ProductFormModal({ isOpen, onClose, onSuccess, product, role = '
       {/* MODAL POPUP PARA PEGAR TEXTO DE FRAGRANTICA Y EXTRAER CON IA */}
       {aiModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
-          <div className="w-full max-w-lg bg-erp-bg border border-erp-border rounded-2xl shadow-2xl overflow-hidden p-6 space-y-4">
+          <div className="w-full max-w-lg bg-erp-bg border border-erp-border rounded-2xl shadow-xl overflow-hidden p-6 space-y-4">
             <div className="flex items-center justify-between border-b border-erp-border pb-3">
               <div className="flex items-center gap-2">
                 <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-erp-gold/10 text-erp-gold border border-erp-gold/30">

@@ -50,7 +50,7 @@ export default function LoginPage() {
         
         {/* LOGO CORPORATIVO Y TITULO */}
         <div className="text-center space-y-3">
-          <div className="inline-flex p-3 rounded-2xl bg-erp-surface border border-erp-border shadow-2xl">
+          <div className="inline-flex p-3 rounded-2xl bg-erp-surface border border-erp-border shadow-xl">
             <Image 
               src="/logo-elohim.png" 
               alt="Elohim Import ERP" 
@@ -72,7 +72,7 @@ export default function LoginPage() {
         </div>
 
         {/* TARJETA DE LOGIN */}
-        <Card className="border border-erp-border bg-erp-surface/90 backdrop-blur-md rounded-2xl shadow-2xl">
+        <Card className="border border-erp-border bg-erp-surface/90 rounded-2xl shadow-xl">
           <CardHeader className="pb-2">
             <CardTitle className="text-lg font-bold text-white font-serif">
               Iniciar Sesión
@@ -95,10 +95,10 @@ export default function LoginPage() {
 
               {/* INPUT EMAIL */}
               <div className="space-y-1">
-                <label className="text-xs font-bold uppercase tracking-wider text-zinc-400 flex items-center gap-1.5">
+                <label htmlFor="page-f1" className="text-xs font-bold uppercase tracking-wider text-zinc-400 flex items-center gap-1.5">
                   <Mail className="h-3.5 w-3.5 text-erp-gold" /> Email Corporativo *
                 </label>
-                <Input
+                <Input id="page-f1"
                   type="email"
                   required
                   placeholder="usuario@elohimimport.com"
@@ -110,11 +110,11 @@ export default function LoginPage() {
 
               {/* INPUT CONTRASEÑA */}
               <div className="space-y-1">
-                <label className="text-xs font-bold uppercase tracking-wider text-zinc-400 flex items-center gap-1.5">
+                <label htmlFor="page-f2" className="text-xs font-bold uppercase tracking-wider text-zinc-400 flex items-center gap-1.5">
                   <Lock className="h-3.5 w-3.5 text-erp-gold" /> Contraseña *
                 </label>
                 <div className="relative">
-                  <Input
+                  <Input id="page-f2"
                     type={showPassword ? 'text' : 'password'}
                     required
                     placeholder="••••••••••••"
@@ -154,7 +154,7 @@ export default function LoginPage() {
         </Card>
 
         {/* FOOTER CORPORATIVO */}
-        <p className="text-[11px] text-center text-zinc-500 font-mono">
+        <p className="text-[11px] text-center text-zinc-400 font-mono">
           Elohim Import ERP v2.5 • Acceso Encriptado de Grado Financiero
         </p>
 

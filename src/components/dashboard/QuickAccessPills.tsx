@@ -38,7 +38,7 @@ export function QuickAccessPills() {
 
   return (
     <div className="pt-6 border-t border-erp-border space-y-3">
-      <div className="flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-widest text-zinc-500 font-serif">
+      <div className="flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-widest text-zinc-400 font-serif">
         <Sparkles className="h-3 w-3 text-erp-gold" />
         <span>Accesos Rápidos a Módulos:</span>
       </div>
@@ -51,7 +51,7 @@ export function QuickAccessPills() {
               <Button
                 variant="outline"
                 size="sm"
-                className="h-8 text-xs font-bold cursor-pointer border-erp-border bg-erp-surface/80 text-zinc-300 hover:bg-secondary hover:text-white transition-all hover:scale-105 shadow-sm"
+                className="h-8 text-xs font-bold cursor-pointer border-erp-border bg-erp-surface/80 text-zinc-300 hover:bg-secondary hover:text-white transition hover:scale-105 shadow-sm"
               >
                 <Icon className={`mr-1.5 h-3.5 w-3.5 ${item.color}`} />
                 <span>{item.name}</span>

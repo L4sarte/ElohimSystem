@@ -143,7 +143,7 @@ export default function ComisionesConfigPage() {
   if (role !== 'admin') {
     return (
       <div className="flex flex-col min-h-screen bg-erp-bg text-zinc-50 transition-colors duration-300">
-        <header className="sticky top-0 z-40 w-full border-b border-erp-border bg-erp-bg/80 backdrop-blur-md">
+        <header className="sticky top-0 z-40 w-full border-b border-erp-border bg-erp-bg/95">
           <div className="container mx-auto flex h-16 items-center justify-between px-4 sm:px-6 max-w-6xl">
             <Link 
               href="/"
@@ -184,7 +184,7 @@ export default function ComisionesConfigPage() {
     <div className="flex flex-col min-h-screen bg-erp-bg text-zinc-50 transition-colors duration-300">
       
       {/* NAVBAR */}
-      <header className="sticky top-0 z-40 w-full border-b border-erp-border bg-erp-bg/80 backdrop-blur-md">
+      <header className="sticky top-0 z-40 w-full border-b border-erp-border bg-erp-bg/95">
         <div className="container mx-auto flex h-16 items-center justify-between px-4 sm:px-6 max-w-6xl">
           <div className="flex items-center gap-4">
             <Link 
@@ -321,7 +321,7 @@ export default function ComisionesConfigPage() {
                             className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold cursor-pointer transition-colors ${
                               item.is_active
                                 ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20'
-                                : 'bg-zinc-800 text-zinc-500 border border-zinc-700 hover:bg-zinc-700'
+                                : 'bg-zinc-800 text-zinc-400 border border-zinc-700 hover:bg-zinc-700'
                             }`}
                           >
                             <Power className="h-3 w-3" />
@@ -365,7 +365,7 @@ export default function ComisionesConfigPage() {
       {/* MODAL ALTA / EDICIÓN */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="w-full max-w-md bg-erp-surface border border-erp-border rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+          <div className="w-full max-w-md bg-erp-surface border border-erp-border rounded-2xl shadow-xl overflow-hidden animate-in zoom-in-95 duration-200">
             <form onSubmit={handleSubmitForm}>
               <CardHeader className="border-b border-erp-border pb-4">
                 <div className="flex items-center justify-between">
@@ -389,10 +389,10 @@ export default function ComisionesConfigPage() {
               <CardContent className="space-y-4 p-6">
                 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold uppercase tracking-wider text-zinc-300">
+                  <label htmlFor="page-f1" className="text-xs font-bold uppercase tracking-wider text-zinc-300">
                     Nombre Comercial *
                   </label>
-                  <Input
+                  <Input id="page-f1"
                     required
                     placeholder="Ej. MercadoPago - 3 Cuotas / Crédito 1 Pago"
                     value={formMethodName}
@@ -404,11 +404,11 @@ export default function ComisionesConfigPage() {
 
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1.5">
-                    <label className="text-xs font-bold uppercase tracking-wider text-erp-gold">
+                    <label htmlFor="page-f2" className="text-xs font-bold uppercase tracking-wider text-erp-gold">
                       Comisión Pasarela (%) *
                     </label>
                     <div className="relative">
-                      <Input
+                      <Input id="page-f2"
                         type="number"
                         step="0.01"
                         min="0"
@@ -418,17 +418,18 @@ export default function ComisionesConfigPage() {
                         disabled={submitting}
                         className="bg-erp-bg border-erp-border text-white pr-7 font-mono font-bold text-right disabled:opacity-50"
                       />
-                      <Percent className="absolute right-2.5 top-2.5 h-3.5 w-3.5 text-zinc-500" />
+                      <Percent className="absolute right-2.5 top-2.5 h-3.5 w-3.5 text-zinc-400" />
                     </div>
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="text-xs font-bold uppercase tracking-wider text-zinc-300">
+                    <label htmlFor="comision-costo-fijo" className="text-xs font-bold uppercase tracking-wider text-zinc-300">
                       Costo Fijo (ARS)
                     </label>
                     <div className="relative">
-                      <span className="absolute left-2.5 top-2 text-xs text-zinc-500">$</span>
+                      <span className="absolute left-2.5 top-2 text-xs text-zinc-400">$</span>
                       <Input
+                        id="comision-costo-fijo"
                         type="number"
                         min="0"
                         placeholder="0"
@@ -443,7 +444,7 @@ export default function ComisionesConfigPage() {
 
                 {/* PASAR RECARGO AL CLIENTE VS ABSORBE ELOHIM */}
                 <div className="p-3.5 rounded-xl bg-erp-bg border border-erp-border space-y-2">
-                  <label className="text-xs font-bold uppercase tracking-wider text-zinc-300 block">
+                  <label htmlFor="pass_fee_checkbox" className="text-xs font-bold uppercase tracking-wider text-zinc-300 block">
                     Modo de Impacto Financiero
                   </label>
                   

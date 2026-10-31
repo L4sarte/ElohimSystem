@@ -30,7 +30,7 @@ const CustomBarTooltip = ({ active, payload, label }: BarTooltipProps) => {
     const gananciaNeta = data?.gananciaNeta ?? payload[2]?.value ?? payload[1]?.value;
 
     return (
-      <div className="bg-erp-bg/95 border border-erp-border p-3.5 rounded-xl shadow-2xl text-xs space-y-2 backdrop-blur-md">
+      <div className="bg-erp-bg/95 border border-erp-border p-3.5 rounded-xl shadow-xl text-xs space-y-2">
         <p className="font-serif font-bold text-erp-gold border-b border-erp-border pb-1 uppercase tracking-wider">
           Mes de {label}
         </p>
@@ -43,13 +43,13 @@ const CustomBarTooltip = ({ active, payload, label }: BarTooltipProps) => {
           </div>
           <div className="flex items-center justify-between gap-4 text-zinc-300">
             <span className="flex items-center gap-1.5 font-sans">
-              <span className="h-2 w-2 rounded-full bg-[#10B981]"></span> Ganancia Comercial Real:
+              <span className="h-2 w-2 rounded-full bg-chart-3"></span> Ganancia Comercial Real:
             </span>
             <span className="font-bold text-emerald-400">${Number(gananciaReal || 0).toLocaleString('es-AR')} ARS</span>
           </div>
           <div className="flex items-center justify-between gap-4 text-zinc-300">
             <span className="flex items-center gap-1.5 font-sans">
-              <span className="h-2 w-2 rounded-full bg-[#2E5C47]"></span> Ganancia Neta Final:
+              <span className="h-2 w-2 rounded-full bg-chart-1"></span> Ganancia Neta Final:
             </span>
             <span className="font-bold text-teal-300">${Number(gananciaNeta || 0).toLocaleString('es-AR')} ARS</span>
           </div>
@@ -76,7 +76,7 @@ const CustomPieTooltip = ({ active, payload }: PieTooltipProps) => {
   if (active && payload && payload.length) {
     const data = payload[0].payload;
     return (
-      <div className="bg-erp-bg/95 border border-erp-border p-3 rounded-xl shadow-2xl text-xs space-y-1 backdrop-blur-md font-mono">
+      <div className="bg-erp-bg/95 border border-erp-border p-3 rounded-xl shadow-xl text-xs space-y-1 font-mono">
         <p className="font-serif font-bold text-white font-sans">{data.name}</p>
         <p className="text-erp-gold font-bold">
           {data.value}% del Total (${Number(data.amountArs || 0).toLocaleString('es-AR')} ARS)
@@ -191,10 +191,10 @@ export function MonthlyDashboard() {
                   <span className="h-3 w-3 rounded bg-erp-gold"></span> Facturación Bruta
                 </div>
                 <div className="flex items-center gap-1.5 text-zinc-300">
-                  <span className="h-3 w-3 rounded bg-[#10B981]"></span> Ganancia Real
+                  <span className="h-3 w-3 rounded bg-chart-3"></span> Ganancia Real
                 </div>
                 <div className="flex items-center gap-1.5 text-zinc-300">
-                  <span className="h-3 w-3 rounded bg-[#2E5C47]"></span> Ganancia Neta
+                  <span className="h-3 w-3 rounded bg-chart-1"></span> Ganancia Neta
                 </div>
               </div>
             </div>
@@ -242,7 +242,7 @@ export function MonthlyDashboard() {
               </ResponsiveContainer>
             </div>
             ) : (
-              <div className="flex flex-col items-center justify-center h-64 text-center text-zinc-500 space-y-2 border border-dashed border-erp-border rounded-2xl bg-erp-bg/50">
+              <div className="flex flex-col items-center justify-center h-64 text-center text-zinc-400 space-y-2 border border-dashed border-erp-border rounded-2xl bg-erp-bg/50">
                 <BarChart3 className="h-8 w-8 text-zinc-600" />
                 <p className="text-xs font-bold text-zinc-400">Sin datos suficientes para el gráfico</p>
                 <p className="text-[11px] max-w-xs">Aún no hay ventas registradas en los últimos 6 meses.</p>
@@ -265,7 +265,7 @@ export function MonthlyDashboard() {
 
           <CardContent className="pt-4 flex-1 flex flex-col justify-center">
             {totalCurrentMonthGross === 0 ? (
-              <div className="flex flex-col items-center justify-center py-10 text-center text-zinc-500 space-y-2">
+              <div className="flex flex-col items-center justify-center py-10 text-center text-zinc-400 space-y-2">
                 <PackageX className="h-8 w-8 text-zinc-600" />
                 <p className="text-xs">Sin ventas registradas en el mes en curso.</p>
               </div>
@@ -293,7 +293,7 @@ export function MonthlyDashboard() {
 
                   {/* Centro Informativo en el Donut */}
                   <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none text-center">
-                    <span className="text-[11px] uppercase font-extrabold tracking-widest text-zinc-500">Recaudado</span>
+                    <span className="text-[11px] uppercase font-extrabold tracking-widest text-zinc-400">Recaudado</span>
                     <span className="text-sm font-bold text-white font-mono">${(totalCurrentMonthGross / 1000000).toFixed(2)}M</span>
                   </div>
                 </div>
@@ -338,7 +338,7 @@ export function MonthlyDashboard() {
 
         <CardContent className="p-0">
           {topSellingProducts.length === 0 ? (
-            <div className="p-8 text-center text-zinc-500 text-xs space-y-1">
+            <div className="p-8 text-center text-zinc-400 text-xs space-y-1">
               <p className="font-bold text-zinc-400">Sin registros de venta suficientes en este mes</p>
               <p>Las fragancias más vendidas aparecerán automáticamente al realizar cobros en el POS.</p>
             </div>

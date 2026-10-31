@@ -2,7 +2,9 @@
 
 import React from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { PublicProduct } from '@/lib/storefront-validation';
+import { canOptimizeImageUrl } from '@/lib/utils';
 import { useCartStore } from '@/hooks/use-cart-store';
 import { 
   ShoppingBag, Droplet, Sparkles, ArrowUpRight, 
@@ -46,7 +48,7 @@ export function ProductCard({ product, exchangeRate = 1250 }: ProductCardProps) 
   };
 
   return (
-    <div className="group relative flex flex-col justify-between rounded-2xl bg-erp-surface border border-erp-border hover:border-erp-gold/60 p-4 sm:p-5 transition-all duration-300 shadow-xl hover:shadow-2xl hover:shadow-erp-gold/5">
+    <div className="group relative flex flex-col justify-between rounded-2xl bg-erp-surface border border-erp-border hover:border-erp-gold/60 p-4 sm:p-5 transition duration-300 shadow-xl hover:shadow-xl hover:shadow-erp-gold/5">
       
       <div>
         {/* CABECERA DE LA CARD: BADGES DE FORMATO Y STOCK */}
@@ -73,11 +75,13 @@ export function ProductCard({ product, exchangeRate = 1250 }: ProductCardProps) 
         <Link href={`/tienda/producto/${product.id}`} className="block">
           <div className="relative aspect-square w-full rounded-xl bg-gradient-to-br from-erp-border/60 to-erp-bg border border-erp-border flex items-center justify-center mb-4 overflow-hidden group-hover:scale-[1.02] transition-transform">
             {product.image_url ? (
-              <img
+              <Image
                 src={product.image_url}
                 alt={product.name}
+                fill
+                sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                unoptimized={!canOptimizeImageUrl(product.image_url)}
                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                loading="lazy"
               />
             ) : (
               <div className="flex flex-col items-center justify-center text-center space-y-2 p-6">
@@ -133,7 +137,7 @@ export function ProductCard({ product, exchangeRate = 1250 }: ProductCardProps) 
                 </span>
               ))}
               {product.olfactory_notes.length > 3 && (
-                <span className="text-xs text-zinc-500 font-mono self-center">
+                <span className="text-xs text-zinc-400 font-mono self-center">
                   +{product.olfactory_notes.length - 3}
                 </span>
               )}
@@ -156,7 +160,7 @@ export function ProductCard({ product, exchangeRate = 1250 }: ProductCardProps) 
         <button
           onClick={handleQuickAdd}
           disabled={product.stock_quantity <= 0}
-          className="px-3.5 py-2 rounded-xl bg-erp-gold hover:bg-erp-gold-hover text-erp-bg font-extrabold text-xs flex items-center gap-1.5 cursor-pointer shadow-md shadow-erp-gold/20 transition-all disabled:opacity-40"
+          className="min-h-11 px-4 rounded-xl bg-erp-gold hover:bg-erp-gold-hover text-erp-bg font-extrabold text-xs flex items-center gap-1.5 cursor-pointer shadow-md shadow-erp-gold/20 transition disabled:opacity-40"
           title="Agregar al Carrito"
         >
           <ShoppingBag className="h-3.5 w-3.5" />

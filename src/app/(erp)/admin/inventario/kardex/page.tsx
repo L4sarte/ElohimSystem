@@ -245,7 +245,7 @@ export default function KardexPage() {
   if (role !== 'admin') {
     return (
       <div className="flex flex-col min-h-screen bg-erp-bg text-zinc-50">
-        <header className="sticky top-0 z-40 w-full border-b border-erp-border bg-erp-bg/80 backdrop-blur-md">
+        <header className="sticky top-0 z-40 w-full border-b border-erp-border bg-erp-bg/95">
           <div className="container mx-auto flex h-16 items-center justify-between px-6 max-w-7xl">
             <Link href="/" className="flex items-center gap-2 text-xs text-zinc-400 hover:text-white">
               <ArrowLeft className="h-4 w-4" />
@@ -273,7 +273,7 @@ export default function KardexPage() {
     <div className="flex flex-col min-h-screen bg-erp-bg text-zinc-50 selection:bg-erp-gold/20">
       
       {/* NAVBAR SUPERIOR */}
-      <header className="sticky top-0 z-40 w-full border-b border-erp-border bg-erp-bg/90 backdrop-blur-md">
+      <header className="sticky top-0 z-40 w-full border-b border-erp-border bg-erp-bg/90">
         <div className="container mx-auto flex h-16 items-center justify-between px-4 sm:px-6 max-w-7xl">
           <div className="flex items-center gap-4">
             <Link 
@@ -346,7 +346,7 @@ export default function KardexPage() {
           <div className="p-4 rounded-xl bg-erp-surface/60 border border-erp-border space-y-1">
             <span className="text-[11px] text-zinc-400 uppercase font-semibold">Total Movimientos</span>
             <div className="text-xl font-bold text-white font-mono">{kpis.totalCount}</div>
-            <span className="text-[11px] text-zinc-500">Transacciones listadas</span>
+            <span className="text-[11px] text-zinc-400">Transacciones listadas</span>
           </div>
 
           <div className="p-4 rounded-xl bg-erp-surface/60 border border-erp-border space-y-1">
@@ -354,7 +354,7 @@ export default function KardexPage() {
               <ArrowDownLeft className="h-3 w-3" /> Entradas (+Uds)
             </span>
             <div className="text-xl font-bold text-emerald-400 font-mono">+{kpis.unitsIn} uds</div>
-            <span className="text-[11px] text-zinc-500">Compras recibidas</span>
+            <span className="text-[11px] text-zinc-400">Compras recibidas</span>
           </div>
 
           <div className="p-4 rounded-xl bg-erp-surface/60 border border-erp-border space-y-1">
@@ -362,7 +362,7 @@ export default function KardexPage() {
               <ArrowUpRight className="h-3 w-3" /> Salidas (-Uds)
             </span>
             <div className="text-xl font-bold text-rose-400 font-mono">-{kpis.unitsOut} uds</div>
-            <span className="text-[11px] text-zinc-500">Ventas, trasvasados y mermas</span>
+            <span className="text-[11px] text-zinc-400">Ventas, trasvasados y mermas</span>
           </div>
 
           <div className="p-4 rounded-xl bg-erp-surface/60 border border-erp-border space-y-1">
@@ -370,7 +370,7 @@ export default function KardexPage() {
               <Droplet className="h-3 w-3" /> Granel Decants
             </span>
             <div className="text-xl font-bold text-cyan-300 font-mono">+{kpis.decantMlIn} ml</div>
-            <span className="text-[11px] text-zinc-500">Fraccionado a líquido</span>
+            <span className="text-[11px] text-zinc-400">Fraccionado a líquido</span>
           </div>
 
           <div className="p-4 rounded-xl bg-erp-surface/60 border border-erp-border space-y-1 col-span-2 md:col-span-1">
@@ -378,7 +378,7 @@ export default function KardexPage() {
             <div className="text-xl font-bold text-erp-gold font-mono">
               ${kpis.totalValueNet.toLocaleString('es-AR')}
             </div>
-            <span className="text-[11px] text-zinc-500">
+            <span className="text-[11px] text-zinc-400">
               ≈ USD ${(exchangeRate > 0 ? (kpis.totalValueNet / exchangeRate).toFixed(1) : '0')}
             </span>
           </div>
@@ -401,7 +401,7 @@ export default function KardexPage() {
               {searchTerm && (
                 <button 
                   onClick={() => setSearchTerm('')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-zinc-500 hover:text-white cursor-pointer"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-zinc-400 hover:text-white cursor-pointer"
                 >
                   ✕
                 </button>
@@ -460,10 +460,10 @@ export default function KardexPage() {
 
           {/* Quick chips / badges de filtrado activo */}
           <div className="flex flex-wrap items-center gap-2 pt-1">
-            <span className="text-[11px] text-zinc-500">Filtros rápidos:</span>
+            <span className="text-[11px] text-zinc-400">Filtros rápidos:</span>
             <button
               onClick={() => { setSelectedType('ALL'); setSelectedProductType('ALL'); setSearchTerm(''); }}
-              className={`text-[11px] px-2.5 py-1 rounded-lg border transition-all cursor-pointer ${
+              className={`text-[11px] px-2.5 py-1 rounded-lg border transition cursor-pointer ${
                 selectedType === 'ALL' && selectedProductType === 'ALL' && !searchTerm
                   ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
                   : 'bg-erp-bg text-zinc-400 border-erp-border hover:text-white'
@@ -473,7 +473,7 @@ export default function KardexPage() {
             </button>
             <button
               onClick={() => setSelectedType('COMPRA_IN')}
-              className={`text-[11px] px-2.5 py-1 rounded-lg border transition-all cursor-pointer ${
+              className={`text-[11px] px-2.5 py-1 rounded-lg border transition cursor-pointer ${
                 selectedType === 'COMPRA_IN'
                   ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
                   : 'bg-erp-bg text-zinc-400 border-erp-border hover:text-white'
@@ -483,7 +483,7 @@ export default function KardexPage() {
             </button>
             <button
               onClick={() => setSelectedType('VENTA_POS')}
-              className={`text-[11px] px-2.5 py-1 rounded-lg border transition-all cursor-pointer ${
+              className={`text-[11px] px-2.5 py-1 rounded-lg border transition cursor-pointer ${
                 selectedType === 'VENTA_POS'
                   ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
                   : 'bg-erp-bg text-zinc-400 border-erp-border hover:text-white'
@@ -493,7 +493,7 @@ export default function KardexPage() {
             </button>
             <button
               onClick={() => setSelectedType('VENTA_WEB')}
-              className={`text-[11px] px-2.5 py-1 rounded-lg border transition-all cursor-pointer ${
+              className={`text-[11px] px-2.5 py-1 rounded-lg border transition cursor-pointer ${
                 selectedType === 'VENTA_WEB'
                   ? 'bg-teal-500/20 text-teal-300 border-teal-500/40'
                   : 'bg-erp-bg text-zinc-400 border-erp-border hover:text-white'
@@ -503,7 +503,7 @@ export default function KardexPage() {
             </button>
             <button
               onClick={() => setSelectedType('FRACCIONAMIENTO_OUT')}
-              className={`text-[11px] px-2.5 py-1 rounded-lg border transition-all cursor-pointer ${
+              className={`text-[11px] px-2.5 py-1 rounded-lg border transition cursor-pointer ${
                 selectedType === 'FRACCIONAMIENTO_OUT'
                   ? 'bg-purple-500/20 text-purple-300 border-purple-500/40'
                   : 'bg-erp-bg text-zinc-400 border-erp-border hover:text-white'
@@ -513,7 +513,7 @@ export default function KardexPage() {
             </button>
             <button
               onClick={() => setSelectedType('USO_TESTER')}
-              className={`text-[11px] px-2.5 py-1 rounded-lg border transition-all cursor-pointer ${
+              className={`text-[11px] px-2.5 py-1 rounded-lg border transition cursor-pointer ${
                 selectedType === 'USO_TESTER'
                   ? 'bg-violet-500/20 text-violet-300 border-violet-500/40'
                   : 'bg-erp-bg text-zinc-400 border-erp-border hover:text-white'
@@ -523,7 +523,7 @@ export default function KardexPage() {
             </button>
             <button
               onClick={() => setSelectedType('MERMA_ROTURA')}
-              className={`text-[11px] px-2.5 py-1 rounded-lg border transition-all cursor-pointer ${
+              className={`text-[11px] px-2.5 py-1 rounded-lg border transition cursor-pointer ${
                 selectedType === 'MERMA_ROTURA'
                   ? 'bg-rose-500/20 text-rose-300 border-rose-500/40'
                   : 'bg-erp-bg text-zinc-400 border-erp-border hover:text-white'
@@ -535,7 +535,7 @@ export default function KardexPage() {
         </div>
 
         {/* TABLA PRINCIPAL AUDITABLE DE MOVIMIENTOS */}
-        <div className="rounded-2xl border border-erp-border bg-erp-surface/80 overflow-hidden shadow-2xl">
+        <div className="rounded-2xl border border-erp-border bg-erp-surface/80 overflow-hidden shadow-xl">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse">
               <thead>
@@ -553,7 +553,7 @@ export default function KardexPage() {
               <tbody className="divide-y divide-erp-border">
                 {loading ? (
                   <tr>
-                    <td colSpan={8} className="py-16 text-center text-zinc-500">
+                    <td colSpan={8} className="py-16 text-center text-zinc-400">
                       <div className="flex flex-col items-center justify-center gap-2">
                         <RefreshCw className="h-6 w-6 animate-spin text-emerald-500" />
                         <span className="text-xs">Cargando libro de Kardex...</span>
@@ -562,11 +562,11 @@ export default function KardexPage() {
                   </tr>
                 ) : filteredMovements.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="py-16 text-center text-zinc-500">
+                    <td colSpan={8} className="py-16 text-center text-zinc-400">
                       <div className="flex flex-col items-center justify-center gap-2">
                         <FileText className="h-8 w-8 text-zinc-600" />
                         <p className="font-semibold text-zinc-300">No se encontraron movimientos registrados</p>
-                        <p className="text-[11px] text-zinc-500">Prueba ajustando los filtros de búsqueda o categoría.</p>
+                        <p className="text-[11px] text-zinc-400">Prueba ajustando los filtros de búsqueda o categoría.</p>
                       </div>
                     </td>
                   </tr>
@@ -586,7 +586,7 @@ export default function KardexPage() {
                         {/* Fecha y Hora */}
                         <td className="py-3.5 px-4 whitespace-nowrap">
                           <div className="font-mono text-zinc-200 font-medium">{dateStr}</div>
-                          <div className="font-mono text-[11px] text-zinc-500">{timeStr} hs</div>
+                          <div className="font-mono text-[11px] text-zinc-400">{timeStr} hs</div>
                         </td>
 
                         {/* Tipo de Movimiento con Badge */}
@@ -633,7 +633,7 @@ export default function KardexPage() {
                         {/* Total $ARS */}
                         <td className="py-3.5 px-4 text-right whitespace-nowrap font-mono font-bold text-white">
                           ${mov.total_value_ars.toLocaleString('es-AR')}
-                          <div className="text-[11px] text-zinc-500 font-normal">
+                          <div className="text-[11px] text-zinc-400 font-normal">
                             ≈ USD ${(exchangeRate > 0 ? (mov.total_value_ars / exchangeRate).toFixed(1) : '0')}
                           </div>
                         </td>
@@ -644,7 +644,7 @@ export default function KardexPage() {
                             {mov.reference_label}
                           </div>
                           {mov.notes && (
-                            <div className="text-[11px] text-zinc-500 italic truncate" title={mov.notes}>
+                            <div className="text-[11px] text-zinc-400 italic truncate" title={mov.notes}>
                               {mov.notes}
                             </div>
                           )}
@@ -664,7 +664,7 @@ export default function KardexPage() {
           </div>
 
           {/* Pie de tabla con conteo */}
-          <div className="p-4 border-t border-erp-border bg-erp-table flex items-center justify-between text-xs text-zinc-500">
+          <div className="p-4 border-t border-erp-border bg-erp-table flex items-center justify-between text-xs text-zinc-400">
             <span>Mostrando {filteredMovements.length} de {movements.length} movimientos</span>
             <span className="font-mono text-[11px]">Sistema Oficial Kardex • Elohim Import</span>
           </div>
@@ -674,7 +674,7 @@ export default function KardexPage() {
 
       {/* FOOTER */}
       <footer className="border-t border-erp-border bg-erp-bg py-6 mt-12">
-        <div className="container mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-zinc-500 max-w-7xl">
+        <div className="container mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-zinc-400 max-w-7xl">
           <p>© 2026 Elohim Import ERP. Módulo de Auditoría de Inventario y Kardex.</p>
           <div className="flex gap-4">
             <Link href="/productos" className="hover:text-zinc-300">Catálogo</Link>

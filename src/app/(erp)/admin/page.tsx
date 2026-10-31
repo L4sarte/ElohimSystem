@@ -20,43 +20,21 @@ import { RetailKPIsWidget } from '@/components/dashboard/RetailKPIsWidget';
 import { InventoryValuationWidget } from '@/components/inventory/InventoryValuationWidget';
 import { QuickActions } from '@/components/dashboard/QuickActions';
 import { QuickAccessPills } from '@/components/dashboard/QuickAccessPills';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import dynamic from 'next/dynamic';
 
-const CustomTooltip = ({ active, payload, label }: any) => {
-  if (active && payload && payload.length) {
-    const data = payload[0]?.payload;
-    const ventas = data?.Ventas ?? payload[0]?.value;
-    const gananciaReal = data?.Ganancias ?? payload[1]?.value;
-    const gananciaNeta = data?.GananciaNeta !== undefined ? data?.GananciaNeta : payload[2]?.value;
-
-    return (
-      <div className="bg-erp-bg/95 border border-erp-border p-3 rounded-xl shadow-2xl text-xs space-y-1.5 backdrop-blur-md min-w-[220px]">
-        <p className="font-serif font-bold text-erp-gold border-b border-erp-border pb-1">Día: {label}</p>
-        <p className="text-zinc-200 flex items-center justify-between">
-          <span className="flex items-center gap-1.5">
-            <span className="h-2 w-2 rounded-full bg-erp-gold"></span> Facturación:
-          </span>
-          <span className="font-mono text-erp-gold font-bold">${Number(ventas || 0).toLocaleString('es-AR')}</span>
-        </p>
-        <p className="text-zinc-200 flex items-center justify-between">
-          <span className="flex items-center gap-1.5">
-            <span className="h-2 w-2 rounded-full bg-emerald-500"></span> Ganancia Comercial:
-          </span>
-          <span className="font-mono text-emerald-400 font-bold">${Number(gananciaReal || 0).toLocaleString('es-AR')}</span>
-        </p>
-        {gananciaNeta !== undefined && (
-          <p className="text-zinc-200 flex items-center justify-between">
-            <span className="flex items-center gap-1.5">
-              <span className="h-2 w-2 rounded-full bg-teal-400"></span> Ganancia Neta:
-            </span>
-            <span className="font-mono text-teal-300 font-bold">${Number(gananciaNeta || 0).toLocaleString('es-AR')}</span>
-          </p>
-        )}
-      </div>
-    );
+/**
+ * Gráfico cargado bajo demanda (next/dynamic): recharts no entra en el bundle
+ * inicial del dashboard; se muestra un skeleton idéntico al estado de carga.
+ */
+const AdminSalesChart = dynamic(
+  () => import('@/components/dashboard/AdminSalesChart'),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="h-72 w-full mt-4 rounded-2xl bg-erp-surface/60 border border-erp-border animate-pulse" />
+    ),
   }
-  return null;
-};
+);
 
 export default function AdminDashboardPage() {
   const role = useUserStore((state) => state.role);
@@ -113,7 +91,7 @@ export default function AdminDashboardPage() {
   if (role !== 'admin') {
     return (
       <div className="min-h-screen bg-erp-bg flex flex-col items-center justify-center text-center p-4">
-        <div className="p-6 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-400 max-w-md space-y-4 shadow-2xl">
+        <div className="p-6 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-400 max-w-md space-y-4 shadow-xl">
           <ShieldAlert className="h-12 w-12 mx-auto text-rose-500" />
           <h2 className="text-xl font-bold font-serif">Acceso Restringido</h2>
           <p className="text-xs text-zinc-400">
@@ -133,7 +111,7 @@ export default function AdminDashboardPage() {
     <div className="flex flex-col min-h-screen bg-erp-bg text-zinc-50 transition-colors duration-300">
       
       {/* NAVBAR GLASSMORPHISM */}
-      <header className="sticky top-0 z-40 w-full border-b border-erp-border bg-erp-bg/80 backdrop-blur-md">
+      <header className="sticky top-0 z-40 w-full border-b border-erp-border bg-erp-bg/95">
         <div className="container mx-auto flex h-16 items-center justify-between px-4 sm:px-6 max-w-7xl">
           <div className="flex items-center gap-4">
             <Link 
@@ -198,7 +176,7 @@ export default function AdminDashboardPage() {
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           
           {/* 1. Ingresos ARS */}
-          <Card className="border border-erp-border bg-erp-surface/90 rounded-2xl shadow-xl transition-all duration-300 hover:border-erp-gold/50">
+          <Card className="border border-erp-border bg-erp-surface/90 rounded-2xl shadow-xl transition duration-300 hover:border-erp-gold/50">
             <CardHeader className="pb-3 flex flex-row items-center justify-between space-y-0">
               <div>
                 <CardDescription className="text-[11px] font-extrabold uppercase tracking-widest text-zinc-400">Ingresos Totales (ARS)</CardDescription>
@@ -213,7 +191,7 @@ export default function AdminDashboardPage() {
           </Card>
 
           {/* 2. Ganancia Comercial Real */}
-          <Card className="border border-erp-border bg-erp-surface/90 rounded-2xl shadow-xl transition-all duration-300 hover:border-erp-gold/50">
+          <Card className="border border-erp-border bg-erp-surface/90 rounded-2xl shadow-xl transition duration-300 hover:border-erp-gold/50">
             <CardHeader className="pb-3 flex flex-row items-center justify-between space-y-0">
               <div>
                 <CardDescription className="text-[11px] font-extrabold uppercase tracking-widest text-zinc-400">Ganancia Comercial Real</CardDescription>
@@ -231,7 +209,7 @@ export default function AdminDashboardPage() {
           </Card>
 
           {/* 3. Ganancia Neta Final */}
-          <Card className="border border-erp-border bg-erp-surface/90 rounded-2xl shadow-xl transition-all duration-300 hover:border-emerald-500/40">
+          <Card className="border border-erp-border bg-erp-surface/90 rounded-2xl shadow-xl transition duration-300 hover:border-emerald-500/40">
             <CardHeader className="pb-3 flex flex-row items-center justify-between space-y-0">
               <div>
                 <CardDescription className="text-[11px] font-extrabold uppercase tracking-widest text-zinc-400">Ganancia Neta Final</CardDescription>
@@ -251,7 +229,7 @@ export default function AdminDashboardPage() {
           </Card>
 
           {/* 4. Volumen Comercial USD */}
-          <Card className="border border-erp-border bg-erp-surface/90 rounded-2xl shadow-xl transition-all duration-300 hover:border-erp-gold/50">
+          <Card className="border border-erp-border bg-erp-surface/90 rounded-2xl shadow-xl transition duration-300 hover:border-erp-gold/50">
             <CardHeader className="pb-3 flex flex-row items-center justify-between space-y-0">
               <div>
                 <CardDescription className="text-[11px] font-extrabold uppercase tracking-widest text-zinc-400">Volumen Comercial (USD)</CardDescription>
@@ -300,30 +278,8 @@ export default function AdminDashboardPage() {
               
               {loading ? (
                 <div className="h-72 w-full mt-4 rounded-2xl bg-erp-surface/60 border border-erp-border animate-pulse" />
-              ) : stats.salesByDate.length > 0 ? (
-                <div className="h-72 w-full mt-4">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={stats.salesByDate} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
-                      <XAxis dataKey="date" tickLine={false} axisLine={false} style={{ fontSize: '11px', fill: 'var(--muted-foreground)' }} />
-                      <YAxis tickLine={false} axisLine={false} style={{ fontSize: '11px', fill: 'var(--muted-foreground)' }} />
-                      <Tooltip content={<CustomTooltip />} />
-                      <Legend
-                        wrapperStyle={{ fontSize: '11px' }}
-                        formatter={(value) => <span className="text-zinc-400">{value}</span>}
-                      />
-                      <Bar name="Facturación" dataKey="Ventas" fill="#D0A96B" radius={[4, 4, 0, 0]} barSize={16} />
-                      <Bar name="Ganancia Comercial Real" dataKey="Ganancias" fill="#10b981" radius={[4, 4, 0, 0]} barSize={16} />
-                      <Bar name="Ganancia Neta Final" dataKey="GananciaNeta" fill="#0d9488" radius={[4, 4, 0, 0]} barSize={16} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
               ) : (
-                <div className="flex flex-col items-center justify-center py-16 text-center space-y-2 border border-dashed border-erp-border rounded-2xl bg-erp-bg/50 my-4">
-                  <Activity className="h-10 w-10 text-erp-gold/50" />
-                  <div className="text-sm font-bold text-white font-serif">Sin movimientos registrados</div>
-                  <div className="text-xs text-zinc-400 max-w-xs">No se registran transacciones en el período seleccionado.</div>
-                </div>
+                <AdminSalesChart data={stats.salesByDate} />
               )}
             </Card>
           </div>

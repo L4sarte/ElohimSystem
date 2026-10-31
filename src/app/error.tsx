@@ -26,7 +26,7 @@ export default function Error({
           Ocurrió un error inesperado al renderizar esta sección del sistema. Podés reintentar o volver al panel principal.
         </p>
         {error?.digest && (
-          <p className="mt-3 font-mono text-[11px] text-zinc-500">Digest: {error.digest}</p>
+          <p className="mt-3 font-mono text-[11px] text-zinc-400">Digest: {error.digest}</p>
         )}
         <div className="mt-6 flex items-center justify-center gap-3">
           <button

@@ -244,10 +244,50 @@ export async function updateSystemSettings(
       return { success: false, error: `Error en base de datos: ${formattedErr}` };
     }
 
-    // 6. Revalidación de caché en todas las vistas afectadas
+    // 6. VERIFICACIÓN DE PERSISTENCIA (read-back):
+    //    Evita reportar éxito ante escrituras silenciosamente fallidas
+    //    (RPC ausente u obsoleta, columna inexistente en la tabla real, bloqueo
+    //    de permisos). Se relee la fila singleton con el cliente service_role y
+    //    se comprueba que los campos clave coincidan con el payload enviado.
+    //    Sin esta verificación, un guardado que no aterrizaba devolvía
+    //    success=true y el usuario veía "guardado exitosamente" sin efecto.
+    const { data: verifyRow, error: verifyError } = await supabase
+      .from('system_settings')
+      .select('trade_name, store_name, updated_at')
+      .limit(1)
+      .maybeSingle();
+
+    if (verifyError || !verifyRow) {
+      console.error('[SYSTEM_SETTINGS_VERIFY_ERROR]:', verifyError);
+      return {
+        success: false,
+        error: 'Fallo de verificación: no se pudo releer la configuración tras guardar. El cambio NO quedó persistido. Verifica que la tabla system_settings exista y que SUPABASE_SERVICE_ROLE_KEY esté configurada.',
+      };
+    }
+
+    const persistedFields = verifyRow as Record<string, any>;
+    const mismatches: string[] = [];
+    if ((persistedFields.trade_name ?? '') !== payload.trade_name) mismatches.push('trade_name');
+    if ((persistedFields.store_name ?? '') !== payload.store_name) mismatches.push('store_name');
+
+    if (mismatches.length > 0) {
+      console.error('[SYSTEM_SETTINGS_VERIFY_MISMATCH]:', {
+        expected: { trade_name: payload.trade_name, store_name: payload.store_name },
+        found: persistedFields,
+        mismatchedFields: mismatches,
+      });
+      return {
+        success: false,
+        error: `Fallo de persistencia: los campos (${mismatches.join(', ')}) no quedaron guardados. Ejecuta la migración de endurecimiento/verificación de system_settings en Supabase.`,
+      };
+    }
+
+    // 7. Revalidación de caché en todas las vistas afectadas
     revalidatePath('/admin/configuracion');
     revalidatePath('/settings');
+    revalidatePath('/admin');
     revalidatePath('/pos');
+    revalidatePath('/catalogo');
     revalidatePath('/admin/reportes');
     revalidatePath('/');
 

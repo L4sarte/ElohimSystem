@@ -40,7 +40,7 @@ export function RetailKPIsWidget({ startDate, endDate }: RetailKPIsWidgetProps =
   return (
     <div className="grid gap-4 md:grid-cols-2">
       {/* CARD 1: TICKET PROMEDIO (AOV) */}
-      <Card className="border border-erp-border bg-erp-surface/90 rounded-2xl shadow-xl transition-all duration-300 hover:border-erp-gold/50">
+      <Card className="border border-erp-border bg-erp-surface/90 rounded-2xl shadow-xl transition duration-300 hover:border-erp-gold/50">
         <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
           <div>
             <CardDescription className="text-[11px] font-extrabold uppercase tracking-widest text-zinc-400">
@@ -68,14 +68,14 @@ export function RetailKPIsWidget({ startDate, endDate }: RetailKPIsWidgetProps =
               <span className="font-mono font-bold text-white">{data.totalSalesCount} ventas</span>
             </div>
           )}
-          <p className="text-[11px] text-zinc-500 font-mono">
+          <p className="text-[11px] text-zinc-400 font-mono">
             AOV = Facturación mensual / Cantidad de ventas.
           </p>
         </CardContent>
       </Card>
 
       {/* CARD 2: TOP BEST SELLERS DEL MES CON TOGGLE TOP 3 / TOP 5 */}
-      <Card className="border border-erp-border bg-erp-surface/90 rounded-2xl shadow-xl transition-all duration-300 hover:border-erp-gold/50">
+      <Card className="border border-erp-border bg-erp-surface/90 rounded-2xl shadow-xl transition duration-300 hover:border-erp-gold/50">
         <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
           <div>
             <CardDescription className="text-[11px] font-extrabold uppercase tracking-widest text-zinc-400 flex items-center gap-1.5">
@@ -90,10 +90,10 @@ export function RetailKPIsWidget({ startDate, endDate }: RetailKPIsWidgetProps =
               <button
                 type="button"
                 onClick={() => setDisplayLimit(3)}
-                className={`px-2 py-0.5 rounded text-[11px] font-mono font-bold transition-all cursor-pointer ${
+                className={`px-2 py-0.5 rounded text-[11px] font-mono font-bold transition cursor-pointer ${
                   displayLimit === 3
                     ? 'bg-erp-surface text-erp-gold border border-erp-gold/30'
-                    : 'text-zinc-500 hover:text-zinc-300'
+                    : 'text-zinc-400 hover:text-zinc-300'
                 }`}
               >
                 Top 3
@@ -101,10 +101,10 @@ export function RetailKPIsWidget({ startDate, endDate }: RetailKPIsWidgetProps =
               <button
                 type="button"
                 onClick={() => setDisplayLimit(5)}
-                className={`px-2 py-0.5 rounded text-[11px] font-mono font-bold transition-all cursor-pointer ${
+                className={`px-2 py-0.5 rounded text-[11px] font-mono font-bold transition cursor-pointer ${
                   displayLimit === 5
                     ? 'bg-erp-surface text-erp-gold border border-erp-gold/30'
-                    : 'text-zinc-500 hover:text-zinc-300'
+                    : 'text-zinc-400 hover:text-zinc-300'
                 }`}
               >
                 Top 5
@@ -123,7 +123,7 @@ export function RetailKPIsWidget({ startDate, endDate }: RetailKPIsWidgetProps =
               Cargando ranking del mes...
             </div>
           ) : !data || data.topBestSellers.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-4 text-center text-zinc-500 gap-1">
+            <div className="flex flex-col items-center justify-center py-4 text-center text-zinc-400 gap-1">
               <ShoppingBag className="h-5 w-5 opacity-40 text-zinc-600" />
               <span className="text-xs">No hay ventas registradas en el mes en curso.</span>
             </div>
@@ -132,7 +132,7 @@ export function RetailKPIsWidget({ startDate, endDate }: RetailKPIsWidgetProps =
               {data.topBestSellers.slice(0, displayLimit).map((item, idx) => (
                 <div 
                   key={item.product_id}
-                  className="flex items-center justify-between text-xs bg-erp-bg/50 border border-erp-border rounded-xl p-2.5 transition-all hover:border-erp-gold/40"
+                  className="flex items-center justify-between text-xs bg-erp-bg/50 border border-erp-border rounded-xl p-2.5 transition hover:border-erp-gold/40"
                 >
                   <div className="flex items-center gap-2.5 max-w-[70%]">
                     <span className={`h-6 w-6 rounded-lg font-mono text-xs font-black flex items-center justify-center shrink-0 ${

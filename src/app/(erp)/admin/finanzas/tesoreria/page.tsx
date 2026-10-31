@@ -246,7 +246,7 @@ export default function TesoreriaPage() {
     <div className="flex flex-col min-h-screen bg-erp-bg text-zinc-50 transition-colors duration-300">
       
       {/* NAVBAR GLASSMORPHISM */}
-      <header className="sticky top-0 z-40 w-full border-b border-erp-border bg-erp-bg/80 backdrop-blur-md">
+      <header className="sticky top-0 z-40 w-full border-b border-erp-border bg-erp-bg/95">
         <div className="container mx-auto flex h-16 items-center justify-between px-4 sm:px-6 max-w-6xl">
           <div className="flex items-center gap-4">
             <Link 
@@ -441,7 +441,7 @@ export default function TesoreriaPage() {
                 }
 
                 return (
-                  <Card key={acc.id} className="border border-erp-border bg-erp-surface rounded-2xl shadow-xl hover:border-erp-gold/50 transition-all flex flex-col justify-between">
+                  <Card key={acc.id} className="border border-erp-border bg-erp-surface rounded-2xl shadow-xl hover:border-erp-gold/50 transition flex flex-col justify-between">
                     <CardHeader className="pb-3">
                       <div className="flex items-center justify-between">
                         <span className={`inline-flex items-center gap-1 text-[11px] font-extrabold px-2 py-0.5 rounded-full border ${badgeColor}`}>
@@ -457,13 +457,13 @@ export default function TesoreriaPage() {
                       </CardTitle>
                       
                       <div className="pt-2">
-                        <span className="text-[11px] font-extrabold uppercase tracking-widest text-zinc-500 block">
+                        <span className="text-[11px] font-extrabold uppercase tracking-widest text-zinc-400 block">
                           Saldo Disponible
                         </span>
                         <div className={`text-2xl font-black font-mono mt-0.5 ${isPositive ? 'text-white' : 'text-rose-400'}`}>
                           ${acc.balance_ars.toLocaleString('es-AR')} <span className="text-xs text-zinc-400">ARS</span>
                         </div>
-                        <div className="text-[11px] text-zinc-500 font-mono mt-0.5">
+                        <div className="text-[11px] text-zinc-400 font-mono mt-0.5">
                           u$s {(acc.balance_ars / (exchangeRate || 1)).toFixed(2)} USD
                         </div>
                       </div>
@@ -514,7 +514,7 @@ export default function TesoreriaPage() {
       {/* MODAL TRANSFERENCIA ENTRE CUENTAS */}
       {isTransferModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="w-full max-w-md bg-erp-surface border border-erp-border rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+          <div className="w-full max-w-md bg-erp-surface border border-erp-border rounded-2xl shadow-xl overflow-hidden animate-in zoom-in-95 duration-200">
             <form onSubmit={handleConfirmTransfer}>
               <CardHeader className="border-b border-erp-border pb-4">
                 <div className="flex items-center justify-between">
@@ -545,10 +545,10 @@ export default function TesoreriaPage() {
 
                 {/* Cuenta Origen */}
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold uppercase tracking-wider text-zinc-300">
+                  <label htmlFor="page-f1" className="text-xs font-bold uppercase tracking-wider text-zinc-300">
                     Desde Cuenta (Origen) *
                   </label>
-                  <select
+                  <select id="page-f1"
                     value={fromAccountId}
                     onChange={(e) => setFromAccountId(e.target.value)}
                     disabled={transferSubmitting}
@@ -564,10 +564,10 @@ export default function TesoreriaPage() {
 
                 {/* Cuenta Destino */}
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold uppercase tracking-wider text-erp-gold">
+                  <label htmlFor="page-f2" className="text-xs font-bold uppercase tracking-wider text-erp-gold">
                     Hacia Cuenta (Destino) *
                   </label>
-                  <select
+                  <select id="page-f2"
                     value={toAccountId}
                     onChange={(e) => setToAccountId(e.target.value)}
                     disabled={transferSubmitting}
@@ -583,12 +583,13 @@ export default function TesoreriaPage() {
 
                 {/* Monto a Transferir */}
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold uppercase tracking-wider text-zinc-300">
+                  <label htmlFor="transfer-monto-ars" className="text-xs font-bold uppercase tracking-wider text-zinc-300">
                     Monto a Transferir (ARS) *
                   </label>
                   <div className="relative">
-                    <span className="absolute left-3 top-2.5 text-xs font-bold text-zinc-500">$</span>
+                    <span className="absolute left-3 top-2.5 text-xs font-bold text-zinc-400">$</span>
                     <Input
+                      id="transfer-monto-ars"
                       required
                       type="number"
                       placeholder="Monto ARS..."
@@ -602,10 +603,10 @@ export default function TesoreriaPage() {
 
                 {/* Notas u Observaciones */}
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold uppercase tracking-wider text-zinc-400">
+                  <label htmlFor="page-f3" className="text-xs font-bold uppercase tracking-wider text-zinc-400">
                     Notas / Motivo (Opcional)
                   </label>
-                  <Input
+                  <Input id="page-f3"
                     placeholder="Ej. Traspaso de saldo a Brubank para pago de insumos..."
                     value={transferNotes}
                     onChange={(e) => setTransferNotes(e.target.value)}
@@ -647,7 +648,7 @@ export default function TesoreriaPage() {
       {/* MODAL AJUSTE MANUAL DE SALDO */}
       {selectedAdjustAccount && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="w-full max-w-md bg-erp-surface border border-erp-border rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+          <div className="w-full max-w-md bg-erp-surface border border-erp-border rounded-2xl shadow-xl overflow-hidden animate-in zoom-in-95 duration-200">
             <form onSubmit={handleConfirmAdjust}>
               <CardHeader className="border-b border-erp-border pb-4">
                 <div className="flex items-center justify-between">
@@ -677,12 +678,13 @@ export default function TesoreriaPage() {
                 )}
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold uppercase tracking-wider text-erp-gold">
+                  <label htmlFor="ajuste-nuevo-saldo" className="text-xs font-bold uppercase tracking-wider text-erp-gold">
                     Nuevo Saldo Real (ARS) *
                   </label>
                   <div className="relative">
-                    <span className="absolute left-3 top-2.5 text-xs font-bold text-zinc-500">$</span>
+                    <span className="absolute left-3 top-2.5 text-xs font-bold text-zinc-400">$</span>
                     <Input
+                      id="ajuste-nuevo-saldo"
                       required
                       type="number"
                       value={newBalanceInput}
@@ -694,10 +696,10 @@ export default function TesoreriaPage() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold uppercase tracking-wider text-zinc-400">
+                  <label htmlFor="page-f4" className="text-xs font-bold uppercase tracking-wider text-zinc-400">
                     Motivo / Explicación del Ajuste
                   </label>
-                  <Input
+                  <Input id="page-f4"
                     placeholder="Ej. Corrección por cobro no registrado o comisión..."
                     value={adjustReason}
                     onChange={(e) => setAdjustReason(e.target.value)}
@@ -739,7 +741,7 @@ export default function TesoreriaPage() {
       {/* MODAL NUEVA CUENTA */}
       {isNewAccountModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="w-full max-w-md bg-erp-surface border border-erp-border rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+          <div className="w-full max-w-md bg-erp-surface border border-erp-border rounded-2xl shadow-xl overflow-hidden animate-in zoom-in-95 duration-200">
             <form onSubmit={handleConfirmNewAccount}>
               <CardHeader className="border-b border-erp-border pb-4">
                 <div className="flex items-center justify-between">
@@ -769,10 +771,10 @@ export default function TesoreriaPage() {
                 )}
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold uppercase tracking-wider text-zinc-300">
+                  <label htmlFor="page-f5" className="text-xs font-bold uppercase tracking-wider text-zinc-300">
                     Nombre de la Cuenta *
                   </label>
-                  <Input
+                  <Input id="page-f5"
                     required
                     placeholder="Ej. Ualá, Banco Galicia, Naranja X 2..."
                     value={newAccountName}
@@ -783,10 +785,10 @@ export default function TesoreriaPage() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold uppercase tracking-wider text-zinc-300">
+                  <label htmlFor="page-f6" className="text-xs font-bold uppercase tracking-wider text-zinc-300">
                     Tipo de Cuenta *
                   </label>
-                  <select
+                  <select id="page-f6"
                     value={newAccountType}
                     onChange={(e) => setNewAccountType(e.target.value)}
                     disabled={newAccountSubmitting}
@@ -799,12 +801,13 @@ export default function TesoreriaPage() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold uppercase tracking-wider text-erp-gold">
+                  <label htmlFor="cuenta-saldo-inicial" className="text-xs font-bold uppercase tracking-wider text-erp-gold">
                     Saldo Inicial (ARS)
                   </label>
                   <div className="relative">
-                    <span className="absolute left-3 top-2.5 text-xs font-bold text-zinc-500">$</span>
+                    <span className="absolute left-3 top-2.5 text-xs font-bold text-zinc-400">$</span>
                     <Input
+                      id="cuenta-saldo-inicial"
                       type="number"
                       placeholder="0"
                       value={newInitialBalance}
@@ -848,7 +851,7 @@ export default function TesoreriaPage() {
       {/* MODAL EDITAR CUENTA */}
       {editingAccount && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="w-full max-w-md bg-erp-surface border border-erp-border rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+          <div className="w-full max-w-md bg-erp-surface border border-erp-border rounded-2xl shadow-xl overflow-hidden animate-in zoom-in-95 duration-200">
             <form onSubmit={handleConfirmEdit}>
               <CardHeader className="border-b border-erp-border pb-4">
                 <div className="flex items-center justify-between">
@@ -878,10 +881,10 @@ export default function TesoreriaPage() {
                 )}
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold uppercase tracking-wider text-erp-gold">
+                  <label htmlFor="page-f7" className="text-xs font-bold uppercase tracking-wider text-erp-gold">
                     Nombre de la Cuenta
                   </label>
-                  <Input
+                  <Input id="page-f7"
                     type="text"
                     placeholder="Ej: Naranja X, Efectivo Local, etc."
                     value={editAccountName}
@@ -892,10 +895,10 @@ export default function TesoreriaPage() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold uppercase tracking-wider text-erp-gold">
+                  <label htmlFor="page-f8" className="text-xs font-bold uppercase tracking-wider text-erp-gold">
                     Tipo de Cuenta
                   </label>
-                  <select
+                  <select id="page-f8"
                     value={editAccountType}
                     onChange={(e) => setEditAccountType(e.target.value)}
                     disabled={editSubmitting}
@@ -940,7 +943,7 @@ export default function TesoreriaPage() {
       {/* MODAL CONFIRMAR ELIMINACIÓN DE CUENTA */}
       {accountToDelete && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="w-full max-w-md bg-erp-surface border border-rose-500/30 rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+          <div className="w-full max-w-md bg-erp-surface border border-rose-500/30 rounded-2xl shadow-xl overflow-hidden animate-in zoom-in-95 duration-200">
             <CardHeader className="border-b border-erp-border pb-4">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-lg font-bold text-rose-400 font-serif flex items-center gap-2">

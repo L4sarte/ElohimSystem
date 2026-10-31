@@ -85,7 +85,7 @@ export default function UsuariosPage() {
     <div className="flex flex-col min-h-screen bg-erp-bg text-zinc-50 transition-colors duration-300">
       
       {/* NAVBAR GLASSMORPHISM */}
-      <header className="sticky top-0 z-40 w-full border-b border-erp-border bg-erp-bg/80 backdrop-blur-md">
+      <header className="sticky top-0 z-40 w-full border-b border-erp-border bg-erp-bg/95">
         <div className="container mx-auto flex h-16 items-center justify-between px-4 sm:px-6 max-w-7xl">
           <div className="flex items-center gap-4">
             <Link 
@@ -145,10 +145,10 @@ export default function UsuariosPage() {
         {/* BARRA DE BÚSQUEDA Y METRICAS RAPIDAS */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between bg-erp-surface/80 p-4 rounded-xl border border-erp-border gap-4">
           <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-2.5 h-4 w-4 text-zinc-500" />
+            <Search className="absolute left-3 top-2.5 h-4 w-4 text-zinc-400" />
             <Input
               placeholder="Buscar usuario por correo o ID..."
-              className="pl-9 bg-erp-bg border-erp-border text-white placeholder:text-zinc-500 text-xs"
+              className="pl-9 bg-erp-bg border-erp-border text-white placeholder:text-zinc-400 text-xs"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />

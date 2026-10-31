@@ -42,10 +42,10 @@ export default function AuditoriaPage() {
   // Si el usuario es seller, denegar acceso inmediatamente en el frontend
   if (role !== 'admin') {
     return (
-      <div className="flex flex-col min-h-screen bg-slate-50 text-slate-900 dark:bg-erp-bg dark:text-zinc-50 transition-colors duration-300">
+      <div className="flex flex-col min-h-screen bg-erp-bg text-zinc-50 transition-colors duration-300">
         
         {/* NAVBAR MINIMALISTA */}
-        <header className="sticky top-0 z-40 w-full border-b border-slate-200/80 bg-white/80 backdrop-blur-md dark:border-erp-border dark:bg-erp-bg/80">
+        <header className="sticky top-0 z-40 w-full border-b border-slate-200/80 dark:border-erp-border bg-erp-bg/95">
           <div className="container mx-auto flex h-16 items-center justify-between px-4 sm:px-6 max-w-6xl">
             <Link 
               href="/"
@@ -60,17 +60,17 @@ export default function AuditoriaPage() {
 
         {/* PANTALLA DENEGADO */}
         <main className="flex-1 flex items-center justify-center p-4">
-          <Card className="w-full max-w-md border-rose-200 dark:border-rose-900/30 bg-rose-50/20 dark:bg-rose-950/5 shadow-lg">
+          <Card className="w-full max-w-md border-rose-900/30 bg-rose-950/5 shadow-lg">
             <CardHeader className="text-center pb-2">
-              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-rose-100 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 mb-4">
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-rose-500/10 text-rose-400 mb-4">
                 <ShieldAlert className="h-6 w-6" />
               </div>
-              <CardTitle className="text-lg font-bold text-rose-800 dark:text-rose-400">Acceso Denegado</CardTitle>
+              <CardTitle className="text-lg font-bold text-rose-400">Acceso Denegado</CardTitle>
               <CardDescription className="dark:text-rose-500/80">
                 Esta sección del sistema es estrictamente de carácter administrativo y está restringida para el rol Vendedor.
               </CardDescription>
             </CardHeader>
-            <CardContent className="text-center text-xs text-slate-500 dark:text-zinc-400">
+            <CardContent className="text-center text-xs text-zinc-400">
               Usa el simulador de roles en la parte superior derecha para cambiar tu rol a **Admin** si deseas auditar los movimientos de stock e insumos.
             </CardContent>
             <CardFooter className="pt-2">
@@ -90,20 +90,20 @@ export default function AuditoriaPage() {
   const renderActionBadge = (action: string) => {
     if (action === 'fractionation') {
       return (
-        <span className="inline-flex items-center gap-1 rounded bg-violet-100 px-2 py-0.5 text-xs font-semibold text-violet-800 dark:bg-erp-gold/10 dark:text-erp-gold">
+        <span className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs font-semibold text-violet-800 bg-erp-gold/10 dark:text-erp-gold">
           <Sparkles className="h-3 w-3" /> Fraccionamiento
         </span>
       );
     }
     if (action === 'decant_assembly_jit') {
       return (
-        <span className="inline-flex items-center gap-1 rounded bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-800 dark:bg-blue-500/10 dark:text-blue-400">
+        <span className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs font-semibold text-blue-800 bg-blue-500/10 dark:text-blue-400">
           <Clock className="h-3 w-3 animate-pulse" /> Ensamble JIT
         </span>
       );
     }
     return (
-      <span className="inline-flex items-center gap-1 rounded bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-800 dark:bg-zinc-800 dark:text-zinc-300">
+      <span className="inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs font-semibold text-slate-800 bg-zinc-800 dark:text-zinc-300">
         {action}
       </span>
     );
@@ -114,7 +114,7 @@ export default function AuditoriaPage() {
     if (action === 'fractionation') {
       return (
         <div className="space-y-1">
-          <p className="font-semibold text-slate-800 dark:text-zinc-200">
+          <p className="font-semibold text-zinc-200">
             Apertura de botella comercial.
           </p>
           <p className="text-[11px] text-slate-500">
@@ -126,7 +126,7 @@ export default function AuditoriaPage() {
     if (action === 'decant_assembly_jit') {
       return (
         <div className="space-y-1">
-          <p className="font-semibold text-slate-800 dark:text-zinc-200">
+          <p className="font-semibold text-zinc-200">
             Envasado JIT al momento de la venta.
           </p>
           <p className="text-[11px] text-slate-500">
@@ -139,10 +139,10 @@ export default function AuditoriaPage() {
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-slate-50 text-slate-900 dark:bg-erp-bg dark:text-zinc-50 transition-colors duration-300">
+    <div className="flex flex-col min-h-screen bg-erp-bg text-zinc-50 transition-colors duration-300">
       
       {/* NAVBAR */}
-      <header className="sticky top-0 z-40 w-full border-b border-slate-200/80 bg-white/80 backdrop-blur-md dark:border-erp-border dark:bg-erp-bg/80">
+      <header className="sticky top-0 z-40 w-full border-b border-slate-200/80 dark:border-erp-border bg-erp-bg/95">
         <div className="container mx-auto flex h-16 items-center justify-between px-4 sm:px-6 max-w-6xl">
           <div className="flex items-center gap-4">
             <Link 
@@ -152,12 +152,12 @@ export default function AuditoriaPage() {
               <ArrowLeft className="h-4.5 w-4.5" />
               <span>Dashboard</span>
             </Link>
-            <span className="text-slate-300 dark:text-zinc-800">|</span>
+            <span className="text-zinc-800">|</span>
             <div className="flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 dark:bg-erp-surface border border-slate-200 dark:border-erp-border">
-                <ShieldCheck className="h-4.5 w-4.5 text-erp-gold dark:text-erp-gold" />
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-erp-surface border border-erp-border">
+                <ShieldCheck className="h-4.5 w-4.5 text-erp-gold" />
               </div>
-              <span className="text-sm font-bold tracking-tight text-slate-800 dark:text-zinc-100 uppercase">
+              <span className="text-sm font-bold tracking-tight text-zinc-100 uppercase">
                 Visor de Auditoría RLS
               </span>
             </div>
@@ -176,10 +176,10 @@ export default function AuditoriaPage() {
         {/* Cabecera */}
         <div className="mb-6 flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
+            <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
               Registro de Auditoría de Inventario
             </h1>
-            <p className="text-sm text-slate-500 dark:text-zinc-400 mt-1">
+            <p className="text-sm text-zinc-400 mt-1">
               Monitoreo inmutable de transacciones físicas, aperturas de botellas y ensambles JIT en mostrador.
             </p>
           </div>
@@ -189,12 +189,12 @@ export default function AuditoriaPage() {
         </div>
 
         {/* TABLA DE AUDITORÍA */}
-        <Card className="border-slate-200 dark:border-erp-border">
+        <Card className="border-erp-border">
           <CardContent className="p-0 overflow-x-auto">
             {loading ? (
               <div className="flex flex-col items-center justify-center py-20 gap-3">
                 <RefreshCw className="h-8 w-8 animate-spin text-erp-gold" />
-                <span className="text-sm font-medium text-slate-500 dark:text-zinc-400">Cargando logs de auditoría...</span>
+                <span className="text-sm font-medium text-zinc-400">Cargando logs de auditoría...</span>
               </div>
             ) : error ? (
               <div className="flex flex-col items-center justify-center py-20 text-rose-500 gap-2">
@@ -204,21 +204,21 @@ export default function AuditoriaPage() {
               </div>
             ) : logs.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-24 gap-3 text-center">
-                <FileText className="h-10 w-10 text-slate-300 dark:text-zinc-700" />
-                <h3 className="font-bold text-slate-900 dark:text-white">Sin movimientos</h3>
-                <p className="text-sm text-slate-500 dark:text-zinc-400 max-w-sm">No hay registros de auditoría históricos registrados aún.</p>
+                <FileText className="h-10 w-10 text-zinc-700" />
+                <h3 className="font-bold text-white">Sin movimientos</h3>
+                <p className="text-sm text-zinc-400 max-w-sm">No hay registros de auditoría históricos registrados aún.</p>
               </div>
             ) : (
               <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="border-b border-slate-200 dark:border-erp-border bg-slate-50/50 dark:bg-erp-surface/40 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400">
+                  <tr className="border-b border-erp-border bg-erp-surface/40 text-xs font-bold uppercase tracking-wider text-zinc-400">
                     <th className="p-4 pl-6">Fecha y Hora</th>
                     <th className="p-4">Acción</th>
                     <th className="p-4">Perfume Implicado</th>
                     <th className="p-4">Descripción del Ajuste Físico</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-zinc-900 text-sm">
+                <tbody className="divide-y divide-zinc-900 text-sm">
                   {logs.map((log) => (
                     <tr key={log.id} className="hover:bg-slate-50/60 dark:hover:bg-erp-surface/30 transition-colors">
                       
@@ -236,7 +236,7 @@ export default function AuditoriaPage() {
                       <td className="p-4">
                         {log.products ? (
                           <div>
-                            <div className="font-bold text-slate-900 dark:text-white flex items-center gap-1">
+                            <div className="font-bold text-white flex items-center gap-1">
                               <Package className="h-3.5 w-3.5 text-slate-400 shrink-0" />
                               {log.products.name}
                             </div>

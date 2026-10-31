@@ -114,19 +114,19 @@ const ProductTableRow = React.memo(function ProductTableRow({
     switch (type) {
       case 'bottle':
         return (
-          <span className="inline-flex items-center gap-1 rounded-md bg-violet-50 px-2 py-1 text-xs font-semibold text-violet-700 dark:bg-erp-gold/10 dark:text-erp-gold">
+          <span className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold text-violet-700 bg-erp-gold/10 dark:text-erp-gold">
             <ShoppingBag className="h-3 w-3" /> Botella Sellada
           </span>
         );
       case 'decant_liquid':
         return (
-          <span className="inline-flex items-center gap-1 rounded-md bg-blue-50 px-2 py-1 text-xs font-semibold text-blue-700 dark:bg-blue-500/10 dark:text-blue-400">
+          <span className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold text-blue-700 bg-blue-500/10 dark:text-blue-400">
             <Droplet className="h-3 w-3" /> Decant / Granel
           </span>
         );
       case 'supply':
         return (
-          <span className="inline-flex items-center gap-1 rounded-md bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-700 dark:bg-amber-500/10 dark:text-amber-400">
+          <span className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold text-amber-700 bg-amber-500/10 dark:text-amber-400">
             <Archive className="h-3 w-3" /> Insumo
           </span>
         );
@@ -150,7 +150,7 @@ const ProductTableRow = React.memo(function ProductTableRow({
       </td>
 
       {/* SKU */}
-      <td className="p-4 font-mono text-xs font-semibold text-slate-700 dark:text-zinc-300">
+      <td className="p-4 font-mono text-xs font-semibold text-zinc-300">
         {product.sku}
       </td>
 
@@ -161,35 +161,35 @@ const ProductTableRow = React.memo(function ProductTableRow({
 
       {/* Nombre y Detalles */}
       <td className="p-4">
-        <div className="font-semibold text-slate-900 dark:text-white">
+        <div className="font-semibold text-white">
           {product.name}
         </div>
         <div className="flex gap-2 text-xs text-slate-400 mt-0.5">
-          <span>Marca: <strong className="text-slate-600 dark:text-zinc-300">{product.brand}</strong></span>
+          <span>Marca: <strong className="text-zinc-300">{product.brand}</strong></span>
           {product.olfactory_family && (
             <>
               <span>•</span>
-              <span>Familia: <strong className="text-slate-600 dark:text-zinc-300">{product.olfactory_family}</strong></span>
+              <span>Familia: <strong className="text-zinc-300">{product.olfactory_family}</strong></span>
             </>
           )}
           {product.batch_code && (
             <>
               <span>•</span>
-              <span>Batch: <strong className="text-slate-600 dark:text-zinc-300">{product.batch_code}</strong></span>
+              <span>Batch: <strong className="text-zinc-300">{product.batch_code}</strong></span>
             </>
           )}
         </div>
       </td>
 
       {/* Stock */}
-      <td className="p-4 font-medium text-slate-900 dark:text-white">
+      <td className="p-4 font-medium text-white">
         {product.type === 'decant_liquid' ? (
           <div>
-            <div className="flex items-center gap-1.5 font-bold text-cyan-600 dark:text-cyan-400">
-              <Droplet className="h-3.5 w-3.5 text-cyan-600 dark:text-cyan-400 shrink-0" />
+            <div className="flex items-center gap-1.5 font-bold text-cyan-400">
+              <Droplet className="h-3.5 w-3.5 text-cyan-400 shrink-0" />
               <span>{product.stock_quantity} ml</span>
             </div>
-            <div className="text-[11px] text-cyan-700/80 dark:text-cyan-300/70 font-normal mt-0.5">
+            <div className="text-[11px] text-cyan-300/70 font-normal mt-0.5">
               Granel en depósito
             </div>
           </div>
@@ -242,7 +242,7 @@ const ProductTableRow = React.memo(function ProductTableRow({
 
       {/* Costo Adquisición (Solo Admin) */}
       {role === 'admin' && (
-        <td className="p-4 font-mono font-medium text-erp-gold dark:text-erp-gold">
+        <td className="p-4 font-mono font-medium text-erp-gold">
           {product.type === 'decant_liquid' ? (
             <div>
               <div className="flex items-baseline gap-1">
@@ -260,7 +260,7 @@ const ProductTableRow = React.memo(function ProductTableRow({
       )}
 
       {/* Precio de Venta (ARS Fijo) & Desglose de Utilidades */}
-      <td className="p-4 font-mono text-slate-950 dark:text-zinc-50">
+      <td className="p-4 font-mono text-zinc-50">
         {profitSplit && (
           <div className="flex flex-wrap items-center gap-1 mb-1.5 text-[10px] font-mono">
             <span 
@@ -285,10 +285,10 @@ const ProductTableRow = React.memo(function ProductTableRow({
               <span className="text-[11px] font-normal text-slate-400">/ ml</span>
             </div>
             <div className="flex flex-wrap gap-1 mt-1">
-              <span className="inline-block px-1.5 py-0.5 text-xs font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 rounded">
+              <span className="inline-block px-1.5 py-0.5 text-xs font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded">
                 5ml: {formatArs((Number(product.base_price_ars) || 0) * 5)}
               </span>
-              <span className="inline-block px-1.5 py-0.5 text-xs font-bold bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 rounded">
+              <span className="inline-block px-1.5 py-0.5 text-xs font-bold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 rounded">
                 10ml: {formatArs((Number(product.base_price_ars) || 0) * 10)}
               </span>
             </div>
@@ -299,7 +299,7 @@ const ProductTableRow = React.memo(function ProductTableRow({
       </td>
 
       {/* Precio de Referencia (USD Blue) */}
-      <td className="p-4 font-mono text-indigo-600 dark:text-indigo-400 font-semibold">
+      <td className="p-4 font-mono text-indigo-400 font-semibold">
         {usdReference}
       </td>
 
@@ -309,10 +309,10 @@ const ProductTableRow = React.memo(function ProductTableRow({
           <button
             type="button"
             onClick={() => onToggleVisibility(product.id, product.is_public !== false)}
-            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold transition-all cursor-pointer border ${
+            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold transition cursor-pointer border ${
               product.is_public !== false
                 ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20'
-                : 'bg-zinc-800 text-zinc-500 border-erp-border hover:bg-zinc-700 hover:text-zinc-300'
+                : 'bg-zinc-800 text-zinc-400 border-erp-border hover:bg-zinc-700 hover:text-zinc-300'
             }`}
             title="Alternar visibilidad en la vidriera digital pública B2C"
           >
@@ -322,12 +322,12 @@ const ProductTableRow = React.memo(function ProductTableRow({
               </>
             ) : (
               <>
-                <EyeOff className="h-3 w-3 text-zinc-500" /> Oculto
+                <EyeOff className="h-3 w-3 text-zinc-400" /> Oculto
               </>
             )}
           </button>
         ) : (
-          <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${product.is_public !== false ? 'text-emerald-400' : 'text-zinc-500'}`}>
+          <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${product.is_public !== false ? 'text-emerald-400' : 'text-zinc-400'}`}>
             {product.is_public !== false ? 'Público' : 'Oculto'}
           </span>
         )}
@@ -342,7 +342,7 @@ const ProductTableRow = React.memo(function ProductTableRow({
                 variant="ghost"
                 size="icon-sm"
                 onClick={() => onFracClick(product)}
-                className="text-indigo-500 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300 cursor-pointer"
+                className="hover:text-indigo-700 text-indigo-400 dark:hover:text-indigo-300 cursor-pointer"
                 title="Fraccionar botella (abrir decant)"
               >
                 <Droplet className="h-3.5 w-3.5" />
@@ -646,7 +646,7 @@ export function ProductList({ role, excludeSupplies = true }: ProductListProps) 
     <div className="space-y-6">
       
       {/* BARRA DE FILTROS Y BÚSQUEDA */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between bg-white dark:bg-erp-surface p-4 rounded-xl border border-slate-200 dark:border-erp-border shadow-sm">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between bg-erp-surface p-4 rounded-xl border border-erp-border shadow-sm">
         
         {/* Input de Búsqueda Desacoplado */}
         <div className="relative flex-1 max-w-md">
@@ -778,18 +778,18 @@ export function ProductList({ role, excludeSupplies = true }: ProductListProps) 
       </div>
 
       {/* CONTENEDOR DE LA TABLA */}
-      <Card className="border-slate-200 dark:border-erp-border">
+      <Card className="border-erp-border">
         <CardContent className="p-0 overflow-x-auto">
           {loading ? (
             <div className="flex flex-col items-center justify-center py-20 gap-3">
               <RefreshCw className="h-8 w-8 animate-spin text-erp-gold" />
-              <span className="text-sm font-medium text-slate-500 dark:text-zinc-400">Cargando catálogo de productos...</span>
+              <span className="text-sm font-medium text-zinc-400">Cargando catálogo de productos...</span>
             </div>
           ) : error ? (
             <div className="flex flex-col items-center justify-center py-20 text-rose-500 gap-3 px-4 text-center">
-              <AlertCircle className="h-10 w-10 text-rose-600 dark:text-rose-400" />
-              <h3 className="font-bold text-lg text-slate-900 dark:text-white">Error al Cargar Catálogo</h3>
-              <div className="text-xs text-rose-700 dark:text-rose-300 max-w-lg font-mono bg-rose-50 dark:bg-rose-950/40 p-3.5 rounded-xl border border-rose-200 dark:border-rose-900/50 break-words text-left">
+              <AlertCircle className="h-10 w-10 text-rose-400" />
+              <h3 className="font-bold text-lg text-white">Error al Cargar Catálogo</h3>
+              <div className="text-xs text-rose-300 max-w-lg font-mono bg-rose-950/40 p-3.5 rounded-xl border border-rose-900/50 break-words text-left">
                 <span className="font-bold block mb-1">Detalle del error:</span>
                 {error}
               </div>
@@ -799,11 +799,11 @@ export function ProductList({ role, excludeSupplies = true }: ProductListProps) 
             </div>
           ) : filteredProducts.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-24 gap-3 text-center px-4">
-              <div className="h-12 w-12 rounded-full bg-slate-100 dark:bg-zinc-800 flex items-center justify-center text-slate-400 dark:text-zinc-500">
+              <div className="h-12 w-12 rounded-full bg-zinc-800 flex items-center justify-center text-zinc-400">
                 <Package className="h-6 w-6" />
               </div>
-              <h3 className="font-bold text-slate-900 dark:text-white">No hay productos</h3>
-              <p className="text-sm text-slate-500 dark:text-zinc-400 max-w-sm">
+              <h3 className="font-bold text-white">No hay productos</h3>
+              <p className="text-sm text-zinc-400 max-w-sm">
                 No se encontraron productos que coincidan con la búsqueda o la categoría seleccionada.
               </p>
               {role === 'admin' && (
@@ -816,7 +816,7 @@ export function ProductList({ role, excludeSupplies = true }: ProductListProps) 
             <>
               <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="border-b border-slate-200 dark:border-erp-border bg-slate-50/50 dark:bg-erp-surface/40 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400">
+                  <tr className="border-b border-erp-border bg-erp-surface/40 text-xs font-bold uppercase tracking-wider text-zinc-400">
                     <th className="p-4 pl-4 text-center w-10">
                       <input
                         type="checkbox"
@@ -834,14 +834,14 @@ export function ProductList({ role, excludeSupplies = true }: ProductListProps) 
                       <th className="p-4 text-erp-gold">Costo (ARS)</th>
                     )}
                     <th className="p-4">Precio (ARS)</th>
-                    <th className="p-4 text-indigo-600 dark:text-indigo-400">Precio Ref (USD)</th>
+                    <th className="p-4 text-indigo-400">Precio Ref (USD)</th>
                     <th className="p-4 text-center">Tienda B2C</th>
                     {role === 'admin' && (
                       <th className="p-4 pr-6 text-right">Acciones</th>
                     )}
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-zinc-900 text-sm">
+                <tbody className="divide-y divide-zinc-900 text-sm">
                   {paginatedProducts.map((product) => (
                     <ProductTableRow
                       key={product.id}
@@ -862,20 +862,20 @@ export function ProductList({ role, excludeSupplies = true }: ProductListProps) 
               </table>
 
               {/* CONTROLES DE PAGINACIÓN DE ALTO RENDIMIENTO */}
-              <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3.5 border-t border-slate-200 dark:border-erp-border bg-slate-50/30 dark:bg-erp-surface/20 text-xs text-slate-600 dark:text-zinc-400">
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3.5 border-t border-erp-border bg-erp-surface/20 text-xs text-zinc-400">
                 <div className="flex items-center gap-3">
                   <span>
-                    Mostrando <strong className="text-slate-900 dark:text-white">{(currentPage - 1) * pageSize + 1}</strong> a <strong className="text-slate-900 dark:text-white">{Math.min(currentPage * pageSize, filteredProducts.length)}</strong> de <strong className="text-slate-900 dark:text-white">{filteredProducts.length}</strong> productos
+                    Mostrando <strong className="text-white">{(currentPage - 1) * pageSize + 1}</strong> a <strong className="text-white">{Math.min(currentPage * pageSize, filteredProducts.length)}</strong> de <strong className="text-white">{filteredProducts.length}</strong> productos
                   </span>
                   <div className="flex items-center gap-1.5 ml-2">
-                    <span className="text-[11px] text-zinc-500">Por página:</span>
+                    <span className="text-[11px] text-zinc-400">Por página:</span>
                     <select
                       value={pageSize}
                       onChange={(e) => {
                         setPageSize(Number(e.target.value));
                         setCurrentPage(1);
                       }}
-                      className="bg-white dark:bg-erp-bg border border-slate-200 dark:border-erp-border rounded-md px-2 py-1 text-xs text-slate-900 dark:text-white font-mono cursor-pointer"
+                      className="bg-erp-bg border border-erp-border rounded-md px-2 py-1 text-xs text-white font-mono cursor-pointer"
                     >
                       <option value={25}>25</option>
                       <option value={50}>50</option>
@@ -892,7 +892,7 @@ export function ProductList({ role, excludeSupplies = true }: ProductListProps) 
                       size="sm"
                       onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                       disabled={currentPage <= 1}
-                      className="h-8 px-2.5 text-xs font-semibold cursor-pointer border-slate-200 dark:border-erp-border"
+                      className="h-8 px-2.5 text-xs font-semibold cursor-pointer border-erp-border"
                     >
                       <ChevronLeft className="h-3.5 w-3.5 mr-1" />
                       Anterior
@@ -905,7 +905,7 @@ export function ProductList({ role, excludeSupplies = true }: ProductListProps) 
                       size="sm"
                       onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
                       disabled={currentPage >= totalPages}
-                      className="h-8 px-2.5 text-xs font-semibold cursor-pointer border-slate-200 dark:border-erp-border"
+                      className="h-8 px-2.5 text-xs font-semibold cursor-pointer border-erp-border"
                     >
                       Siguiente
                       <ChevronRight className="h-3.5 w-3.5 ml-1" />

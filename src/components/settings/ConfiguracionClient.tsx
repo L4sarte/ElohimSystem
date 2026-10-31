@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useUserStore } from '@/hooks/use-user-store';
@@ -22,6 +22,7 @@ import {
   updateSystemSettings, 
   uploadCompanyLogo 
 } from '@/app/actions/systemSettings';
+import { invalidateBrandingCache } from '@/components/navigation/Sidebar';
 import { 
   SystemSettingsData,
   DEFAULT_SYSTEM_SETTINGS 
@@ -45,6 +46,18 @@ export function ConfiguracionClient({ initialSettings = DEFAULT_SYSTEM_SETTINGS 
   const [uploadingLogo, setUploadingLogo] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  /**
+   * Re-sincroniza el estado local cuando el servidor entrega configuración
+   * actualizada (router.refresh() tras guardar, o navegación con datos nuevos).
+   * useState(initialSettings) solo usa el valor en el primer montaje; sin este
+   * efecto, el formulario mostraría datos obsoletos tras un refresh externo.
+   */
+  useEffect(() => {
+    if (initialSettings) {
+      setSettings(initialSettings);
+    }
+  }, [initialSettings]);
 
   const handleChange = (field: keyof SystemSettingsData, value: any) => {
     setSettings((prev) => ({
@@ -108,6 +121,9 @@ export function ConfiguracionClient({ initialSettings = DEFAULT_SYSTEM_SETTINGS 
       if (res.data) {
         setSettings(res.data);
       }
+      // El branding del Sidebar (logo/nombre) se alimenta de esta configuración:
+      // invalidar la caché para que la próxima navegación muestre los valores nuevos.
+      invalidateBrandingCache();
       toast.success('¡Configuración global guardada y sincronizada exitosamente!');
       router.refresh();
     } else {
@@ -143,7 +159,7 @@ export function ConfiguracionClient({ initialSettings = DEFAULT_SYSTEM_SETTINGS 
     <div className="flex flex-col min-h-screen bg-erp-bg text-zinc-50 transition-colors duration-300">
       
       {/* NAVBAR GLASSMORPHISM */}
-      <header className="sticky top-0 z-40 w-full border-b border-erp-border bg-erp-bg/80 backdrop-blur-md">
+      <header className="sticky top-0 z-40 w-full border-b border-erp-border bg-erp-bg/95">
         <div className="container mx-auto flex h-16 items-center justify-between px-4 sm:px-6 max-w-6xl">
           <div className="flex items-center gap-4">
             <Link 
@@ -228,7 +244,7 @@ export function ConfiguracionClient({ initialSettings = DEFAULT_SYSTEM_SETTINGS 
           <button
             type="button"
             onClick={() => setActiveTab('branding')}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl transition-all cursor-pointer shrink-0 ${
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl transition cursor-pointer shrink-0 ${
               activeTab === 'branding'
                 ? 'bg-secondary text-erp-gold border border-erp-gold/40 shadow-sm'
                 : 'text-zinc-400 hover:text-white'
@@ -241,7 +257,7 @@ export function ConfiguracionClient({ initialSettings = DEFAULT_SYSTEM_SETTINGS 
           <button
             type="button"
             onClick={() => setActiveTab('contact')}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl transition-all cursor-pointer shrink-0 ${
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl transition cursor-pointer shrink-0 ${
               activeTab === 'contact'
                 ? 'bg-secondary text-erp-gold border border-erp-gold/40 shadow-sm'
                 : 'text-zinc-400 hover:text-white'
@@ -254,7 +270,7 @@ export function ConfiguracionClient({ initialSettings = DEFAULT_SYSTEM_SETTINGS 
           <button
             type="button"
             onClick={() => setActiveTab('pos')}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl transition-all cursor-pointer shrink-0 ${
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl transition cursor-pointer shrink-0 ${
               activeTab === 'pos'
                 ? 'bg-secondary text-erp-gold border border-erp-gold/40 shadow-sm'
                 : 'text-zinc-400 hover:text-white'
@@ -267,7 +283,7 @@ export function ConfiguracionClient({ initialSettings = DEFAULT_SYSTEM_SETTINGS 
           <button
             type="button"
             onClick={() => setActiveTab('banking')}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl transition-all cursor-pointer shrink-0 ${
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl transition cursor-pointer shrink-0 ${
               activeTab === 'banking'
                 ? 'bg-secondary text-erp-gold border border-erp-gold/40 shadow-sm'
                 : 'text-zinc-400 hover:text-white'
@@ -280,7 +296,7 @@ export function ConfiguracionClient({ initialSettings = DEFAULT_SYSTEM_SETTINGS 
           <button
             type="button"
             onClick={() => setActiveTab('profit_split')}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl transition-all cursor-pointer shrink-0 ${
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl transition cursor-pointer shrink-0 ${
               activeTab === 'profit_split'
                 ? 'bg-secondary text-erp-gold border border-erp-gold/40 shadow-sm'
                 : 'text-zinc-400 hover:text-white'
@@ -311,10 +327,10 @@ export function ConfiguracionClient({ initialSettings = DEFAULT_SYSTEM_SETTINGS 
                 
                 {/* UPLOADER DE LOGO CON PREVIEW */}
                 <div className="p-5 rounded-xl bg-erp-bg border border-erp-border space-y-4">
-                  <label className="text-xs font-bold uppercase tracking-wider text-zinc-300 flex items-center gap-2">
+                  <span className="text-xs font-bold uppercase tracking-wider text-zinc-300 flex items-center gap-2">
                     <ImageIcon className="h-4 w-4 text-erp-gold" />
                     Logotipo Oficial de la Empresa (logo_url)
-                  </label>
+                  </span>
 
                   <div className="flex flex-col sm:flex-row items-center gap-6">
                     {/* CAJA PREVIEW DARK/LIGHT */}
@@ -387,11 +403,11 @@ export function ConfiguracionClient({ initialSettings = DEFAULT_SYSTEM_SETTINGS 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                   {/* RAZÓN SOCIAL */}
                   <div className="space-y-2">
-                    <label className="text-xs font-bold uppercase tracking-wider text-zinc-300 flex items-center gap-2">
+                    <label htmlFor="configuracionclient-f2" className="text-xs font-bold uppercase tracking-wider text-zinc-300 flex items-center gap-2">
                       <Building className="h-4 w-4 text-erp-gold" />
                       Razón Social / Empresa Legal (company_name) *
                     </label>
-                    <Input
+                    <Input id="configuracionclient-f2"
                       required
                       placeholder="Ej. Elohim Import S.R.L."
                       value={settings.company_name}
@@ -406,11 +422,11 @@ export function ConfiguracionClient({ initialSettings = DEFAULT_SYSTEM_SETTINGS 
 
                   {/* NOMBRE COMERCIAL */}
                   <div className="space-y-2">
-                    <label className="text-xs font-bold uppercase tracking-wider text-zinc-300 flex items-center gap-2">
+                    <label htmlFor="configuracionclient-f3" className="text-xs font-bold uppercase tracking-wider text-zinc-300 flex items-center gap-2">
                       <Crown className="h-4 w-4 text-erp-gold" />
                       Nombre Comercial / Marca de Fantasía (trade_name) *
                     </label>
-                    <Input
+                    <Input id="configuracionclient-f3"
                       required
                       placeholder="Ej. Elohim Perfumería & Decants"
                       value={settings.trade_name}
@@ -428,11 +444,11 @@ export function ConfiguracionClient({ initialSettings = DEFAULT_SYSTEM_SETTINGS 
 
                   {/* SLOGAN / LEMA */}
                   <div className="space-y-2">
-                    <label className="text-xs font-bold uppercase tracking-wider text-zinc-300 flex items-center gap-2">
+                    <label htmlFor="configuracionclient-f4" className="text-xs font-bold uppercase tracking-wider text-zinc-300 flex items-center gap-2">
                       <Sparkles className="h-4 w-4 text-amber-400" />
                       Slogan o Lema Comercial (slogan)
                     </label>
-                    <Input
+                    <Input id="configuracionclient-f4"
                       placeholder="Ej. Alta Perfumería de Nicho & Decants Fraccionados"
                       value={settings.slogan}
                       onChange={(e) => handleChange('slogan', e.target.value)}
@@ -443,11 +459,11 @@ export function ConfiguracionClient({ initialSettings = DEFAULT_SYSTEM_SETTINGS 
 
                   {/* CUIT / TAX ID */}
                   <div className="space-y-2">
-                    <label className="text-xs font-bold uppercase tracking-wider text-zinc-300 flex items-center gap-2">
+                    <label htmlFor="configuracionclient-f5" className="text-xs font-bold uppercase tracking-wider text-zinc-300 flex items-center gap-2">
                       <FileText className="h-4 w-4 text-indigo-400" />
                       CUIT / Identificación Fiscal (cuit_tax_id)
                     </label>
-                    <Input
+                    <Input id="configuracionclient-f5"
                       placeholder="Ej. 30-71829384-9"
                       value={settings.cuit_tax_id}
                       onChange={(e) => handleChange('cuit_tax_id', e.target.value)}
@@ -479,11 +495,11 @@ export function ConfiguracionClient({ initialSettings = DEFAULT_SYSTEM_SETTINGS 
                   
                   {/* TELÉFONO / WHATSAPP */}
                   <div className="space-y-2">
-                    <label className="text-xs font-bold uppercase tracking-wider text-zinc-300 flex items-center gap-2">
+                    <label htmlFor="configuracionclient-f6" className="text-xs font-bold uppercase tracking-wider text-zinc-300 flex items-center gap-2">
                       <Phone className="h-4 w-4 text-emerald-400" />
                       Teléfono / WhatsApp de Atención (phone)
                     </label>
-                    <Input
+                    <Input id="configuracionclient-f6"
                       placeholder="Ej. +54 9 11 5555-0199"
                       value={settings.phone}
                       onChange={(e) => handleChange('phone', e.target.value)}
@@ -494,11 +510,11 @@ export function ConfiguracionClient({ initialSettings = DEFAULT_SYSTEM_SETTINGS 
 
                   {/* EMAIL */}
                   <div className="space-y-2">
-                    <label className="text-xs font-bold uppercase tracking-wider text-zinc-300 flex items-center gap-2">
+                    <label htmlFor="configuracionclient-f7" className="text-xs font-bold uppercase tracking-wider text-zinc-300 flex items-center gap-2">
                       <Mail className="h-4 w-4 text-sky-400" />
                       Email de Contacto (email)
                     </label>
-                    <Input
+                    <Input id="configuracionclient-f7"
                       type="email"
                       placeholder="Ej. contacto@elohimimport.com"
                       value={settings.email}
@@ -510,11 +526,11 @@ export function ConfiguracionClient({ initialSettings = DEFAULT_SYSTEM_SETTINGS 
 
                   {/* DIRECCIÓN */}
                   <div className="space-y-2">
-                    <label className="text-xs font-bold uppercase tracking-wider text-zinc-300 flex items-center gap-2">
+                    <label htmlFor="configuracionclient-f8" className="text-xs font-bold uppercase tracking-wider text-zinc-300 flex items-center gap-2">
                       <MapPin className="h-4 w-4 text-erp-gold" />
                       Dirección del Local / Showroom (address)
                     </label>
-                    <Input
+                    <Input id="configuracionclient-f8"
                       placeholder="Ej. Av. Santa Fe 1234, Local 12"
                       value={settings.address}
                       onChange={(e) => handleChange('address', e.target.value)}
@@ -525,11 +541,11 @@ export function ConfiguracionClient({ initialSettings = DEFAULT_SYSTEM_SETTINGS 
 
                   {/* CIUDAD */}
                   <div className="space-y-2">
-                    <label className="text-xs font-bold uppercase tracking-wider text-zinc-300 flex items-center gap-2">
+                    <label htmlFor="configuracionclient-f9" className="text-xs font-bold uppercase tracking-wider text-zinc-300 flex items-center gap-2">
                       <Globe className="h-4 w-4 text-indigo-400" />
                       Ciudad / Provincia (city)
                     </label>
-                    <Input
+                    <Input id="configuracionclient-f9"
                       placeholder="Ej. CABA, Buenos Aires"
                       value={settings.city}
                       onChange={(e) => handleChange('city', e.target.value)}
@@ -540,11 +556,11 @@ export function ConfiguracionClient({ initialSettings = DEFAULT_SYSTEM_SETTINGS 
 
                   {/* INSTAGRAM */}
                   <div className="space-y-2 sm:col-span-2">
-                    <label className="text-xs font-bold uppercase tracking-wider text-zinc-300 flex items-center gap-2">
+                    <label htmlFor="configuracionclient-f10" className="text-xs font-bold uppercase tracking-wider text-zinc-300 flex items-center gap-2">
                       <AtSign className="h-4 w-4 text-pink-400" />
                       Usuario de Instagram (instagram_handle)
                     </label>
-                    <Input
+                    <Input id="configuracionclient-f10"
                       placeholder="Ej. @elohim.perfumes"
                       value={settings.instagram_handle}
                       onChange={(e) => handleChange('instagram_handle', e.target.value)}
@@ -575,11 +591,11 @@ export function ConfiguracionClient({ initialSettings = DEFAULT_SYSTEM_SETTINGS 
                 
                 {/* ENCABEZADO DE TICKET */}
                 <div className="space-y-2">
-                  <label className="text-xs font-bold uppercase tracking-wider text-zinc-300 flex items-center gap-2">
+                  <label htmlFor="configuracionclient-f11" className="text-xs font-bold uppercase tracking-wider text-zinc-300 flex items-center gap-2">
                     <FileText className="h-4 w-4 text-erp-gold" />
                     Leyenda de Cabecera del Ticket (receipt_header)
                   </label>
-                  <Input
+                  <Input id="configuracionclient-f11"
                     placeholder="Ej. DOCUMENTO NO VÁLIDO COMO FACTURA"
                     value={settings.receipt_header}
                     onChange={(e) => handleChange('receipt_header', e.target.value)}
@@ -593,11 +609,11 @@ export function ConfiguracionClient({ initialSettings = DEFAULT_SYSTEM_SETTINGS 
 
                 {/* PIE DE PÁGINA DE TICKET */}
                 <div className="space-y-2">
-                  <label className="text-xs font-bold uppercase tracking-wider text-zinc-300 flex items-center gap-2">
+                  <label htmlFor="configuracionclient-f12" className="text-xs font-bold uppercase tracking-wider text-zinc-300 flex items-center gap-2">
                     <FileText className="h-4 w-4 text-indigo-400" />
                     Mensaje de Pie de Página del Ticket (receipt_footer_message)
                   </label>
-                  <textarea
+                  <textarea id="configuracionclient-f12"
                     rows={3}
                     placeholder="Ej. ¡Gracias por elegir Elohim Perfumería! Conserva este ticket para cambios de producto."
                     value={settings.receipt_footer_message}
@@ -613,11 +629,11 @@ export function ConfiguracionClient({ initialSettings = DEFAULT_SYSTEM_SETTINGS 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                   {/* DÍAS DE POLÍTICA DE CAMBIO */}
                   <div className="space-y-2">
-                    <label className="text-xs font-bold uppercase tracking-wider text-zinc-300 flex items-center gap-2">
+                    <label htmlFor="configuracionclient-f13" className="text-xs font-bold uppercase tracking-wider text-zinc-300 flex items-center gap-2">
                       <ShieldCheck className="h-4 w-4 text-emerald-400" />
                       Plazo de Garantía / Cambios en Días (warranty_policy_days)
                     </label>
-                    <Input
+                    <Input id="configuracionclient-f13"
                       type="number"
                       min={0}
                       max={365}
@@ -633,11 +649,11 @@ export function ConfiguracionClient({ initialSettings = DEFAULT_SYSTEM_SETTINGS 
 
                   {/* UMBRAL DE STOCK MÍNIMO POR DEFECTO */}
                   <div className="space-y-2">
-                    <label className="text-xs font-bold uppercase tracking-wider text-zinc-300 flex items-center gap-2">
+                    <label htmlFor="configuracionclient-f14" className="text-xs font-bold uppercase tracking-wider text-zinc-300 flex items-center gap-2">
                       <Bell className="h-4 w-4 text-amber-400" />
                       Umbral Mínimo de Alerta de Stock (default_min_stock_alert)
                     </label>
-                    <Input
+                    <Input id="configuracionclient-f14"
                       type="number"
                       min={0}
                       max={100}
@@ -700,7 +716,7 @@ export function ConfiguracionClient({ initialSettings = DEFAULT_SYSTEM_SETTINGS 
               <CardContent className="p-6 space-y-6">
                 
                 {/* TARJETA INTERACTIVA DE PREVIEW BANCARIO */}
-                <div className="p-5 rounded-2xl bg-gradient-to-br from-erp-border to-erp-bg border border-erp-gold/40 shadow-2xl space-y-4">
+                <div className="p-5 rounded-2xl bg-gradient-to-br from-erp-border to-erp-bg border border-erp-gold/40 shadow-xl space-y-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <CreditCard className="h-5 w-5 text-erp-gold" />
@@ -760,11 +776,11 @@ export function ConfiguracionClient({ initialSettings = DEFAULT_SYSTEM_SETTINGS 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                   {/* NOMBRE BANCO */}
                   <div className="space-y-2">
-                    <label className="text-xs font-bold uppercase tracking-wider text-zinc-300 flex items-center gap-2">
+                    <label htmlFor="configuracionclient-f15" className="text-xs font-bold uppercase tracking-wider text-zinc-300 flex items-center gap-2">
                       <Landmark className="h-4 w-4 text-erp-gold" />
                       Entidad Bancaria o Billetera (bank_name)
                     </label>
-                    <Input
+                    <Input id="configuracionclient-f15"
                       placeholder="Ej. Banco Galicia / Mercado Pago"
                       value={settings.bank_name}
                       onChange={(e) => handleChange('bank_name', e.target.value)}
@@ -775,11 +791,11 @@ export function ConfiguracionClient({ initialSettings = DEFAULT_SYSTEM_SETTINGS 
 
                   {/* TITULAR */}
                   <div className="space-y-2">
-                    <label className="text-xs font-bold uppercase tracking-wider text-zinc-300 flex items-center gap-2">
+                    <label htmlFor="configuracionclient-f16" className="text-xs font-bold uppercase tracking-wider text-zinc-300 flex items-center gap-2">
                       <Building className="h-4 w-4 text-emerald-400" />
                       Titular de la Cuenta (bank_account_holder)
                     </label>
-                    <Input
+                    <Input id="configuracionclient-f16"
                       placeholder="Ej. Elohim Import S.R.L."
                       value={settings.bank_account_holder}
                       onChange={(e) => handleChange('bank_account_holder', e.target.value)}
@@ -790,11 +806,11 @@ export function ConfiguracionClient({ initialSettings = DEFAULT_SYSTEM_SETTINGS 
 
                   {/* CBU / CVU */}
                   <div className="space-y-2">
-                    <label className="text-xs font-bold uppercase tracking-wider text-zinc-300 flex items-center gap-2">
+                    <label htmlFor="configuracionclient-f17" className="text-xs font-bold uppercase tracking-wider text-zinc-300 flex items-center gap-2">
                       <CreditCard className="h-4 w-4 text-indigo-400" />
                       CBU / CVU (22 dígitos) (bank_cbu_cvu)
                     </label>
-                    <Input
+                    <Input id="configuracionclient-f17"
                       placeholder="Ej. 0070123400000012345678"
                       value={settings.bank_cbu_cvu}
                       onChange={(e) => handleChange('bank_cbu_cvu', e.target.value)}
@@ -805,11 +821,11 @@ export function ConfiguracionClient({ initialSettings = DEFAULT_SYSTEM_SETTINGS 
 
                   {/* ALIAS */}
                   <div className="space-y-2">
-                    <label className="text-xs font-bold uppercase tracking-wider text-zinc-300 flex items-center gap-2">
+                    <label htmlFor="configuracionclient-f18" className="text-xs font-bold uppercase tracking-wider text-zinc-300 flex items-center gap-2">
                       <Sparkles className="h-4 w-4 text-amber-400" />
                       Alias Bancario (bank_alias)
                     </label>
-                    <Input
+                    <Input id="configuracionclient-f18"
                       placeholder="Ej. ELOHIM.PERFUMES.ARS"
                       value={settings.bank_alias}
                       onChange={(e) => handleChange('bank_alias', e.target.value)}
@@ -884,7 +900,7 @@ export function ConfiguracionClient({ initialSettings = DEFAULT_SYSTEM_SETTINGS 
                 <div className="p-6 rounded-2xl bg-erp-bg border border-erp-border space-y-6">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div>
-                      <label className="text-sm font-bold text-white flex items-center gap-2 font-serif">
+                      <label htmlFor="configuracionclient-f1" className="text-sm font-bold text-white flex items-center gap-2 font-serif">
                         <SlidersHorizontal className="h-4 w-4 text-erp-gold" />
                         Porcentaje de Retiro Personal (<span className="text-emerald-400 font-mono font-bold">{settings.personal_payout_rate ?? 30}%</span>)
                       </label>
@@ -921,12 +937,12 @@ export function ConfiguracionClient({ initialSettings = DEFAULT_SYSTEM_SETTINGS 
                       step={1}
                       value={settings.personal_payout_rate ?? 30}
                       onChange={(e) => handleChange('personal_payout_rate', Number(e.target.value))}
-                      className="w-full h-2.5 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-emerald-500 hover:accent-emerald-400 transition-all"
+                      className="w-full h-2.5 bg-zinc-800 rounded-lg appearance-none cursor-pointer accent-emerald-500 hover:accent-emerald-400 transition"
                     />
 
                     <div className="flex justify-between text-[11px] font-mono text-zinc-400">
                       <span className="text-cyan-400">0% (100% Reinversión Total)</span>
-                      <span className="text-zinc-500">50% (Reparto Equitativo)</span>
+                      <span className="text-zinc-400">50% (Reparto Equitativo)</span>
                       <span className="text-emerald-400">100% (Retiro Total Ganancia)</span>
                     </div>
                   </div>
@@ -944,7 +960,7 @@ export function ConfiguracionClient({ initialSettings = DEFAULT_SYSTEM_SETTINGS 
                         key={preset.rate}
                         type="button"
                         onClick={() => handleChange('personal_payout_rate', preset.rate)}
-                        className={`px-3 py-1 text-xs rounded-lg font-mono transition-all border ${
+                        className={`px-3 py-1 text-xs rounded-lg font-mono transition border ${
                           Number(settings.personal_payout_rate) === preset.rate
                             ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 font-bold'
                             : 'bg-erp-surface text-zinc-400 border-erp-border hover:text-white hover:border-zinc-700'
@@ -982,10 +998,11 @@ export function ConfiguracionClient({ initialSettings = DEFAULT_SYSTEM_SETTINGS 
                       {/* CONTROLES DEL SIMULADOR */}
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-erp-surface/60 p-4 rounded-xl border border-erp-border">
                         <div className="space-y-1.5">
-                          <label className="text-xs text-zinc-400 font-medium">
+                          <label htmlFor="sim-ganancia-neta" className="text-xs text-zinc-400 font-medium">
                             Ganancia Neta Limpia Simular ($)
                           </label>
                           <Input
+                            id="sim-ganancia-neta"
                             type="number"
                             min={0}
                             step={1000}
@@ -995,10 +1012,11 @@ export function ConfiguracionClient({ initialSettings = DEFAULT_SYSTEM_SETTINGS 
                           />
                         </div>
                         <div className="space-y-1.5">
-                          <label className="text-xs text-zinc-400 font-medium">
+                          <label htmlFor="sim-costo-reposicion" className="text-xs text-zinc-400 font-medium">
                             Costo Reposición (COGS) Simular ($)
                           </label>
                           <Input
+                            id="sim-costo-reposicion"
                             type="number"
                             min={0}
                             step={1000}
@@ -1074,12 +1092,12 @@ export function ConfiguracionClient({ initialSettings = DEFAULT_SYSTEM_SETTINGS 
                         <div className="h-3.5 w-full bg-zinc-900 rounded-full overflow-hidden flex border border-erp-border p-0.5">
                           <div
                             style={{ width: `${currentRate}%` }}
-                            className="h-full bg-gradient-to-r from-emerald-500 to-erp-gold rounded-l-full transition-all duration-300"
+                            className="h-full bg-gradient-to-r from-emerald-500 to-erp-gold rounded-l-full transition duration-300"
                             title={`Retiro Personal: ${currentRate}%`}
                           />
                           <div
                             style={{ width: `${100 - currentRate}%` }}
-                            className="h-full bg-gradient-to-r from-blue-500 to-cyan-400 rounded-r-full transition-all duration-300"
+                            className="h-full bg-gradient-to-r from-blue-500 to-cyan-400 rounded-r-full transition duration-300"
                             title={`Reinversión Negocio: ${100 - currentRate}%`}
                           />
                         </div>

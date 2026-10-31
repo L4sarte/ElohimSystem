@@ -140,7 +140,7 @@ export function StorefrontCatalogClient({
           <div className="flex flex-wrap items-center justify-center gap-2 pt-3 text-xs font-bold">
             <button
               onClick={() => setSelectedType('all')}
-              className={`px-3.5 py-1.5 rounded-full transition-all cursor-pointer ${
+              className={`px-3.5 py-1.5 rounded-full transition cursor-pointer ${
                 selectedType === 'all'
                   ? 'bg-erp-gold text-erp-bg font-black'
                   : 'bg-erp-surface text-zinc-300 border border-erp-border hover:border-erp-gold'
@@ -151,7 +151,7 @@ export function StorefrontCatalogClient({
 
             <button
               onClick={() => setSelectedType('decant_liquid')}
-              className={`px-3.5 py-1.5 rounded-full transition-all cursor-pointer flex items-center gap-1.5 ${
+              className={`px-3.5 py-1.5 rounded-full transition cursor-pointer flex items-center gap-1.5 ${
                 selectedType === 'decant_liquid'
                   ? 'bg-blue-500 text-white font-black'
                   : 'bg-erp-surface text-zinc-300 border border-erp-border hover:border-blue-400'
@@ -163,7 +163,7 @@ export function StorefrontCatalogClient({
 
             <button
               onClick={() => setSelectedType('bottle')}
-              className={`px-3.5 py-1.5 rounded-full transition-all cursor-pointer flex items-center gap-1.5 ${
+              className={`px-3.5 py-1.5 rounded-full transition cursor-pointer flex items-center gap-1.5 ${
                 selectedType === 'bottle'
                   ? 'bg-erp-gold-hover text-erp-bg font-black'
                   : 'bg-erp-surface text-zinc-300 border border-erp-border hover:border-erp-gold-hover'
@@ -249,7 +249,7 @@ export function StorefrontCatalogClient({
         <div className="pt-6">
           {filteredProducts.length === 0 ? (
             <div className="py-24 text-center space-y-4">
-              <div className="h-16 w-16 rounded-full bg-erp-surface border border-erp-border flex items-center justify-center mx-auto text-zinc-500">
+              <div className="h-16 w-16 rounded-full bg-erp-surface border border-erp-border flex items-center justify-center mx-auto text-zinc-400">
                 <Search className="h-8 w-8" />
               </div>
               <div>

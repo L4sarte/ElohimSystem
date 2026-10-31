@@ -19,6 +19,7 @@ import {
   Calculator,
   Droplet,
   Activity,
+  Boxes,
   LucideIcon,
 } from 'lucide-react';
 import { UserRole } from '@/types';
@@ -103,6 +104,16 @@ export const ERP_NAVIGATION_CATEGORIES: NavigationCategory[] = [
     id: 'inventory-packaging',
     title: 'INVENTARIO & DECANTS',
     items: [
+      {
+        id: 'inventory-overview',
+        name: 'Overview de Inventario',
+        description: 'Radar unificado de stock: agotados, críticos y reposición estimada',
+        href: '/admin/inventario',
+        icon: Boxes,
+        color: 'text-sky-400',
+        adminOnly: true,
+        keywords: ['inventario', 'overview', 'stock', 'alertas', 'reposicion', 'agotados', 'criticos'],
+      },
       {
         id: 'catalog',
         name: 'Catálogo de Productos',

@@ -165,7 +165,7 @@ export function BundleManager() {
         <div className="flex flex-col items-center justify-center py-16 text-center gap-2 border border-dashed border-erp-border bg-erp-bg/50 rounded-2xl">
           <Package className="h-10 w-10 text-zinc-600" />
           <h3 className="text-sm font-bold text-white font-serif">No hay combos promocionales creados</h3>
-          <p className="text-xs text-zinc-500 max-w-sm">
+          <p className="text-xs text-zinc-400 max-w-sm">
             Crea ofertas empaquetadas (ej: 1 Botella + 1 Decant 10ml) para vender en el POS descontando componentes individuales.
           </p>
           {role === 'admin' && (
@@ -193,7 +193,7 @@ export function BundleManager() {
                       variant="ghost"
                       size="icon-sm"
                       onClick={() => handleDeleteBundle(bundle.id, bundle.name)}
-                      className="text-zinc-500 hover:text-rose-400"
+                      className="text-zinc-400 hover:text-rose-400"
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
@@ -232,13 +232,13 @@ export function BundleManager() {
 
               <CardFooter className="border-t border-erp-border bg-erp-bg/40 px-4 py-3 flex items-center justify-between">
                 <div>
-                  <span className="text-[11px] text-zinc-500 uppercase tracking-wider block font-bold">Precio Combo</span>
+                  <span className="text-[11px] text-zinc-400 uppercase tracking-wider block font-bold">Precio Combo</span>
                   <span className="text-base font-extrabold text-white font-mono">
                     ${Number(bundle.price_ars).toLocaleString('es-AR')} ARS
                   </span>
                 </div>
                 <div className="text-right">
-                  <span className="text-[11px] text-zinc-500 uppercase tracking-wider block font-bold">Equiv. USD</span>
+                  <span className="text-[11px] text-zinc-400 uppercase tracking-wider block font-bold">Equiv. USD</span>
                   <span className="text-xs font-bold text-indigo-400 font-mono">
                     u$s {Number(bundle.price_usd).toFixed(2)}
                   </span>
@@ -252,7 +252,7 @@ export function BundleManager() {
       {/* MODAL DE CREACIÓN DE COMBO */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-150">
-          <div className="w-full max-w-lg bg-erp-surface border border-erp-border rounded-2xl shadow-2xl overflow-hidden space-y-4 p-6">
+          <div className="w-full max-w-lg bg-erp-surface border border-erp-border rounded-2xl shadow-xl overflow-hidden space-y-4 p-6">
             
             <div className="flex items-center justify-between border-b border-erp-border pb-3">
               <h3 className="text-base font-bold text-white font-serif flex items-center gap-2">
@@ -267,8 +267,8 @@ export function BundleManager() {
             <form onSubmit={handleCreateBundle} className="space-y-4">
               <div className="grid grid-cols-3 gap-3">
                 <div className="space-y-1">
-                  <label className="text-[11px] font-bold uppercase text-zinc-300">SKU Combo *</label>
-                  <Input
+                  <label htmlFor="bundlemanager-f1" className="text-[11px] font-bold uppercase text-zinc-300">SKU Combo *</label>
+                  <Input id="bundlemanager-f1"
                     value={sku}
                     onChange={(e) => setSku(e.target.value)}
                     placeholder="CMB-001"
@@ -276,8 +276,8 @@ export function BundleManager() {
                   />
                 </div>
                 <div className="col-span-2 space-y-1">
-                  <label className="text-[11px] font-bold uppercase text-zinc-300">Nombre del Combo *</label>
-                  <Input
+                  <label htmlFor="bundlemanager-f2" className="text-[11px] font-bold uppercase text-zinc-300">Nombre del Combo *</label>
+                  <Input id="bundlemanager-f2"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     placeholder="Ej: Lattafa Asad + Decant 10ml"
@@ -288,8 +288,8 @@ export function BundleManager() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <label className="text-[11px] font-bold uppercase text-zinc-300">Precio ARS *</label>
-                  <Input
+                  <label htmlFor="bundlemanager-f3" className="text-[11px] font-bold uppercase text-zinc-300">Precio ARS *</label>
+                  <Input id="bundlemanager-f3"
                     type="number"
                     value={priceArs}
                     onChange={(e) => setPriceArs(e.target.value)}
@@ -298,8 +298,8 @@ export function BundleManager() {
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[11px] font-bold uppercase text-zinc-300">Precio Ref USD</label>
-                  <Input
+                  <label htmlFor="bundlemanager-f4" className="text-[11px] font-bold uppercase text-zinc-300">Precio Ref USD</label>
+                  <Input id="bundlemanager-f4"
                     type="number"
                     value={priceUsd}
                     onChange={(e) => setPriceUsd(e.target.value)}
@@ -311,11 +311,11 @@ export function BundleManager() {
 
               {/* SELECCIÓN DE COMPONENTES */}
               <div className="space-y-2 pt-2 border-t border-erp-border">
-                <label className="text-xs font-bold uppercase text-erp-gold flex items-center justify-between">
+                <label htmlFor="bundlemanager-f5" className="text-xs font-bold uppercase text-erp-gold flex items-center justify-between">
                   <span>Componentes a Descontar del Stock</span>
                 </label>
 
-                <select
+                <select id="bundlemanager-f5"
                   onChange={(e) => {
                     handleAddItemToCombo(e.target.value);
                     e.target.value = '';
@@ -350,7 +350,7 @@ export function BundleManager() {
                           <button
                             type="button"
                             onClick={() => handleRemoveItem(item.product_id)}
-                            className="text-zinc-500 hover:text-rose-400 ml-1"
+                            className="text-zinc-400 hover:text-rose-400 ml-1"
                           >
                             <X className="h-3.5 w-3.5" />
                           </button>

@@ -35,7 +35,7 @@ const DashboardProfitChart = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="h-[360px] w-full rounded-2xl border border-erp-border bg-erp-surface animate-pulse flex items-center justify-center text-xs text-zinc-500">
+      <div className="h-[360px] w-full rounded-2xl border border-erp-border bg-erp-surface animate-pulse flex items-center justify-center text-xs text-zinc-400">
         Cargando gráfico analítico...
       </div>
     ),
@@ -116,7 +116,7 @@ export default function DashboardPage() {
     <div className="flex flex-col min-h-screen bg-erp-bg text-zinc-50 transition-colors duration-300">
       
       {/* HEADER MINIMALISTA CONTROL BAR */}
-      <header className="sticky top-0 z-40 w-full border-b border-erp-border bg-erp-bg/90 backdrop-blur-md">
+      <header className="sticky top-0 z-40 w-full border-b border-erp-border bg-erp-bg/90">
         <div className="container mx-auto flex h-16 items-center justify-between px-4 sm:px-6 max-w-7xl">
           <div>
             <h1 className="text-base font-bold text-white font-serif tracking-wider">
@@ -168,7 +168,7 @@ export default function DashboardPage() {
               <div className="flex items-center gap-1.5 bg-erp-bg border border-erp-border p-1 rounded-xl self-start sm:self-auto">
                 <button
                   onClick={() => setPeriod('current_month')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
                     period === 'current_month'
                       ? 'bg-erp-surface text-erp-gold border border-erp-gold/30 shadow-sm'
                       : 'text-zinc-400 hover:text-white'
@@ -178,7 +178,7 @@ export default function DashboardPage() {
                 </button>
                 <button
                   onClick={() => setPeriod('all_time')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
                     period === 'all_time'
                       ? 'bg-erp-surface text-erp-gold border border-erp-gold/30 shadow-sm'
                       : 'text-zinc-400 hover:text-white'
@@ -200,7 +200,7 @@ export default function DashboardPage() {
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                   
                   {/* Card 1: Facturación / Ingresos Totales */}
-                  <Card className="border border-erp-border bg-erp-surface/90 rounded-2xl shadow-xl transition-all duration-300 hover:border-erp-gold/50">
+                  <Card className="border border-erp-border bg-erp-surface/90 rounded-2xl shadow-xl transition duration-300 hover:border-erp-gold/50">
                     <CardHeader className="pb-3 flex flex-row items-center justify-between space-y-0">
                       <div>
                         <CardDescription className="text-[11px] font-extrabold uppercase tracking-widest text-zinc-400">
@@ -220,7 +220,7 @@ export default function DashboardPage() {
                   </Card>
 
                   {/* Card 2: Ganancia Comercial Real (Limpia) */}
-                  <Card className="border border-erp-border bg-erp-surface/90 rounded-2xl shadow-xl transition-all duration-300 hover:border-erp-gold/50">
+                  <Card className="border border-erp-border bg-erp-surface/90 rounded-2xl shadow-xl transition duration-300 hover:border-erp-gold/50">
                     <CardHeader className="pb-3 flex flex-row items-center justify-between space-y-0">
                       <div>
                         <CardDescription className="text-[11px] font-extrabold uppercase tracking-widest text-zinc-400">
@@ -240,7 +240,7 @@ export default function DashboardPage() {
                   </Card>
 
                   {/* Card 3: Gastos Operativos (OPEX) */}
-                  <Card className="border border-erp-border bg-erp-surface/90 rounded-2xl shadow-xl transition-all duration-300 hover:border-amber-500/40">
+                  <Card className="border border-erp-border bg-erp-surface/90 rounded-2xl shadow-xl transition duration-300 hover:border-amber-500/40">
                     <CardHeader className="pb-3 flex flex-row items-center justify-between space-y-0">
                       <div>
                         <CardDescription className="text-[11px] font-extrabold uppercase tracking-widest text-zinc-400">
@@ -268,7 +268,7 @@ export default function DashboardPage() {
                       : '0.0';
 
                     return (
-                      <Card className="border border-erp-border bg-erp-surface/90 rounded-2xl shadow-xl transition-all duration-300 hover:border-emerald-500/40 flex flex-col justify-between overflow-hidden">
+                      <Card className="border border-erp-border bg-erp-surface/90 rounded-2xl shadow-xl transition duration-300 hover:border-emerald-500/40 flex flex-col justify-between overflow-hidden">
                         <CardHeader className="pb-3 flex flex-row items-start justify-between space-y-0">
                           <div>
                             <div className="flex items-center gap-1.5">
@@ -327,11 +327,11 @@ export default function DashboardPage() {
                             <div className="h-2 w-full bg-zinc-900 rounded-full overflow-hidden flex border border-erp-border/60 p-0.5">
                               <div
                                 style={{ width: `${personalPayoutRate}%` }}
-                                className="h-full bg-gradient-to-r from-emerald-500 to-erp-gold rounded-l-full transition-all duration-300"
+                                className="h-full bg-gradient-to-r from-emerald-500 to-erp-gold rounded-l-full transition duration-300"
                               />
                               <div
                                 style={{ width: `${100 - personalPayoutRate}%` }}
-                                className="h-full bg-gradient-to-r from-blue-500 to-cyan-400 rounded-r-full transition-all duration-300"
+                                className="h-full bg-gradient-to-r from-blue-500 to-cyan-400 rounded-r-full transition duration-300"
                               />
                             </div>
                           </div>
@@ -351,7 +351,7 @@ export default function DashboardPage() {
                           <Button
                             type="button"
                             onClick={() => setIsDrawModalOpen(true)}
-                            className="w-full bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 hover:border-emerald-500/50 text-xs font-bold py-2 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                            className="w-full bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 hover:border-emerald-500/50 text-xs font-bold py-2 rounded-xl transition cursor-pointer flex items-center justify-center gap-1.5"
                           >
                             <Wallet className="h-3.5 w-3.5 text-erp-gold" />
                             <span>Registrar Retiro</span>
@@ -424,7 +424,7 @@ export default function DashboardPage() {
                                   <div className="font-bold text-white truncate" title={prod.name}>
                                     {prod.name}
                                   </div>
-                                  <div className="text-[11px] text-zinc-500 mt-0.5 truncate">
+                                  <div className="text-[11px] text-zinc-400 mt-0.5 truncate">
                                     SKU: {prod.sku} • {prod.type === 'bottle' ? 'Botella' : 'Envase'}
                                   </div>
                                 </div>
@@ -459,7 +459,7 @@ export default function DashboardPage() {
                       </CardHeader>
                       <CardContent className="pt-4 px-4 pb-4">
                         {stats.recentSales.length === 0 ? (
-                          <div className="flex flex-col items-center justify-center py-6 text-center text-zinc-500 gap-1">
+                          <div className="flex flex-col items-center justify-center py-6 text-center text-zinc-400 gap-1">
                             <ShoppingCart className="h-6 w-6 opacity-35 text-zinc-600" />
                             <span className="text-xs">No se registran ventas históricas.</span>
                           </div>
@@ -469,14 +469,14 @@ export default function DashboardPage() {
                               <div 
                                 key={sale.id} 
                                 onClick={() => setSelectedSaleId(sale.id)}
-                                className="flex items-center justify-between text-xs p-2 rounded-xl border border-erp-border/60 bg-erp-bg/30 hover:bg-erp-bg hover:border-erp-gold/50 transition-all cursor-pointer group"
+                                className="flex items-center justify-between text-xs p-2 rounded-xl border border-erp-border/60 bg-erp-bg/30 hover:bg-erp-bg hover:border-erp-gold/50 transition cursor-pointer group"
                                 title="Ver comprobante y detalle de venta"
                               >
                                 <div>
                                   <div className="font-bold text-zinc-200 group-hover:text-erp-gold transition-colors">
                                     {sale.client_name}
                                   </div>
-                                  <div className="text-xs text-zinc-500 font-mono mt-0.5">
+                                  <div className="text-xs text-zinc-400 font-mono mt-0.5">
                                     {new Date(sale.created_at).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })} • Ticket: #{sale.id.split('-')[0].toUpperCase()}
                                   </div>
                                 </div>
@@ -484,7 +484,7 @@ export default function DashboardPage() {
                                   <span className="font-mono font-black text-emerald-400 block">
                                     +${sale.total_ars.toLocaleString('es-AR')}
                                   </span>
-                                  <span className="text-xs text-zinc-500 underline group-hover:text-zinc-300">Ver detalle</span>
+                                  <span className="text-xs text-zinc-400 underline group-hover:text-zinc-300">Ver detalle</span>
                                 </div>
                               </div>
                             ))}
@@ -509,7 +509,7 @@ export default function DashboardPage() {
               <div className="flex flex-col items-center justify-center py-20 gap-3 border border-erp-border bg-erp-surface/90 rounded-2xl text-zinc-400">
                 <AlertCircle className="h-10 w-10 text-rose-500" />
                 <h3 className="font-bold text-white">Error de Carga</h3>
-                <p className="text-xs text-zinc-500">No se pudieron recuperar las métricas desde la base de datos.</p>
+                <p className="text-xs text-zinc-400">No se pudieron recuperar las métricas desde la base de datos.</p>
                 <Button onClick={() => loadDashboardData(period)} className="mt-2">Reintentar</Button>
               </div>
             )}
@@ -541,7 +541,7 @@ export default function DashboardPage() {
             <div className="grid gap-6 md:grid-cols-3">
               
               {/* Acceso POS */}
-              <Card className="border border-erp-border bg-erp-surface/90 rounded-2xl shadow-xl hover:border-emerald-500/40 transition-all duration-300 flex flex-col justify-between">
+              <Card className="border border-erp-border bg-erp-surface/90 rounded-2xl shadow-xl hover:border-emerald-500/40 transition duration-300 flex flex-col justify-between">
                 <CardHeader>
                   <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
                     <ShoppingCart className="h-5 w-5" />
@@ -553,7 +553,7 @@ export default function DashboardPage() {
                 </CardHeader>
                 <CardContent className="pt-0">
                   <Link href="/pos" className="w-full">
-                    <Button className="w-full justify-center bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer h-10 text-xs font-bold shadow-md shadow-emerald-600/20 transition-all hover:scale-[1.02]">
+                    <Button className="w-full justify-center bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer h-10 text-xs font-bold shadow-md shadow-emerald-600/20 transition hover:scale-[1.02]">
                       Abrir Terminal <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
                     </Button>
                   </Link>
@@ -561,7 +561,7 @@ export default function DashboardPage() {
               </Card>
 
               {/* Acceso Catálogo */}
-              <Card className="border border-erp-border bg-erp-surface/90 rounded-2xl shadow-xl hover:border-indigo-500/40 transition-all duration-300 flex flex-col justify-between">
+              <Card className="border border-erp-border bg-erp-surface/90 rounded-2xl shadow-xl hover:border-indigo-500/40 transition duration-300 flex flex-col justify-between">
                 <CardHeader>
                   <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400">
                     <ShoppingBag className="h-5 w-5" />
@@ -573,7 +573,7 @@ export default function DashboardPage() {
                 </CardHeader>
                 <CardContent className="pt-0">
                   <Link href="/productos" className="w-full">
-                    <Button className="w-full justify-center bg-indigo-600 hover:bg-indigo-700 text-white cursor-pointer h-10 text-xs font-bold shadow-md shadow-indigo-600/20 transition-all hover:scale-[1.02]">
+                    <Button className="w-full justify-center bg-indigo-600 hover:bg-indigo-700 text-white cursor-pointer h-10 text-xs font-bold shadow-md shadow-indigo-600/20 transition hover:scale-[1.02]">
                       Ver Stock <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
                     </Button>
                   </Link>
@@ -581,7 +581,7 @@ export default function DashboardPage() {
               </Card>
 
               {/* Acceso CRM */}
-              <Card className="border border-erp-border bg-erp-surface/90 rounded-2xl shadow-xl hover:border-erp-gold/40 transition-all duration-300 flex flex-col justify-between">
+              <Card className="border border-erp-border bg-erp-surface/90 rounded-2xl shadow-xl hover:border-erp-gold/40 transition duration-300 flex flex-col justify-between">
                 <CardHeader>
                   <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-erp-gold/10 border border-violet-500/20 text-erp-gold">
                     <Users className="h-5 w-5" />
@@ -593,7 +593,7 @@ export default function DashboardPage() {
                 </CardHeader>
                 <CardContent className="pt-0">
                   <Link href="/clientes" className="w-full">
-                    <Button className="w-full justify-center bg-erp-gold hover:bg-erp-gold-hover text-erp-bg font-extrabold shadow-md shadow-erp-gold/20 text-white cursor-pointer h-10 text-xs font-bold shadow-md shadow-violet-600/20 transition-all hover:scale-[1.02]">
+                    <Button className="w-full justify-center bg-erp-gold hover:bg-erp-gold-hover text-erp-bg font-extrabold shadow-md shadow-erp-gold/20 text-white cursor-pointer h-10 text-xs font-bold shadow-md shadow-violet-600/20 transition hover:scale-[1.02]">
                       Ver Clientes <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
                     </Button>
                   </Link>
@@ -612,7 +612,7 @@ export default function DashboardPage() {
 
       {/* FOOTER */}
       <footer className="border-t border-erp-border bg-erp-bg py-6 mt-12">
-        <div className="container mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-zinc-500 max-w-6xl">
+        <div className="container mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-zinc-400 max-w-6xl">
           <p>© 2026 Elohim Import ERP. Todos los derechos reservados.</p>
           <div className="flex gap-4">
             <span className="hover:text-zinc-300">Security by Design (RLS)</span>

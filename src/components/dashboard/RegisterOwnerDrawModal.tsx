@@ -164,7 +164,7 @@ export function RegisterOwnerDrawModal({
 
           {/* CUENTA DE ORIGEN DE TESORERÍA */}
           <div className="space-y-1.5">
-            <label className="text-xs font-bold uppercase tracking-wider text-zinc-300 flex items-center justify-between">
+            <label htmlFor="retiro-cuenta-origen" className="text-xs font-bold uppercase tracking-wider text-zinc-300 flex items-center justify-between">
               <span className="flex items-center gap-1.5">
                 <Building2 className="h-3.5 w-3.5 text-erp-gold" />
                 Cuenta de Tesorería de Origen *
@@ -180,6 +180,7 @@ export function RegisterOwnerDrawModal({
               <div className="h-11 w-full bg-erp-surface animate-pulse rounded-xl" />
             ) : (
               <select
+                id="retiro-cuenta-origen"
                 value={selectedAccountId}
                 onChange={(e) => setSelectedAccountId(e.target.value)}
                 className="w-full h-11 px-3 rounded-xl bg-erp-surface border border-erp-border text-white text-xs font-medium focus:ring-1 focus:ring-erp-gold focus:outline-none"
@@ -195,7 +196,7 @@ export function RegisterOwnerDrawModal({
 
           {/* MONTO A EXTRAER EN ARS */}
           <div className="space-y-1.5">
-            <label className="text-xs font-bold uppercase tracking-wider text-zinc-300 flex items-center justify-between">
+            <label htmlFor="registerownerdrawmodal-f1" className="text-xs font-bold uppercase tracking-wider text-zinc-300 flex items-center justify-between">
               <span className="flex items-center gap-1.5">
                 <DollarSign className="h-3.5 w-3.5 text-emerald-400" />
                 Monto del Retiro (ARS) *
@@ -207,7 +208,7 @@ export function RegisterOwnerDrawModal({
               )}
             </label>
 
-            <Input
+            <Input id="registerownerdrawmodal-f1"
               type="number"
               min={1}
               step={100}
@@ -256,10 +257,10 @@ export function RegisterOwnerDrawModal({
 
           {/* NOTAS O MOTIVO */}
           <div className="space-y-1.5">
-            <label className="text-xs font-bold uppercase tracking-wider text-zinc-300">
+            <label htmlFor="registerownerdrawmodal-f2" className="text-xs font-bold uppercase tracking-wider text-zinc-300">
               Notas / Referencia (Opcional)
             </label>
-            <Input
+            <Input id="registerownerdrawmodal-f2"
               placeholder="Ej. Retiro quincenal de utilidades, transferencia personal"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}

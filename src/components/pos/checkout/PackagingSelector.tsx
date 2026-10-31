@@ -67,7 +67,7 @@ export function PackagingSelector({
   };
 
   return (
-    <div className="border border-erp-border rounded-xl bg-erp-bg overflow-hidden transition-all pt-1">
+    <div className="border border-erp-border rounded-xl bg-erp-bg overflow-hidden transition pt-1">
       <button
         type="button"
         onClick={() => setIsPackagingOpen(!isPackagingOpen)}
@@ -122,7 +122,7 @@ export function PackagingSelector({
                 <div key={item.packaging_id} className="flex items-center justify-between p-2 rounded-lg bg-erp-bg border border-erp-border text-xs">
                   <div className="flex flex-col">
                     <span className="font-bold text-zinc-200">{item.name}</span>
-                    <span className="text-[11px] text-zinc-500 font-mono">Stock disponible: {item.available_stock}</span>
+                    <span className="text-[11px] text-zinc-400 font-mono">Stock disponible: {item.available_stock}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <div className="flex items-center border border-erp-border rounded-md bg-erp-surface">
@@ -155,7 +155,7 @@ export function PackagingSelector({
               ))}
             </div>
           ) : (
-            <p className="text-[11px] text-zinc-500 italic text-center py-1">
+            <p className="text-[11px] text-zinc-400 italic text-center py-1">
               No has añadido insumos de packaging adicionales a esta venta.
             </p>
           )}

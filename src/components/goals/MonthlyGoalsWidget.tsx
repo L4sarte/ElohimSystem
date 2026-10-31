@@ -174,7 +174,7 @@ export function MonthlyGoalsWidget({ startDate, endDate }: MonthlyGoalsWidgetPro
                 No se configuró una meta comercial para {projection.monthName}. Las proyecciones de ritmo operativo aplican al mes en curso. La facturación comercial final registrada fue de <strong className="text-emerald-400 font-mono">${projection.currentRevenueArs.toLocaleString('es-AR')} ARS</strong> con una ganancia neta real de <strong className="text-erp-gold font-mono">${projection.currentNetProfitArs.toLocaleString('es-AR')} ARS</strong>.
               </p>
               <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-erp-border/50">
-                <span className="text-[11px] text-zinc-500">
+                <span className="text-[11px] text-zinc-400">
                   Podés registrar una meta histórica para auditar el cumplimiento comercial de este período.
                 </span>
                 <Button
@@ -203,12 +203,12 @@ export function MonthlyGoalsWidget({ startDate, endDate }: MonthlyGoalsWidgetPro
 
                   <div className="h-3 w-full rounded-full bg-erp-bg border border-erp-border overflow-hidden p-0.5">
                     <div 
-                      className="h-full rounded-full bg-gradient-to-r from-emerald-600 to-teal-400 transition-all duration-500"
+                      className="h-full rounded-full bg-gradient-to-r from-emerald-600 to-teal-400 transition duration-500"
                       style={{ width: `${Math.min(100, projection.revenueProgressPercent)}%` }}
                     />
                   </div>
                   
-                  <div className="flex justify-between text-[11px] text-zinc-500 font-mono">
+                  <div className="flex justify-between text-[11px] text-zinc-400 font-mono">
                     <span>Avance: <strong>{projection.revenueProgressPercent}%</strong></span>
                     <span>Meta: 100%</span>
                   </div>
@@ -225,12 +225,12 @@ export function MonthlyGoalsWidget({ startDate, endDate }: MonthlyGoalsWidgetPro
 
                   <div className="h-3 w-full rounded-full bg-erp-bg border border-erp-border overflow-hidden p-0.5">
                     <div 
-                      className="h-full rounded-full bg-gradient-to-r from-violet-600 to-indigo-500 transition-all duration-500"
+                      className="h-full rounded-full bg-gradient-to-r from-violet-600 to-indigo-500 transition duration-500"
                       style={{ width: `${Math.min(100, projection.profitProgressPercent)}%` }}
                     />
                   </div>
 
-                  <div className="flex justify-between text-[11px] text-zinc-500 font-mono">
+                  <div className="flex justify-between text-[11px] text-zinc-400 font-mono">
                     <span>Avance: <strong>{projection.profitProgressPercent}%</strong></span>
                     <span>Meta: 100%</span>
                   </div>
@@ -360,7 +360,7 @@ export function MonthlyGoalsWidget({ startDate, endDate }: MonthlyGoalsWidgetPro
       {/* MODAL CONFIGURACIÓN DE META DEL MES ESPECÍFICO */}
       {isConfigModalOpen && projection && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="w-full max-w-md bg-erp-bg border border-erp-border rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+          <div className="w-full max-w-md bg-erp-bg border border-erp-border rounded-2xl shadow-xl overflow-hidden animate-in zoom-in-95 duration-200">
             <form onSubmit={handleSaveGoal}>
               
               <CardHeader className="border-b border-erp-border pb-4">
@@ -392,10 +392,10 @@ export function MonthlyGoalsWidget({ startDate, endDate }: MonthlyGoalsWidgetPro
                 )}
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold uppercase tracking-wider text-emerald-400">
+                  <label htmlFor="monthlygoalswidget-f1" className="text-xs font-bold uppercase tracking-wider text-emerald-400">
                     Meta de Facturación Bruta (ARS) *
                   </label>
-                  <Input
+                  <Input id="monthlygoalswidget-f1"
                     required
                     type="number"
                     placeholder="Ej. 5000000"
@@ -406,10 +406,10 @@ export function MonthlyGoalsWidget({ startDate, endDate }: MonthlyGoalsWidgetPro
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold uppercase tracking-wider text-erp-gold">
+                  <label htmlFor="monthlygoalswidget-f2" className="text-xs font-bold uppercase tracking-wider text-erp-gold">
                     Meta de Ganancia Neta (ARS) *
                   </label>
-                  <Input
+                  <Input id="monthlygoalswidget-f2"
                     required
                     type="number"
                     placeholder="Ej. 2000000"

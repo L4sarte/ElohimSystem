@@ -47,7 +47,7 @@ const CustomTooltip = memo(({ active, payload, label, currency = 'ARS' }: Toolti
     const marginNetPercent = ventas > 0 ? ((gananciaNeta / ventas) * 100).toFixed(1) : null;
 
     return (
-      <div className="bg-erp-bg/95 border border-erp-border p-3.5 rounded-xl shadow-2xl text-xs space-y-1.5 backdrop-blur-md min-w-[240px]">
+      <div className="bg-erp-bg/95 border border-erp-border p-3.5 rounded-xl shadow-xl text-xs space-y-1.5 min-w-[240px]">
         <p className="font-mono font-bold text-zinc-400 border-b border-erp-border pb-1">Día: {label}</p>
         <div className="space-y-1.5 pt-0.5">
           <p className="font-bold text-erp-gold flex items-center justify-between gap-3">
@@ -161,7 +161,7 @@ export const DashboardProfitChart = memo(function DashboardProfitChart({
             className={`px-2.5 py-1 rounded-lg text-xs font-mono font-bold transition-colors duration-150 cursor-pointer ${
               chartCurrency === 'ARS'
                 ? 'bg-erp-surface text-erp-gold border border-erp-gold/30 shadow-sm'
-                : 'text-zinc-500 hover:text-zinc-300'
+                : 'text-zinc-400 hover:text-zinc-300'
             }`}
           >
             ARS ($)
@@ -172,7 +172,7 @@ export const DashboardProfitChart = memo(function DashboardProfitChart({
             className={`px-2.5 py-1 rounded-lg text-xs font-mono font-bold transition-colors duration-150 cursor-pointer ${
               chartCurrency === 'USD_BLUE'
                 ? 'bg-erp-surface text-erp-gold border border-erp-gold/30 shadow-sm'
-                : 'text-zinc-500 hover:text-zinc-300'
+                : 'text-zinc-400 hover:text-zinc-300'
             }`}
             title={`Conversión basada en Dólar Blue ($${exchangeRates.blue} ARS)`}
           >
@@ -184,7 +184,7 @@ export const DashboardProfitChart = memo(function DashboardProfitChart({
             className={`px-2.5 py-1 rounded-lg text-xs font-mono font-bold transition-colors duration-150 cursor-pointer ${
               chartCurrency === 'USDT'
                 ? 'bg-erp-surface text-erp-gold border border-erp-gold/30 shadow-sm'
-                : 'text-zinc-500 hover:text-zinc-300'
+                : 'text-zinc-400 hover:text-zinc-300'
             }`}
             title={`Conversión basada en USDT Binance ($${exchangeRates.usdt} ARS)`}
           >

@@ -13,19 +13,19 @@ interface FamilyRotationWidgetProps {
 const STATUS_STYLES: Record<FamilyRotationStatus, { label: string; className: string }> = {
   alta_rotacion: {
     label: 'Alta rotación',
-    className: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20',
+    className: 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20',
   },
   media: {
     label: 'Rotación media',
-    className: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20',
+    className: 'bg-amber-500/10 text-amber-400 border border-amber-500/20',
   },
   estancada: {
     label: 'Estancada',
-    className: 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20',
+    className: 'bg-rose-500/10 text-rose-400 border border-rose-500/20',
   },
   sin_ventas: {
     label: 'Sin ventas (90d)',
-    className: 'bg-slate-200/60 text-slate-500 dark:bg-erp-surface dark:text-zinc-400 border border-slate-300 dark:border-erp-border',
+    className: 'bg-slate-200/60 text-slate-500 dark:bg-erp-surface dark:text-zinc-400 border border-erp-border',
   },
 };
 
@@ -58,10 +58,10 @@ export function FamilyRotationWidget({ role }: FamilyRotationWidgetProps) {
   }, [role]);
 
   return (
-    <Card className="border-slate-200 dark:border-erp-border">
-      <CardHeader className="pb-2 border-b border-slate-100 dark:border-zinc-900">
+    <Card className="border-erp-border">
+      <CardHeader className="pb-2 border-b border-zinc-900">
         <div className="flex items-center justify-between gap-3">
-          <CardTitle className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+          <CardTitle className="text-sm font-bold text-white flex items-center gap-2">
             <Layers className="h-4.5 w-4.5 text-erp-gold" />
             Rotación por Familia Olfativa
           </CardTitle>
@@ -75,7 +75,7 @@ export function FamilyRotationWidget({ role }: FamilyRotationWidgetProps) {
             <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin text-erp-gold' : ''}`} />
           </button>
         </div>
-        <CardDescription className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">
+        <CardDescription className="text-xs text-zinc-400 mt-0.5">
           Capital inmovilizado vs. ventas de los últimos {data?.periodDays ?? 90} días. Índice = ingresos / capital (1 = el stock rotó completo).
         </CardDescription>
       </CardHeader>
@@ -84,7 +84,7 @@ export function FamilyRotationWidget({ role }: FamilyRotationWidgetProps) {
         {loading ? (
           <div className="space-y-2">
             {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="h-12 rounded-xl bg-slate-100 dark:bg-erp-surface animate-pulse" />
+              <div key={i} className="h-12 rounded-xl bg-erp-surface animate-pulse" />
             ))}
           </div>
         ) : error || !data ? (
@@ -93,14 +93,14 @@ export function FamilyRotationWidget({ role }: FamilyRotationWidgetProps) {
             <p className="text-xs font-semibold">{error || 'No se pudieron calcular las métricas.'}</p>
           </div>
         ) : data.rows.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-10 text-center text-slate-400 dark:text-zinc-500 space-y-2">
+          <div className="flex flex-col items-center justify-center py-10 text-center text-zinc-400 space-y-2">
             <Boxes className="h-8 w-8 opacity-40" />
             <p className="text-xs">Sin stock activo para analizar rotación.</p>
           </div>
         ) : (
           <>
             <div className="flex items-center justify-between text-xs">
-              <span className="text-slate-500 dark:text-zinc-400 font-semibold">
+              <span className="text-zinc-400 font-semibold">
                 {data.rows.length} familia(s) con stock activo
               </span>
               <span className="font-mono font-bold text-erp-gold">
@@ -109,10 +109,10 @@ export function FamilyRotationWidget({ role }: FamilyRotationWidgetProps) {
             </div>
 
             {/* TABLA DE FAMILIAS ORDENADA POR ROTACIÓN */}
-            <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-erp-border">
+            <div className="overflow-x-auto rounded-xl border border-erp-border">
               <table className="w-full text-xs">
                 <thead>
-                  <tr className="border-b border-slate-200 dark:border-erp-border bg-slate-50 dark:bg-erp-table text-slate-500 dark:text-zinc-400 uppercase tracking-wider font-semibold">
+                  <tr className="border-b border-erp-border bg-erp-table text-zinc-400 uppercase tracking-wider font-semibold">
                     <th scope="col" className="text-left px-3 py-2">Familia</th>
                     <th scope="col" className="text-right px-3 py-2">Capital Stock</th>
                     <th scope="col" className="text-right px-3 py-2">Ventas 90d</th>
@@ -124,18 +124,18 @@ export function FamilyRotationWidget({ role }: FamilyRotationWidgetProps) {
                   {data.rows.map((row) => {
                     const status = STATUS_STYLES[row.status];
                     return (
-                      <tr key={row.family} className="border-b border-slate-100 dark:border-erp-border/60 last:border-b-0">
-                        <td className="px-3 py-2.5 font-bold text-slate-900 dark:text-white">
+                      <tr key={row.family} className="border-b border-erp-border/60 last:border-b-0">
+                        <td className="px-3 py-2.5 font-bold text-white">
                           {row.family}
-                          <span className="ml-1.5 text-[10px] font-mono text-slate-400 dark:text-zinc-500">({row.stockUnits.toLocaleString('es-AR')} u)</span>
+                          <span className="ml-1.5 text-[10px] font-mono text-zinc-400">({row.stockUnits.toLocaleString('es-AR')} u)</span>
                         </td>
-                        <td className="px-3 py-2.5 text-right font-mono font-bold text-slate-900 dark:text-zinc-100">
+                        <td className="px-3 py-2.5 text-right font-mono font-bold text-zinc-100">
                           ${row.stockCapitalArs.toLocaleString('es-AR')}
                         </td>
-                        <td className="px-3 py-2.5 text-right font-mono text-slate-700 dark:text-zinc-300">
+                        <td className="px-3 py-2.5 text-right font-mono text-zinc-300">
                           ${row.salesRevenueArs.toLocaleString('es-AR')}
                         </td>
-                        <td className={`px-3 py-2.5 text-right font-mono font-bold ${row.rotationIndex >= 1 ? 'text-emerald-600 dark:text-emerald-400' : row.rotationIndex > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-slate-400'}`}>
+                        <td className={`px-3 py-2.5 text-right font-mono font-bold ${row.rotationIndex >= 1 ? 'text-emerald-400' : row.rotationIndex > 0 ? 'text-amber-400' : 'text-slate-400'}`}>
                           {row.rotationIndex === 99.999 ? '∞ (agotado)' : row.rotationIndex}
                         </td>
                         <td className="px-3 py-2.5 text-right">

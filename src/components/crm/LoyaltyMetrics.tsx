@@ -106,7 +106,7 @@ export function LoyaltyMetrics({ role }: LoyaltyMetricsProps) {
                 ) : (
                   <>
                     <div className={`text-xl font-black font-mono ${card.accent}`}>{card.value}</div>
-                    <div className="text-[11px] text-zinc-500 font-sans">{card.sub}</div>
+                    <div className="text-[11px] text-zinc-400 font-sans">{card.sub}</div>
                   </>
                 )}
               </CardContent>

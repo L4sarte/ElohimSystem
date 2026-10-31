@@ -93,7 +93,7 @@ export function ReturnModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200 overflow-y-auto">
-      <div className="w-[95vw] sm:max-w-lg bg-erp-surface border border-erp-border rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 my-auto">
+      <div className="w-[95vw] sm:max-w-lg bg-erp-surface border border-erp-border rounded-2xl shadow-xl overflow-hidden animate-in zoom-in-95 duration-200 my-auto">
         
         {!confirmStep ? (
           <form onSubmit={handleStartSubmit}>
@@ -149,17 +149,17 @@ export function ReturnModal({
                       </div>
                     ))
                   ) : (
-                    <div className="text-zinc-500 italic">Sin detalle de ítems</div>
+                    <div className="text-zinc-400 italic">Sin detalle de ítems</div>
                   )}
                 </div>
               </div>
 
               {/* MOTIVO DE LA DEVOLUCIÓN */}
               <div className="space-y-1.5">
-                <label className="text-xs font-bold uppercase tracking-wider text-zinc-300">
+                <label htmlFor="returnmodal-f1" className="text-xs font-bold uppercase tracking-wider text-zinc-300">
                   Motivo de la Devolución *
                 </label>
-                <Input
+                <Input id="returnmodal-f1"
                   required
                   placeholder="Ej. Cambio de opinión, falla de perfume, caja dañada..."
                   value={returnReason}
@@ -170,12 +170,13 @@ export function ReturnModal({
 
               {/* MONTO A REINTEGRAR (ARS) */}
               <div className="space-y-1.5">
-                <label className="text-xs font-bold uppercase tracking-wider text-erp-gold">
+                <label htmlFor="monto-reintegro" className="text-xs font-bold uppercase tracking-wider text-erp-gold">
                   Monto a Reintegrar al Cliente (ARS) *
                 </label>
                 <div className="relative">
-                  <span className="absolute left-3 top-2.5 text-xs font-bold text-zinc-500">$</span>
+                  <span className="absolute left-3 top-2.5 text-xs font-bold text-zinc-400">$</span>
                   <Input
+                    id="monto-reintegro"
                     required
                     type="number"
                     min="0"

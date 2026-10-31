@@ -22,6 +22,9 @@ function POSProductCardComponent({
 }: POSProductCardProps) {
   const isDecant = product.type === 'decant_liquid';
   const defaultSupplyId = emptyBottles[0]?.id || '';
+  // ids únicos por tarjeta: este componente se renderiza una vez por producto en la grilla
+  const mlInputId = useId();
+  const supplySelectId = useId();
 
   // Estado estrictamente local: cambiar ml o envase aquí NO re-renderiza todo el catálogo
   const [decantMl, setDecantMl] = useState<number>(5);
@@ -42,7 +45,7 @@ function POSProductCardComponent({
 
   return (
     <div
-      className="bg-white dark:bg-erp-surface border border-slate-200 dark:border-erp-border rounded-xl p-4 flex flex-col justify-between shadow-xs hover:border-erp-gold/50 transition-colors duration-150 will-change-auto"
+      className="bg-erp-surface border border-erp-border rounded-xl p-4 flex flex-col justify-between shadow-xs hover:border-erp-gold/50 transition-colors duration-150"
       style={{ contentVisibility: 'auto', containIntrinsicSize: '0 240px' }}
     >
       <div className="space-y-2">
@@ -76,26 +79,27 @@ function POSProductCardComponent({
         </div>
 
         <div>
-          <h4 className="font-bold text-slate-900 dark:text-white line-clamp-1 text-sm">
+          <h4 className="font-bold text-white line-clamp-1 text-sm">
             {product.name}
           </h4>
-          <p className="text-xs text-slate-400 dark:text-zinc-500 mt-0.5 truncate">
+          <p className="text-xs text-zinc-400 mt-0.5 truncate">
             Marca: {product.brand}
           </p>
         </div>
       </div>
 
       {/* ÁREA DE ACCIONES */}
-      <div className="mt-4 pt-3 border-t border-slate-100 dark:border-erp-border space-y-3">
+      <div className="mt-4 pt-3 border-t border-erp-border space-y-3">
         {isDecant ? (
           <div className="space-y-2">
             {/* Selector JIT para decant */}
             <div className="grid grid-cols-2 gap-2">
               <div className="space-y-1">
-                <label className="text-[11px] font-bold uppercase text-slate-400">
+                <label htmlFor={mlInputId} className="text-[11px] font-bold uppercase text-slate-400">
                   Capacidad (ml)
                 </label>
                 <Input
+                  id={mlInputId}
                   type="number"
                   min="1"
                   max={Math.max(1, product.stock_quantity)}
@@ -109,13 +113,14 @@ function POSProductCardComponent({
               </div>
 
               <div className="space-y-1">
-                <label className="text-[11px] font-bold uppercase text-slate-400">
+                <label htmlFor={supplySelectId} className="text-[11px] font-bold uppercase text-slate-400">
                   Envase vacío
                 </label>
                 <select
+                  id={supplySelectId}
                   value={activeSupplyId}
                   onChange={(e) => setSelectedSupplyId(e.target.value)}
-                  className="flex h-8 w-full rounded-md border border-input bg-background px-2 py-1 text-xs shadow-xs focus:outline-none dark:border-input/40 dark:bg-input/10 text-white"
+                  className="flex h-8 w-full rounded-md border border-input px-2 py-1 text-xs shadow-xs focus:outline-none dark:border-input/40 bg-input/10 text-white"
                 >
                   {emptyBottles.map((bottle) => (
                     <option key={bottle.id} value={bottle.id} className="bg-erp-surface text-white">
@@ -126,16 +131,16 @@ function POSProductCardComponent({
               </div>
             </div>
 
-            <div className="space-y-1 bg-blue-50/30 dark:bg-blue-950/20 rounded-lg p-2 text-xs border border-blue-500/10">
+            <div className="space-y-1 bg-blue-950/20 rounded-lg p-2 text-xs border border-blue-500/10">
               <div className="flex justify-between items-center">
-                <span className="text-slate-500 dark:text-zinc-400">Precio / ml:</span>
-                <span className="font-bold text-slate-800 dark:text-zinc-200 font-mono">
+                <span className="text-zinc-400">Precio / ml:</span>
+                <span className="font-bold text-zinc-200 font-mono">
                   {formatArs(product.base_price_ars)} ARS
                 </span>
               </div>
               <div className="flex justify-between items-center text-[11px] pt-1 border-t border-blue-500/10">
-                <span className="text-slate-500 dark:text-zinc-400">Total muestra ({decantMl || 5}ml):</span>
-                <span className="font-black text-blue-600 dark:text-blue-400 font-mono">
+                <span className="text-zinc-400">Total muestra ({decantMl || 5}ml):</span>
+                <span className="font-black text-blue-400 font-mono">
                   {formatArs(sampleTotal)} ARS
                 </span>
               </div>
@@ -145,7 +150,7 @@ function POSProductCardComponent({
               type="button"
               onClick={handleDecantSubmit}
               disabled={!canAssembleDecant}
-              className="w-full h-8 bg-blue-600 hover:bg-blue-700 text-white cursor-pointer text-xs font-semibold shadow-xs"
+              className="w-full h-11 bg-blue-600 hover:bg-blue-700 text-white cursor-pointer text-sm font-semibold shadow-xs"
             >
               <Sparkles className="mr-1.5 h-3.5 w-3.5" /> Ensamblar Decant JIT
             </Button>
@@ -154,7 +159,7 @@ function POSProductCardComponent({
           <div className="flex items-center justify-between gap-4">
             <div>
               <div className="text-[11px] text-slate-400">Precio unitario</div>
-              <div className="font-extrabold text-slate-950 dark:text-zinc-50 font-mono text-base">
+              <div className="font-extrabold text-zinc-50 font-mono text-base">
                 {formatArs(product.base_price_ars)}
               </div>
             </div>
@@ -162,7 +167,7 @@ function POSProductCardComponent({
               type="button"
               disabled={!hasStock}
               onClick={() => onAddToCart(product)}
-              className="bg-erp-gold hover:bg-erp-gold-hover text-erp-bg font-extrabold shadow-sm shadow-erp-gold/20 cursor-pointer h-8 text-xs px-3"
+              className="bg-erp-gold hover:bg-erp-gold-hover text-erp-bg font-extrabold shadow-sm shadow-erp-gold/20 cursor-pointer h-11 text-sm px-3"
             >
               <Plus className="mr-1 h-3.5 w-3.5" /> Agregar
             </Button>

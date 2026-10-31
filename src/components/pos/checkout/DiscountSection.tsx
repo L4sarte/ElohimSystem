@@ -87,7 +87,7 @@ export function DiscountSection({
         <button
           type="button"
           onClick={() => handleModeChange('none')}
-          className={`py-1 rounded text-center transition-all cursor-pointer ${
+          className={`py-1 rounded text-center transition cursor-pointer ${
             discountType === 'none'
               ? 'bg-erp-gold text-erp-bg font-bold shadow-sm'
               : 'text-zinc-400 hover:text-white'
@@ -98,7 +98,7 @@ export function DiscountSection({
         <button
           type="button"
           onClick={() => handleModeChange('percentage')}
-          className={`py-1 rounded text-center transition-all cursor-pointer ${
+          className={`py-1 rounded text-center transition cursor-pointer ${
             discountType === 'percentage'
               ? 'bg-erp-gold text-erp-bg font-bold shadow-sm'
               : 'text-zinc-400 hover:text-white'
@@ -109,7 +109,7 @@ export function DiscountSection({
         <button
           type="button"
           onClick={() => handleModeChange('fixed')}
-          className={`py-1 rounded text-center transition-all cursor-pointer ${
+          className={`py-1 rounded text-center transition cursor-pointer ${
             discountType === 'fixed'
               ? 'bg-erp-gold text-erp-bg font-bold shadow-sm'
               : 'text-zinc-400 hover:text-white'
@@ -120,7 +120,7 @@ export function DiscountSection({
         <button
           type="button"
           onClick={() => handleModeChange('target_amount')}
-          className={`py-1 rounded text-center transition-all cursor-pointer ${
+          className={`py-1 rounded text-center transition cursor-pointer ${
             discountType === 'target_amount'
               ? 'bg-erp-gold text-erp-bg font-bold shadow-sm'
               : 'text-zinc-400 hover:text-white'
@@ -131,7 +131,7 @@ export function DiscountSection({
         <button
           type="button"
           onClick={() => handleModeChange('target_percentage')}
-          className={`py-1 rounded text-center transition-all cursor-pointer ${
+          className={`py-1 rounded text-center transition cursor-pointer ${
             discountType === 'target_percentage'
               ? 'bg-erp-gold text-erp-bg font-bold shadow-sm'
               : 'text-zinc-400 hover:text-white'
@@ -152,7 +152,7 @@ export function DiscountSection({
               type="button"
               onClick={() => handleQuickPercent(pct)}
               disabled={isExceedingSeller}
-              className={`px-2 py-0.5 rounded text-[11px] font-mono font-bold transition-all cursor-pointer ${
+              className={`px-2 py-0.5 rounded text-[11px] font-mono font-bold transition cursor-pointer ${
                 discountType === 'percentage' && Number(discountInputValue) === pct
                   ? 'bg-erp-gold text-erp-bg'
                   : isExceedingSeller
@@ -229,19 +229,19 @@ export function DiscountSection({
           {discountResult.isValid && discountResult.discountAmountArs > 0 && !isSellerOverLimit && (
             <div className="grid grid-cols-3 gap-2 p-2 rounded-lg bg-erp-surface/60 border border-erp-border text-[11px] font-mono">
               <div>
-                <span className="text-zinc-500 block text-xs uppercase">Descuento</span>
+                <span className="text-zinc-400 block text-xs uppercase">Descuento</span>
                 <span className="text-emerald-400 font-bold">
                   -${discountResult.discountAmountArs.toLocaleString('es-AR')}
                 </span>
               </div>
               <div>
-                <span className="text-zinc-500 block text-xs uppercase">Equiv. %</span>
+                <span className="text-zinc-400 block text-xs uppercase">Equiv. %</span>
                 <span className="text-emerald-400 font-bold">
                   {discountResult.discountPercentage}%
                 </span>
               </div>
               <div>
-                <span className="text-zinc-500 block text-xs uppercase">Nuevo Subtotal</span>
+                <span className="text-zinc-400 block text-xs uppercase">Nuevo Subtotal</span>
                 <span className="text-white font-bold">
                   ${subtotalAfterDiscountArs.toLocaleString('es-AR')}
                 </span>

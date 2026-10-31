@@ -206,8 +206,8 @@ export default function NuevaCompraPage() {
   // Denegar acceso si es vendedor
   if (role !== 'admin') {
     return (
-      <div className="flex flex-col min-h-screen bg-slate-50 text-slate-900 dark:bg-erp-bg dark:text-zinc-50 transition-colors duration-300">
-        <header className="sticky top-0 z-40 w-full border-b border-slate-200/80 bg-white/80 backdrop-blur-md dark:border-erp-border dark:bg-erp-bg/80">
+      <div className="flex flex-col min-h-screen bg-erp-bg text-zinc-50 transition-colors duration-300">
+        <header className="sticky top-0 z-40 w-full border-b border-slate-200/80 dark:border-erp-border bg-erp-bg/95">
           <div className="container mx-auto flex h-16 items-center justify-between px-4 sm:px-6 max-w-6xl">
             <Link 
               href="/"
@@ -221,12 +221,12 @@ export default function NuevaCompraPage() {
         </header>
 
         <main className="flex-1 flex items-center justify-center p-4">
-          <Card className="w-full max-w-md border-rose-200 dark:border-rose-900/30 bg-rose-50/20 dark:bg-rose-950/5 shadow-lg">
+          <Card className="w-full max-w-md border-rose-900/30 bg-rose-950/5 shadow-lg">
             <CardHeader className="text-center pb-2">
-              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-rose-100 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 mb-4">
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-rose-500/10 text-rose-400 mb-4">
                 <ShieldAlert className="h-6 w-6" />
               </div>
-              <CardTitle className="text-lg font-bold text-rose-800 dark:text-rose-400">Acceso Restringido</CardTitle>
+              <CardTitle className="text-lg font-bold text-rose-400">Acceso Restringido</CardTitle>
               <CardDescription className="dark:text-rose-500/80">
                 El ingreso de compras e inventario B2B es exclusivo para administradores.
               </CardDescription>
@@ -245,10 +245,10 @@ export default function NuevaCompraPage() {
   }
 
   return (
-    <div className="flex flex-col min-h-screen bg-slate-50 text-slate-900 dark:bg-erp-bg dark:text-zinc-50 transition-colors duration-300">
+    <div className="flex flex-col min-h-screen bg-erp-bg text-zinc-50 transition-colors duration-300">
       
       {/* NAVBAR */}
-      <header className="sticky top-0 z-40 w-full border-b border-slate-200/80 bg-white/80 backdrop-blur-md dark:border-erp-border dark:bg-erp-bg/80">
+      <header className="sticky top-0 z-40 w-full border-b border-slate-200/80 dark:border-erp-border bg-erp-bg/95">
         <div className="container mx-auto flex h-16 items-center justify-between px-4 sm:px-6 max-w-6xl">
           <div className="flex items-center gap-4">
             <Link 
@@ -258,12 +258,12 @@ export default function NuevaCompraPage() {
               <ArrowLeft className="h-4.5 w-4.5" />
               <span>Módulo Compras</span>
             </Link>
-            <span className="text-slate-300 dark:text-zinc-800">|</span>
+            <span className="text-zinc-800">|</span>
             <div className="flex items-center gap-2">
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-600 text-white shadow-md shadow-emerald-500/20">
                 <PackagePlus className="h-4.5 w-4.5" />
               </div>
-              <span className="text-sm font-bold tracking-tight text-slate-800 dark:text-zinc-100 uppercase">
+              <span className="text-sm font-bold tracking-tight text-zinc-100 uppercase">
                 Punto de Compra B2B
               </span>
             </div>
@@ -282,10 +282,10 @@ export default function NuevaCompraPage() {
         {/* Cabecera */}
         <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
+            <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
               Ingreso de Mercadería e Inventario
             </h1>
-            <p className="text-sm text-slate-500 dark:text-zinc-400 mt-1">
+            <p className="text-sm text-zinc-400 mt-1">
               Registra nuevas facturas de compra, actualiza costos unitarios y reabastece el stock comercial.
             </p>
           </div>
@@ -299,7 +299,7 @@ export default function NuevaCompraPage() {
 
         {/* MENSAJE ÉXITO */}
         {successMessage && (
-          <div className="mb-6 p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 dark:bg-emerald-950/30 dark:border-emerald-800 dark:text-emerald-300 flex items-center justify-between">
+          <div className="mb-6 p-4 rounded-xl border border-emerald-200 bg-emerald-950/30 dark:border-emerald-800 text-emerald-300 flex items-center justify-between">
             <div className="flex items-center gap-2 font-medium text-sm">
               <CheckCircle2 className="h-5 w-5 text-emerald-600" />
               <span>{successMessage}</span>
@@ -317,22 +317,22 @@ export default function NuevaCompraPage() {
           <div className="lg:col-span-7 space-y-6">
             
             {/* PANEL SELECCIÓN DE PROVEEDOR */}
-            <Card className="border-slate-200 dark:border-erp-border">
+            <Card className="border-erp-border">
               <CardHeader className="pb-3">
-                <CardTitle className="text-xs font-bold text-slate-700 dark:text-zinc-300 uppercase tracking-wider flex items-center gap-2">
+                <CardTitle className="text-xs font-bold text-zinc-300 uppercase tracking-wider flex items-center gap-2">
                   <Truck className="h-4 w-4 text-indigo-500" />
                   1. Selección de Proveedor B2B *
                 </CardTitle>
               </CardHeader>
               <CardContent className="pt-0">
                 {suppliers.length === 0 ? (
-                  <div className="flex items-center justify-between p-3 rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/20 text-xs text-amber-800 dark:text-amber-300">
+                  <div className="flex items-center justify-between p-3 rounded-lg border border-amber-200 bg-amber-950/20 text-xs text-amber-300">
                     <span>No hay proveedores registrados aún.</span>
                     <Link href="/compras/proveedores" className="font-bold underline">Crear Proveedor</Link>
                   </div>
                 ) : (
                   <select
-                    className="w-full h-10 px-3 py-2 text-sm bg-white dark:bg-erp-surface border border-slate-200 dark:border-erp-border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 font-semibold"
+                    className="w-full h-10 px-3 py-2 text-sm bg-erp-surface border border-erp-border rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 font-semibold"
                     value={selectedSupplierId}
                     onChange={(e) => setSelectedSupplierId(e.target.value)}
                   >
@@ -347,9 +347,9 @@ export default function NuevaCompraPage() {
             </Card>
 
             {/* PANEL BUSCADOR DE PRODUCTOS DEL CATÁLOGO */}
-            <Card className="border-slate-200 dark:border-erp-border">
+            <Card className="border-erp-border">
               <CardHeader className="pb-3">
-                <CardTitle className="text-xs font-bold text-slate-700 dark:text-zinc-300 uppercase tracking-wider flex items-center gap-2">
+                <CardTitle className="text-xs font-bold text-zinc-300 uppercase tracking-wider flex items-center gap-2">
                   <Search className="h-4 w-4 text-indigo-500" />
                   2. Buscador de Productos del Catálogo
                 </CardTitle>
@@ -378,18 +378,18 @@ export default function NuevaCompraPage() {
                   filteredProducts.map(product => (
                     <div 
                       key={product.id}
-                      className="flex items-center justify-between p-3 rounded-lg border border-slate-100 bg-slate-50/50 hover:bg-slate-100/80 dark:border-zinc-900 dark:bg-erp-surface/40 dark:hover:bg-erp-surface transition-colors"
+                      className="flex items-center justify-between p-3 rounded-lg border border-slate-100 hover:bg-slate-100/80 dark:border-zinc-900 bg-erp-surface/40 dark:hover:bg-erp-surface transition-colors"
                     >
                       <div className="max-w-[70%]">
-                        <div className="font-bold text-sm text-slate-900 dark:text-white truncate">
+                        <div className="font-bold text-sm text-white truncate">
                           {product.name}
                         </div>
-                        <div className="text-xs text-slate-500 dark:text-zinc-400 flex items-center gap-2 mt-0.5">
+                        <div className="text-xs text-zinc-400 flex items-center gap-2 mt-0.5">
                           <span>{product.brand}</span>
                           <span>•</span>
                           <span className="font-mono text-[11px]">SKU: {product.sku}</span>
                           <span>•</span>
-                          <span className="font-semibold text-slate-700 dark:text-zinc-300">
+                          <span className="font-semibold text-zinc-300">
                             Stock: {product.stock_quantity} {product.type === 'bottle' ? 'ud' : product.type === 'decant_liquid' ? 'ml' : 'frascos'}
                           </span>
                         </div>
@@ -398,7 +398,7 @@ export default function NuevaCompraPage() {
                       <Button
                         size="sm"
                         onClick={() => handleAddToCart(product)}
-                        className="bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 text-white cursor-pointer h-8 text-xs"
+                        className="hover:bg-indigo-700 bg-indigo-500 text-white cursor-pointer h-8 text-xs"
                       >
                         <Plus className="mr-1 h-3.5 w-3.5" /> Agregar
                       </Button>
@@ -413,9 +413,9 @@ export default function NuevaCompraPage() {
           {/* COLUMNA DERECHA: CARRITO Y RESUMEN FACTURA (5 cols) */}
           <div className="lg:col-span-5 space-y-6">
             
-            <Card className="border-slate-200 dark:border-erp-border flex flex-col h-full justify-between">
-              <CardHeader className="pb-3 border-b border-slate-100 dark:border-zinc-900">
-                <CardTitle className="text-sm font-bold text-slate-900 dark:text-white flex items-center justify-between">
+            <Card className="border-erp-border flex flex-col h-full justify-between">
+              <CardHeader className="pb-3 border-b border-zinc-900">
+                <CardTitle className="text-sm font-bold text-white flex items-center justify-between">
                   <span className="flex items-center gap-2">
                     <ShoppingBag className="h-4.5 w-4.5 text-emerald-600" />
                     Orden de Compra B2B
@@ -440,11 +440,11 @@ export default function NuevaCompraPage() {
                     return (
                       <div 
                         key={item.product_id}
-                        className="p-3 rounded-lg border border-slate-100 bg-slate-50/50 dark:border-zinc-900 dark:bg-erp-surface/50 space-y-2"
+                        className="p-3 rounded-lg border border-slate-100 dark:border-zinc-900 bg-erp-surface/50 space-y-2"
                       >
                         <div className="flex justify-between items-start">
                           <div>
-                            <div className="font-bold text-xs text-slate-900 dark:text-white">
+                            <div className="font-bold text-xs text-white">
                               {item.product_name}
                             </div>
                             <div className="text-[11px] text-slate-400">
@@ -464,8 +464,8 @@ export default function NuevaCompraPage() {
                         {/* INPUTS EDITABLES DE CANTIDAD Y COSTO */}
                         <div className="grid grid-cols-2 gap-2 pt-1">
                           <div>
-                            <label className="text-[11px] font-bold text-slate-400 block uppercase">Cantidad Ingresada</label>
-                            <Input
+                            <label htmlFor="page-f1" className="text-[11px] font-bold text-slate-400 block uppercase">Cantidad Ingresada</label>
+                            <Input id="page-f1"
                               type="number"
                               min="1"
                               value={item.quantity}
@@ -475,8 +475,8 @@ export default function NuevaCompraPage() {
                           </div>
 
                           <div>
-                            <label className="text-[11px] font-bold text-slate-400 block uppercase">Costo Unit. (ARS)</label>
-                            <Input
+                            <label htmlFor="page-f2" className="text-[11px] font-bold text-slate-400 block uppercase">Costo Unit. (ARS)</label>
+                            <Input id="page-f2"
                               type="number"
                               min="0"
                               step="0.01"
@@ -487,7 +487,7 @@ export default function NuevaCompraPage() {
                           </div>
                         </div>
 
-                        <div className="text-right text-xs font-mono font-bold text-indigo-600 dark:text-indigo-400 pt-1">
+                        <div className="text-right text-xs font-mono font-bold text-indigo-400 pt-1">
                           Subtotal: ${subtotal.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
                         </div>
 
@@ -498,18 +498,18 @@ export default function NuevaCompraPage() {
               </CardContent>
 
               {/* TOTALES Y BOTÓN DE CONFIRMACIÓN */}
-              <CardFooter className="border-t border-slate-100 dark:border-zinc-900 flex-col space-y-4 pt-4 bg-slate-50/50 dark:bg-erp-surface/30">
+              <CardFooter className="border-t border-zinc-900 flex-col space-y-4 pt-4 bg-erp-surface/30">
                 <div className="w-full space-y-1">
                   <div className="flex justify-between items-center text-sm">
-                    <span className="font-bold text-slate-600 dark:text-zinc-400">Total Factura (ARS):</span>
-                    <span className="font-mono font-black text-xl text-slate-900 dark:text-white">
+                    <span className="font-bold text-zinc-400">Total Factura (ARS):</span>
+                    <span className="font-mono font-black text-xl text-white">
                       ${totalArs.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
                     </span>
                   </div>
 
                   <div className="flex justify-between items-center text-xs">
                     <span className="text-slate-400">Equivalencia Ref. (USD):</span>
-                    <span className="font-mono font-bold text-indigo-600 dark:text-indigo-400">
+                    <span className="font-mono font-bold text-indigo-400">
                       u$s {totalUsd.toFixed(2)} {exchangeRate ? `(dólar: $${exchangeRate})` : ''}
                     </span>
                   </div>
@@ -535,11 +535,11 @@ export default function NuevaCompraPage() {
       {/* MODAL DE CONFIRMACIÓN DE COMPRA Y ESTADO DE PAGO */}
       {isConfirmOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="w-full max-w-md bg-white dark:bg-erp-bg border border-slate-200 dark:border-erp-border rounded-xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+          <div className="w-full max-w-md bg-erp-bg border border-erp-border rounded-xl shadow-xl overflow-hidden animate-in zoom-in-95 duration-200">
             
-            <CardHeader className="border-b border-slate-100 dark:border-zinc-900 pb-4">
+            <CardHeader className="border-b border-zinc-900 pb-4">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <CardTitle className="text-lg font-bold text-white flex items-center gap-2">
                   <PackagePlus className="h-5 w-5 text-emerald-600" />
                   Confirmar Ingreso de Mercadería
                 </CardTitle>
@@ -560,16 +560,16 @@ export default function NuevaCompraPage() {
             <CardContent className="space-y-4 p-6">
               
               {/* Resumen del Proveedor y Totales */}
-              <div className="p-3 rounded-lg bg-slate-50 dark:bg-erp-surface/50 border border-slate-100 dark:border-erp-border text-xs space-y-1">
+              <div className="p-3 rounded-lg bg-erp-surface/50 border border-erp-border text-xs space-y-1">
                 <div className="flex justify-between">
                   <span className="text-slate-400">Proveedor:</span>
-                  <span className="font-bold text-slate-800 dark:text-zinc-200">
+                  <span className="font-bold text-zinc-200">
                     {suppliers.find(s => s.id === selectedSupplierId)?.name}
                   </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-slate-400">Total Factura:</span>
-                  <span className="font-mono font-bold text-slate-900 dark:text-white">
+                  <span className="font-mono font-bold text-white">
                     ${totalArs.toLocaleString('es-AR', { minimumFractionDigits: 2 })} (u$s {totalUsd.toFixed(2)})
                   </span>
                 </div>
@@ -577,9 +577,9 @@ export default function NuevaCompraPage() {
 
               {/* Selector de Estado de Pago */}
               <div className="space-y-2 pt-2">
-                <label className="text-xs font-bold uppercase tracking-wider text-slate-400 block">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-400 block">
                   Estado Financiero de la Factura *
-                </label>
+                </span>
                 <div className="grid grid-cols-2 gap-3">
                   <button
                     type="button"
@@ -609,9 +609,9 @@ export default function NuevaCompraPage() {
 
               {/* Selector de Recepción de Stock */}
               <div className="space-y-2 pt-1">
-                <label className="text-xs font-bold uppercase tracking-wider text-slate-400 block">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-400 block">
                   Recepción de Mercadería *
-                </label>
+                </span>
                 <div className="grid grid-cols-2 gap-3">
                   <button
                     type="button"
@@ -641,13 +641,13 @@ export default function NuevaCompraPage() {
               {/* Selector de Cuenta de Tesorería (Obligatorio si es Contado) */}
               {paymentStatus === 'paid' && (
                 <div className="space-y-1.5 pt-2 animate-in fade-in duration-200">
-                  <label className="text-xs font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
+                  <label htmlFor="page-f3" className="text-xs font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
                     <Landmark className="h-3.5 w-3.5" /> Cuenta de Tesorería a Debitar *
                   </label>
-                  <select
+                  <select id="page-f3"
                     value={treasuryAccountId}
                     onChange={(e) => setTreasuryAccountId(e.target.value)}
-                    className="w-full h-10 px-3 text-xs font-semibold rounded-lg border border-emerald-500/40 bg-emerald-500/5 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    className="w-full h-10 px-3 text-xs font-semibold rounded-lg border border-emerald-500/40 bg-emerald-500/5 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   >
                     <option value="">Selecciona caja / banco...</option>
                     {treasuryAccounts.map((acc) => (
@@ -666,10 +666,10 @@ export default function NuevaCompraPage() {
               {/* Campo opcional de Fecha de Vencimiento */}
               {paymentStatus === 'unpaid' && (
                 <div className="space-y-1 pt-2 animate-in fade-in duration-200">
-                  <label className="text-xs font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 block">
+                  <label htmlFor="page-f4" className="text-xs font-bold uppercase tracking-wider text-amber-400 block">
                     Fecha de Vencimiento de Deuda (Opcional)
                   </label>
-                  <Input
+                  <Input id="page-f4"
                     type="date"
                     value={dueDate}
                     onChange={(e) => setDueDate(e.target.value)}
@@ -683,7 +683,7 @@ export default function NuevaCompraPage() {
 
             </CardContent>
 
-            <CardFooter className="border-t border-slate-100 dark:border-zinc-900 pt-4 flex justify-end gap-3 bg-slate-50/50 dark:bg-erp-surface/20 px-6 py-4">
+            <CardFooter className="border-t border-zinc-900 pt-4 flex justify-end gap-3 bg-erp-surface/20 px-6 py-4">
               <Button
                 type="button"
                 variant="outline"

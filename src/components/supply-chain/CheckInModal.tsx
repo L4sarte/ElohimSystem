@@ -204,16 +204,16 @@ export function CheckInModal({ order, isOpen, onClose }: CheckInModalProps) {
     <Modal isOpen={isOpen} onClose={onClose} maxWidth="max-w-3xl" className="overflow-hidden">
         
         {/* CABECERA DEL MODAL */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 dark:border-erp-border bg-slate-50/50 dark:bg-erp-bg/50">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-erp-border bg-erp-bg/50">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+            <div className="p-2.5 rounded-lg bg-emerald-500/10 text-emerald-400">
               <PackageCheck className="h-6 w-6" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <h2 className="text-lg font-bold text-white flex items-center gap-2">
                 Check-in de Recepción de Mercadería
               </h2>
-              <span className="text-xs text-slate-500 dark:text-zinc-400 font-mono">
+              <span className="text-xs text-zinc-400 font-mono">
                 Orden #{order.id.slice(0, 8).toUpperCase()} - Proveedor: {order.supplier?.name}
               </span>
             </div>
@@ -231,36 +231,36 @@ export function CheckInModal({ order, isOpen, onClose }: CheckInModalProps) {
         {/* CUERPO DEL MODAL */}
         <div className="p-6 space-y-5 max-h-[70dvh] overflow-y-auto">
           {(errorMsg || storeError) && (
-            <div className="p-3.5 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold flex items-center gap-2 dark:bg-rose-950/30 dark:border-rose-900/40 dark:text-rose-400">
+            <div className="p-3.5 rounded-lg border border-rose-200 text-rose-700 text-xs font-semibold flex items-center gap-2 bg-rose-950/30 dark:border-rose-900/40 dark:text-rose-400">
               <AlertTriangle className="h-4 w-4 shrink-0" />
               <span>{errorMsg || storeError}</span>
             </div>
           )}
 
           {successMsg && (
-            <div className="p-3.5 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-semibold flex items-center gap-2 dark:bg-emerald-950/30 dark:border-emerald-900/40 dark:text-emerald-400">
+            <div className="p-3.5 rounded-lg border border-emerald-200 text-emerald-700 text-xs font-semibold flex items-center gap-2 bg-emerald-950/30 dark:border-emerald-900/40 dark:text-emerald-400">
               <CheckCircle className="h-4 w-4 shrink-0" />
               <span>{successMsg}</span>
             </div>
           )}
 
-          <div className="p-3 rounded-lg bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900/30 text-xs text-indigo-900 dark:text-indigo-300">
+          <div className="p-3 rounded-lg bg-indigo-950/20 border border-indigo-900/30 text-xs text-indigo-300">
             <span className="font-bold block mb-1">Instrucciones de Verificación:</span>
             Confirme o edite la cantidad recibida en caso de faltantes o roturas en el envío. El sistema recalculará automáticamente el costo medio ponderado sumando el prorrateo de los gastos logísticos (${totalExpenses.toLocaleString('es-AR')}).
           </div>
 
           {/* TABLA DE PRODUCTOS ESPERADOS VS RECIBIDOS */}
-          <div className="border border-slate-200 dark:border-erp-border rounded-lg overflow-hidden">
+          <div className="border border-erp-border rounded-lg overflow-hidden">
             <table className="w-full text-left border-collapse text-xs">
               <thead>
-                <tr className="bg-slate-100 dark:bg-erp-bg text-slate-500 uppercase font-bold border-b border-slate-200 dark:border-erp-border">
+                <tr className="bg-erp-bg text-slate-500 uppercase font-bold border-b border-erp-border">
                   <th className="p-3 pl-4">Producto / Perfume</th>
                   <th className="p-3 text-center">Cant. Esperada</th>
                   <th className="p-3 text-center">Cant. Recibida (Real)</th>
                   <th className="p-3 text-right">Costo Landed Est.</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-erp-border">
+              <tbody className="divide-y divide-erp-border">
                 {order.items?.map((item) => {
                   const currentReceived = receivedItems.find(i => i.item_id === item.id)?.received_quantity ?? Number(item.expected_quantity);
                   const isDifference = currentReceived !== Number(item.expected_quantity);
@@ -270,22 +270,22 @@ export function CheckInModal({ order, isOpen, onClose }: CheckInModalProps) {
                     <tr 
                       key={item.id} 
                       className={`hover:bg-slate-50/50 dark:hover:bg-erp-bg/30 ${
-                        isDifference ? 'bg-amber-50/30 dark:bg-amber-950/10' : ''
+                        isDifference ? 'bg-amber-950/10' : ''
                       }`}
                     >
-                      <td className="p-3 pl-4 font-medium text-slate-900 dark:text-white">
-                        <div className="font-bold text-indigo-600 dark:text-indigo-400">
+                      <td className="p-3 pl-4 font-medium text-white">
+                        <div className="font-bold text-indigo-400">
                           {item.product?.brand || 'Marca'}
                         </div>
                         {item.product?.name || 'Producto N/A'}
                         {isDifference && (
-                          <span className="block text-[11px] text-amber-600 dark:text-amber-400 font-semibold mt-0.5">
+                          <span className="block text-[11px] text-amber-400 font-semibold mt-0.5">
                             ⚠️ Diferencia detectada (Faltante / Rotura)
                           </span>
                         )}
                       </td>
 
-                      <td className="p-3 text-center font-bold text-slate-600 dark:text-zinc-400">
+                      <td className="p-3 text-center font-bold text-zinc-400">
                         {item.expected_quantity} ud
                       </td>
 
@@ -305,7 +305,7 @@ export function CheckInModal({ order, isOpen, onClose }: CheckInModalProps) {
                         />
                       </td>
 
-                      <td className="p-3 text-right font-mono font-bold text-emerald-600 dark:text-emerald-400">
+                      <td className="p-3 text-right font-mono font-bold text-emerald-400">
                         ${landedUnitCost.toLocaleString('es-AR', { minimumFractionDigits: 2 })}/u
                         <span className="block text-xs text-slate-400 font-normal">
                           (${Number(item.unit_cost).toLocaleString('es-AR')} + ${expensePerUnit.toFixed(2)} flete)
@@ -320,29 +320,29 @@ export function CheckInModal({ order, isOpen, onClose }: CheckInModalProps) {
 
           {/* RESUMEN DE PRORRATEO Y STOCK */}
           <div className="grid grid-cols-2 gap-4 text-xs">
-            <div className="p-3 rounded-lg bg-slate-50 dark:bg-erp-bg border border-slate-200 dark:border-erp-border">
+            <div className="p-3 rounded-lg bg-erp-bg border border-erp-border">
               <span className="text-[11px] font-bold uppercase text-slate-400 block">Total Unidades Recibidas</span>
-              <span className="text-base font-black text-slate-900 dark:text-white font-mono mt-0.5 block">
+              <span className="text-base font-black text-white font-mono mt-0.5 block">
                 {totalUnitsReceived} unidades
               </span>
             </div>
 
-            <div className="p-3 rounded-lg bg-slate-50 dark:bg-erp-bg border border-slate-200 dark:border-erp-border">
+            <div className="p-3 rounded-lg bg-erp-bg border border-erp-border">
               <span className="text-[11px] font-bold uppercase text-slate-400 block">Gastos Prorrateados / Unidad</span>
-              <span className="text-base font-black text-amber-600 dark:text-amber-400 font-mono mt-0.5 block">
+              <span className="text-base font-black text-amber-400 font-mono mt-0.5 block">
                 +${expensePerUnit.toLocaleString('es-AR', { minimumFractionDigits: 2 })} / unidad
               </span>
             </div>
           </div>
 
           {/* CONDICIÓN FINANCIERA & IMPUTACIÓN DE PAGO EN TESORERÍA */}
-          <div className="p-4 rounded-xl border border-slate-200 dark:border-erp-border bg-slate-50/70 dark:bg-erp-bg/80 space-y-3">
+          <div className="p-4 rounded-xl border border-erp-border bg-erp-bg/80 space-y-3">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-zinc-200 flex items-center gap-1.5">
+              <span className="text-xs font-bold uppercase tracking-wider text-zinc-200 flex items-center gap-1.5">
                 <Wallet className="h-4 w-4 text-erp-gold" />
                 Condición Financiera & Pago a Proveedor
               </span>
-              <span className="text-xs font-mono font-black text-emerald-600 dark:text-emerald-400">
+              <span className="text-xs font-mono font-black text-emerald-400">
                 Total a liquidar: ${grandTotalEstimated.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
               </span>
             </div>
@@ -350,10 +350,10 @@ export function CheckInModal({ order, isOpen, onClose }: CheckInModalProps) {
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               {/* Opción A: Pagado al Contado / Inmediato */}
               <label 
-                className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
+                className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition ${
                   paymentType === 'immediate'
-                    ? 'border-emerald-500 bg-emerald-500/10 text-slate-900 dark:text-white shadow-sm'
-                    : 'border-slate-200 dark:border-erp-border hover:bg-slate-100 dark:hover:bg-erp-surface text-slate-600 dark:text-zinc-400'
+                    ? 'border-emerald-500 bg-emerald-500/10 text-white shadow-sm'
+                    : 'border-erp-border hover:bg-slate-100 dark:hover:bg-erp-surface text-zinc-400'
                 }`}
               >
                 <input
@@ -365,10 +365,10 @@ export function CheckInModal({ order, isOpen, onClose }: CheckInModalProps) {
                   className="mt-0.5 accent-emerald-500"
                 />
                 <div className="text-xs">
-                  <span className="font-bold block text-emerald-700 dark:text-emerald-400">
+                  <span className="font-bold block text-emerald-400">
                     Pagado al Contado / Inmediato
                   </span>
-                  <span className="text-[11px] text-slate-500 dark:text-zinc-400 block mt-0.5 leading-snug">
+                  <span className="text-[11px] text-zinc-400 block mt-0.5 leading-snug">
                     Descuenta los fondos automáticamente de la cuenta de tesorería hoy.
                   </span>
                 </div>
@@ -376,10 +376,10 @@ export function CheckInModal({ order, isOpen, onClose }: CheckInModalProps) {
 
               {/* Opción B: Pendiente de Pago (CxP) */}
               <label 
-                className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
+                className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition ${
                   paymentType === 'cxp'
-                    ? 'border-amber-500 bg-amber-500/10 text-slate-900 dark:text-white shadow-sm'
-                    : 'border-slate-200 dark:border-erp-border hover:bg-slate-100 dark:hover:bg-erp-surface text-slate-600 dark:text-zinc-400'
+                    ? 'border-amber-500 bg-amber-500/10 text-white shadow-sm'
+                    : 'border-erp-border hover:bg-slate-100 dark:hover:bg-erp-surface text-zinc-400'
                 }`}
               >
                 <input
@@ -391,10 +391,10 @@ export function CheckInModal({ order, isOpen, onClose }: CheckInModalProps) {
                   className="mt-0.5 accent-amber-500"
                 />
                 <div className="text-xs">
-                  <span className="font-bold block text-amber-700 dark:text-amber-400">
+                  <span className="font-bold block text-amber-400">
                     Pendiente de Pago (CxP)
                   </span>
-                  <span className="text-[11px] text-slate-500 dark:text-zinc-400 block mt-0.5 leading-snug">
+                  <span className="text-[11px] text-zinc-400 block mt-0.5 leading-snug">
                     Registra la orden como deuda exigible sin debitar tesorería hoy.
                   </span>
                 </div>
@@ -402,10 +402,10 @@ export function CheckInModal({ order, isOpen, onClose }: CheckInModalProps) {
 
               {/* Opción C: Ya pagado previamente / Pago adelantado */}
               <label 
-                className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
+                className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition ${
                   paymentType === 'already_paid'
-                    ? 'border-sky-500 bg-sky-500/10 text-slate-900 dark:text-white shadow-sm'
-                    : 'border-slate-200 dark:border-erp-border hover:bg-slate-100 dark:hover:bg-erp-surface text-slate-600 dark:text-zinc-400'
+                    ? 'border-sky-500 bg-sky-500/10 text-white shadow-sm'
+                    : 'border-erp-border hover:bg-slate-100 dark:hover:bg-erp-surface text-zinc-400'
                 }`}
               >
                 <input
@@ -417,10 +417,10 @@ export function CheckInModal({ order, isOpen, onClose }: CheckInModalProps) {
                   className="mt-0.5 accent-sky-500"
                 />
                 <div className="text-xs">
-                  <span className="font-bold block text-sky-700 dark:text-sky-400">
+                  <span className="font-bold block text-sky-400">
                     Ya pagado previamente / Pago adelantado
                   </span>
-                  <span className="text-[11px] text-slate-500 dark:text-zinc-400 block mt-0.5 leading-snug">
+                  <span className="text-[11px] text-zinc-400 block mt-0.5 leading-snug">
                     El pago ya fue liquidado con anterioridad o por un canal externo. No debita dinero de Tesorería ni genera deuda pendiente en CXP.
                   </span>
                 </div>
@@ -429,8 +429,8 @@ export function CheckInModal({ order, isOpen, onClose }: CheckInModalProps) {
 
             {/* Aviso informativo cuando se selecciona Ya Pagado Previamente */}
             {paymentType === 'already_paid' && (
-              <div className="p-3 rounded-lg bg-sky-50 dark:bg-sky-950/20 border border-sky-200 dark:border-sky-900/40 text-xs text-sky-800 dark:text-sky-300 flex items-center gap-2">
-                <CheckCircle className="h-4 w-4 shrink-0 text-sky-600 dark:text-sky-400" />
+              <div className="p-3 rounded-lg bg-sky-950/20 border border-sky-900/40 text-xs text-sky-300 flex items-center gap-2">
+                <CheckCircle className="h-4 w-4 shrink-0 text-sky-400" />
                 <span>
                   El stock físico y los costos ponderados se actualizarán normalmente. La orden quedará marcada como recibida y completada sin registrar movimientos en Tesorería ni pasivos en CXP.
                 </span>
@@ -441,7 +441,7 @@ export function CheckInModal({ order, isOpen, onClose }: CheckInModalProps) {
             {paymentType === 'immediate' && (
               <div className="space-y-1.5 pt-1">
                 <div className="flex items-center justify-between">
-                  <label className="text-[11px] font-bold text-slate-600 dark:text-zinc-400 uppercase">
+                  <label htmlFor="checkin-cuenta-origen" className="text-[11px] font-bold text-zinc-400 uppercase">
                     Cuenta Financiera de Tesorería (Origen del Egreso) *
                   </label>
                   {loadingAccounts && (
@@ -452,9 +452,10 @@ export function CheckInModal({ order, isOpen, onClose }: CheckInModalProps) {
                 </div>
 
                 <select
+                  id="checkin-cuenta-origen"
                   value={selectedTreasuryAccountId}
                   onChange={(e) => setSelectedTreasuryAccountId(e.target.value)}
-                  className="w-full h-10 rounded-lg border border-slate-300 dark:border-erp-border bg-white dark:bg-erp-bg px-3 text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-emerald-500 font-medium"
+                  className="w-full h-10 rounded-lg border border-erp-border bg-erp-bg px-3 text-xs text-white focus:ring-2 focus:ring-emerald-500 font-medium"
                 >
                   {treasuryAccounts.length === 0 ? (
                     <option value="">-- No hay cuentas de tesorería activas --</option>
@@ -475,16 +476,16 @@ export function CheckInModal({ order, isOpen, onClose }: CheckInModalProps) {
             {/* Selector de Fecha de Vencimiento para CxP */}
             {paymentType === 'cxp' && (
               <div className="space-y-1.5 pt-1">
-                <label className="text-[11px] font-bold text-slate-600 dark:text-zinc-400 uppercase flex items-center gap-1">
+                <label htmlFor="checkinmodal-f1" className="text-[11px] font-bold text-zinc-400 uppercase flex items-center gap-1">
                   <Calendar className="h-3.5 w-3.5 text-amber-500" /> Fecha Límite de Pago a Proveedor (Vencimiento CxP)
                 </label>
-                <input
+                <input id="checkinmodal-f1"
                   type="date"
                   value={dueDate}
                   onChange={(e) => setDueDate(e.target.value)}
-                  className="w-full h-10 rounded-lg border border-slate-300 dark:border-erp-border bg-white dark:bg-erp-bg px-3 text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-amber-500 font-mono font-bold"
+                  className="w-full h-10 rounded-lg border border-erp-border bg-erp-bg px-3 text-xs text-white focus:ring-2 focus:ring-amber-500 font-mono font-bold"
                 />
-                <p className="text-[11px] text-amber-600/90 dark:text-amber-400/90 leading-snug">
+                <p className="text-[11px] text-amber-400/90 leading-snug">
                   • La orden figurará en la pestaña "Cuentas por Pagar" con botón de liquidación posterior.
                 </p>
               </div>
@@ -493,7 +494,7 @@ export function CheckInModal({ order, isOpen, onClose }: CheckInModalProps) {
         </div>
 
         {/* PIE DE PÁGINA Y BOTÓN DE CONFIRMACIÓN DE INGRESO */}
-        <div className="flex items-center justify-between px-6 py-4 border-t border-slate-100 dark:border-erp-border bg-slate-50/50 dark:bg-erp-bg/50">
+        <div className="flex items-center justify-between px-6 py-4 border-t border-erp-border bg-erp-bg/50">
           <Button
             variant="outline"
             onClick={onClose}

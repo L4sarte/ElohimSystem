@@ -204,7 +204,7 @@ export default function ClientesPage() {
     <div className="flex flex-col min-h-screen bg-erp-bg text-zinc-50 transition-colors duration-300">
       
       {/* NAVBAR GLASSMORPHISM */}
-      <header className="sticky top-0 z-40 w-full border-b border-erp-border bg-erp-bg/80 backdrop-blur-md">
+      <header className="sticky top-0 z-40 w-full border-b border-erp-border bg-erp-bg/95">
         <div className="container mx-auto flex h-16 items-center justify-between px-4 sm:px-6 max-w-6xl">
           <div className="flex items-center gap-4">
             <Link 
@@ -322,18 +322,18 @@ export default function ClientesPage() {
                       <td className="p-4 space-y-1">
                         {client.phone && (
                           <div className="flex items-center gap-1.5 text-xs text-zinc-300 font-mono">
-                            <Phone className="h-3 w-3 text-zinc-500" />
+                            <Phone className="h-3 w-3 text-zinc-400" />
                             <span>{client.phone}</span>
                           </div>
                         )}
                         {client.email && (
                           <div className="flex items-center gap-1.5 text-xs text-zinc-300">
-                            <Mail className="h-3 w-3 text-zinc-500" />
+                            <Mail className="h-3 w-3 text-zinc-400" />
                             <span>{client.email}</span>
                           </div>
                         )}
                         {!client.phone && !client.email && (
-                          <span className="text-xs text-zinc-500 italic">Sin datos de contacto</span>
+                          <span className="text-xs text-zinc-400 italic">Sin datos de contacto</span>
                         )}
                       </td>
 
@@ -350,7 +350,7 @@ export default function ClientesPage() {
                               </span>
                             ))
                           ) : (
-                            <span className="text-xs text-zinc-500 italic">Sin notas asignadas</span>
+                            <span className="text-xs text-zinc-400 italic">Sin notas asignadas</span>
                           )}
                         </div>
                       </td>
@@ -405,7 +405,7 @@ export default function ClientesPage() {
       {/* MODAL DE EDICIÓN / CREACIÓN DE CLIENTE */}
       {isFormOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="w-full max-w-md bg-erp-bg border border-erp-border rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+          <div className="w-full max-w-md bg-erp-bg border border-erp-border rounded-2xl shadow-xl overflow-hidden animate-in zoom-in-95 duration-200">
             <form onSubmit={handleSubmitForm}>
               <CardHeader className="border-b border-erp-border pb-4">
                 <div className="flex items-center justify-between">
@@ -429,8 +429,8 @@ export default function ClientesPage() {
               <CardContent className="space-y-4 p-6">
                 
                 <div className="space-y-1">
-                  <label className="text-xs font-bold uppercase tracking-wider text-zinc-400">Nombre Completo *</label>
-                  <Input
+                  <label htmlFor="page-f1" className="text-xs font-bold uppercase tracking-wider text-zinc-400">Nombre Completo *</label>
+                  <Input id="page-f1"
                     required
                     placeholder="Ej. Juan Pérez"
                     value={formName}
@@ -442,8 +442,8 @@ export default function ClientesPage() {
 
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
-                    <label className="text-xs font-bold uppercase tracking-wider text-zinc-400">Teléfono</label>
-                    <Input
+                    <label htmlFor="page-f2" className="text-xs font-bold uppercase tracking-wider text-zinc-400">Teléfono</label>
+                    <Input id="page-f2"
                       placeholder="+54 9..."
                       value={formPhone}
                       onChange={(e) => setFormPhone(e.target.value)}
@@ -452,8 +452,8 @@ export default function ClientesPage() {
                     />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-xs font-bold uppercase tracking-wider text-zinc-400">Email</label>
-                    <Input
+                    <label htmlFor="page-f3" className="text-xs font-bold uppercase tracking-wider text-zinc-400">Email</label>
+                    <Input id="page-f3"
                       type="email"
                       placeholder="perez@mail.com"
                       value={formEmail}
@@ -466,9 +466,9 @@ export default function ClientesPage() {
 
                 {/* Perfil Olfativo Grid */}
                 <div className="space-y-2 pt-2">
-                  <label className="text-xs font-bold uppercase tracking-wider text-erp-gold block">
+                  <span className="text-xs font-bold uppercase tracking-wider text-erp-gold block">
                     Notas & Familias Olfativas Preferidas
-                  </label>
+                  </span>
                   <div className="grid grid-cols-3 gap-2 bg-erp-surface/60 border border-erp-border rounded-xl p-3 max-h-48 overflow-y-auto">
                     {AVAILABLE_NOTES.map(note => {
                       const selected = formNotes.includes(note);
@@ -478,7 +478,7 @@ export default function ClientesPage() {
                           type="button"
                           disabled={submitting}
                           onClick={() => handleToggleNote(note)}
-                          className={`flex items-center justify-between text-xs px-2.5 py-1.5 rounded-lg border transition-all cursor-pointer text-left disabled:opacity-50 ${
+                          className={`flex items-center justify-between text-xs px-2.5 py-1.5 rounded-lg border transition cursor-pointer text-left disabled:opacity-50 ${
                             selected
                               ? 'bg-erp-gold text-erp-bg border-violet-500 text-white font-bold shadow-sm shadow-violet-600/30'
                               : 'bg-erp-bg border-erp-border text-zinc-400 hover:border-erp-border hover:text-white'
@@ -526,7 +526,7 @@ export default function ClientesPage() {
       {/* PANEL LATERAL (SHEET): HISTORIAL Y MATCH OLFATIVO */}
       {isHistoryOpen && historyClient && (
         <div className="fixed inset-0 z-50 flex items-center justify-end p-0 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="w-full max-w-lg h-full bg-erp-bg border-l border-erp-border shadow-2xl flex flex-col justify-between animate-in slide-in-from-right duration-250">
+          <div className="w-full max-w-lg h-full bg-erp-bg border-l border-erp-border shadow-xl flex flex-col justify-between animate-in slide-in-from-right duration-250">
             
             {/* Header del Sheet con Pestañas */}
             <div className="border-b border-erp-border p-6 space-y-4">
@@ -549,7 +549,7 @@ export default function ClientesPage() {
               <div className="grid grid-cols-2 gap-2 bg-erp-surface/90 p-1 rounded-xl border border-erp-border">
                 <button
                   onClick={() => setActiveTab('purchases')}
-                  className={`flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  className={`flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-bold transition cursor-pointer ${
                     activeTab === 'purchases'
                       ? 'bg-zinc-800 text-white shadow-sm'
                       : 'text-zinc-400 hover:text-zinc-200'
@@ -561,7 +561,7 @@ export default function ClientesPage() {
 
                 <button
                   onClick={() => setActiveTab('match')}
-                  className={`flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  className={`flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-bold transition cursor-pointer ${
                     activeTab === 'match'
                       ? 'bg-erp-gold text-erp-bg text-white shadow-md shadow-violet-600/30'
                       : 'text-zinc-400 hover:text-erp-gold-hover'
@@ -585,7 +585,7 @@ export default function ClientesPage() {
                       <span className="text-xs text-zinc-400">Cargando compras...</span>
                     </div>
                   ) : purchaseHistory.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center h-48 gap-2 text-center text-zinc-500">
+                    <div className="flex flex-col items-center justify-center h-48 gap-2 text-center text-zinc-400">
                       <ShoppingBag className="h-8 w-8 opacity-45 text-zinc-600" />
                       <span className="text-xs">No registra compras en este ERP.</span>
                     </div>
@@ -600,7 +600,7 @@ export default function ClientesPage() {
                             <div className="font-bold text-zinc-200">
                               Venta #{sale.id.split('-')[0].toUpperCase()}
                             </div>
-                            <div className="text-[11px] text-zinc-500 font-mono mt-0.5">
+                            <div className="text-[11px] text-zinc-400 font-mono mt-0.5">
                               {new Date(sale.created_at).toLocaleString('es-AR')}
                             </div>
                           </div>
@@ -609,7 +609,7 @@ export default function ClientesPage() {
                             <div className="font-black text-emerald-400 font-mono">
                               ${Number(sale.total_ars).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
                             </div>
-                            <div className="text-xs text-zinc-500 font-mono">
+                            <div className="text-xs text-zinc-400 font-mono">
                               u$s {Number(sale.total_usd_equivalent).toFixed(2)}
                             </div>
                           </div>
@@ -659,7 +659,7 @@ export default function ClientesPage() {
                           </span>
                         ))
                       ) : (
-                        <span className="text-zinc-500 italic text-[11px]">No se cargaron preferencias. Edita el cliente para seleccionarlas.</span>
+                        <span className="text-zinc-400 italic text-[11px]">No se cargaron preferencias. Edita el cliente para seleccionarlas.</span>
                       )}
                     </div>
                   </div>
@@ -670,10 +670,10 @@ export default function ClientesPage() {
                       <span className="text-xs font-semibold text-zinc-400">Analizando coincidencia olfativa de inventario...</span>
                     </div>
                   ) : matches.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-16 text-center text-zinc-500 gap-2 border border-erp-border rounded-2xl bg-erp-surface/40 p-4">
+                    <div className="flex flex-col items-center justify-center py-16 text-center text-zinc-400 gap-2 border border-erp-border rounded-2xl bg-erp-surface/40 p-4">
                       <AlertCircle className="h-8 w-8 text-zinc-600" />
                       <span className="text-xs font-bold text-zinc-300">Sin coincidencias exactas en stock</span>
-                      <span className="text-[11px] text-zinc-500">No hay productos en stock con las notas preferidas o sin disponibilidad actual.</span>
+                      <span className="text-[11px] text-zinc-400">No hay productos en stock con las notas preferidas o sin disponibilidad actual.</span>
                     </div>
                   ) : (
                     <div className="space-y-3.5">
@@ -685,7 +685,7 @@ export default function ClientesPage() {
                       {matches.map((m, idx) => (
                         <div 
                           key={m.product.id}
-                          className="p-4 rounded-2xl border border-erp-border bg-erp-surface/90 shadow-xl space-y-3 transition-all hover:border-erp-gold/40"
+                          className="p-4 rounded-2xl border border-erp-border bg-erp-surface/90 shadow-xl space-y-3 transition hover:border-erp-gold/40"
                         >
                           <div className="flex items-start justify-between">
                             <div>
@@ -715,7 +715,7 @@ export default function ClientesPage() {
                               <div className="text-xs font-black text-white">
                                 ${m.product.base_price_ars.toLocaleString('es-AR')}
                               </div>
-                              <div className="text-xs text-zinc-500">
+                              <div className="text-xs text-zinc-400">
                                 Stock: {m.product.stock_quantity} {m.isDecantLiquid ? 'ml' : 'uds'}
                               </div>
                             </div>
@@ -724,7 +724,7 @@ export default function ClientesPage() {
                           {/* Notas Olfativas con coincidencias destacadas */}
                           {m.allNotes && m.allNotes.length > 0 && (
                             <div className="space-y-1">
-                              <span className="text-xs font-extrabold uppercase text-zinc-500 tracking-wider">Notas Aromáticas:</span>
+                              <span className="text-xs font-extrabold uppercase text-zinc-400 tracking-wider">Notas Aromáticas:</span>
                               <div className="flex flex-wrap gap-1">
                                 {m.allNotes.map(n => {
                                   const isMatch = m.matchingNotes.some(mn => mn.toLowerCase() === n.toLowerCase());
@@ -748,7 +748,7 @@ export default function ClientesPage() {
                           {/* BOTÓN LLEVAR AL POS */}
                           <Button
                             onClick={() => handleSendToPos(m.product)}
-                            className="w-full bg-erp-gold hover:bg-erp-gold-hover text-erp-bg font-extrabold shadow-md shadow-erp-gold/20 text-white font-bold text-xs h-9 cursor-pointer shadow-md shadow-violet-600/25 transition-all hover:scale-[1.02] flex items-center justify-center gap-2"
+                            className="w-full bg-erp-gold hover:bg-erp-gold-hover text-erp-bg font-extrabold shadow-md shadow-erp-gold/20 text-white font-bold text-xs h-9 cursor-pointer shadow-md shadow-violet-600/25 transition hover:scale-[1.02] flex items-center justify-center gap-2"
                           >
                             <ShoppingCart className="h-3.5 w-3.5" />
                             Llevar al POS para Cobrar <ArrowRight className="h-3.5 w-3.5" />

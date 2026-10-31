@@ -195,10 +195,10 @@ export function StorefrontCheckoutClient({ settings = DEFAULT_SYSTEM_SETTINGS, e
                   <CardContent className="p-5 space-y-4">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div className="space-y-1.5">
-                        <label className="text-xs font-bold text-zinc-300">
+                        <label htmlFor="storefrontcheckoutclient-f1" className="text-xs font-bold text-zinc-300">
                           Nombre y Apellido *
                         </label>
-                        <Input
+                        <Input id="storefrontcheckoutclient-f1"
                           required
                           placeholder="Ej. Juan Pérez"
                           value={clientName}
@@ -208,10 +208,10 @@ export function StorefrontCheckoutClient({ settings = DEFAULT_SYSTEM_SETTINGS, e
                       </div>
 
                       <div className="space-y-1.5">
-                        <label className="text-xs font-bold text-zinc-300">
+                        <label htmlFor="storefrontcheckoutclient-f2" className="text-xs font-bold text-zinc-300">
                           WhatsApp / Teléfono *
                         </label>
-                        <Input
+                        <Input id="storefrontcheckoutclient-f2"
                           required
                           placeholder="Ej. +54 9 11 2345-6789"
                           value={clientPhone}
@@ -221,10 +221,10 @@ export function StorefrontCheckoutClient({ settings = DEFAULT_SYSTEM_SETTINGS, e
                       </div>
 
                       <div className="space-y-1.5">
-                        <label className="text-xs font-bold text-zinc-300">
+                        <label htmlFor="storefrontcheckoutclient-f3" className="text-xs font-bold text-zinc-300">
                           Correo Electrónico (Opcional)
                         </label>
-                        <Input
+                        <Input id="storefrontcheckoutclient-f3"
                           type="email"
                           placeholder="juan@ejemplo.com"
                           value={clientEmail}
@@ -234,10 +234,10 @@ export function StorefrontCheckoutClient({ settings = DEFAULT_SYSTEM_SETTINGS, e
                       </div>
 
                       <div className="space-y-1.5">
-                        <label className="text-xs font-bold text-zinc-300">
+                        <label htmlFor="storefrontcheckoutclient-f4" className="text-xs font-bold text-zinc-300">
                           DNI o CUIT (Opcional)
                         </label>
-                        <Input
+                        <Input id="storefrontcheckoutclient-f4"
                           placeholder="Ej. 38450123"
                           value={clientDni}
                           onChange={(e) => setClientDni(e.target.value)}
@@ -267,7 +267,7 @@ export function StorefrontCheckoutClient({ settings = DEFAULT_SYSTEM_SETTINGS, e
                       <button
                         type="button"
                         onClick={() => setDeliveryMethod('shipping')}
-                        className={`p-4 rounded-xl border text-left transition-all cursor-pointer ${
+                        className={`p-4 rounded-xl border text-left transition cursor-pointer ${
                           deliveryMethod === 'shipping'
                             ? 'bg-secondary border-erp-gold text-white shadow-md'
                             : 'bg-erp-bg border-erp-border text-zinc-400 hover:border-zinc-500'
@@ -288,7 +288,7 @@ export function StorefrontCheckoutClient({ settings = DEFAULT_SYSTEM_SETTINGS, e
                       <button
                         type="button"
                         onClick={() => setDeliveryMethod('pickup')}
-                        className={`p-4 rounded-xl border text-left transition-all cursor-pointer ${
+                        className={`p-4 rounded-xl border text-left transition cursor-pointer ${
                           deliveryMethod === 'pickup'
                             ? 'bg-secondary border-erp-gold text-white shadow-md'
                             : 'bg-erp-bg border-erp-border text-zinc-400 hover:border-zinc-500'
@@ -311,10 +311,10 @@ export function StorefrontCheckoutClient({ settings = DEFAULT_SYSTEM_SETTINGS, e
                     {deliveryMethod === 'shipping' ? (
                       <div className="pt-2 space-y-3">
                         <div className="space-y-1.5">
-                          <label className="text-xs font-bold text-zinc-300">
+                          <label htmlFor="storefrontcheckoutclient-f5" className="text-xs font-bold text-zinc-300">
                             Dirección de Entrega (Calle, Número, Piso/Depto) *
                           </label>
-                          <Input
+                          <Input id="storefrontcheckoutclient-f5"
                             required
                             placeholder="Ej. Av. Corrientes 1234, Piso 4 B"
                             value={shippingAddress}
@@ -324,10 +324,10 @@ export function StorefrontCheckoutClient({ settings = DEFAULT_SYSTEM_SETTINGS, e
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                           <div className="space-y-1.5 sm:col-span-2">
-                            <label className="text-xs font-bold text-zinc-300">
+                            <label htmlFor="storefrontcheckoutclient-f6" className="text-xs font-bold text-zinc-300">
                               Ciudad / Localidad *
                             </label>
-                            <Input
+                            <Input id="storefrontcheckoutclient-f6"
                               required={deliveryMethod === 'shipping'}
                               placeholder="Ej. Córdoba Capital / Rosario"
                               value={shippingCity}
@@ -336,10 +336,10 @@ export function StorefrontCheckoutClient({ settings = DEFAULT_SYSTEM_SETTINGS, e
                             />
                           </div>
                           <div className="space-y-1.5">
-                            <label className="text-xs font-bold text-zinc-300">
+                            <label htmlFor="storefrontcheckoutclient-f7" className="text-xs font-bold text-zinc-300">
                               Código Postal
                             </label>
-                            <Input
+                            <Input id="storefrontcheckoutclient-f7"
                               placeholder="Ej. 5000"
                               value={shippingPostalCode}
                               onChange={(e) => setShippingPostalCode(e.target.value)}
@@ -432,11 +432,11 @@ export function StorefrontCheckoutClient({ settings = DEFAULT_SYSTEM_SETTINGS, e
                     )}
 
                     <div className="space-y-1.5 pt-1">
-                      <label className="text-xs font-bold text-zinc-300 flex items-center gap-1.5">
+                      <label htmlFor="storefrontcheckoutclient-f8" className="text-xs font-bold text-zinc-300 flex items-center gap-1.5">
                         <FileText className="h-3.5 w-3.5 text-erp-gold" />
                         <span>Notas u Observaciones adicionales (Opcional):</span>
                       </label>
-                      <Input
+                      <Input id="storefrontcheckoutclient-f8"
                         placeholder="Ej. Horario de entrega preferido / Aclaraciones de packaging"
                         value={shippingNotes}
                         onChange={(e) => setShippingNotes(e.target.value)}
@@ -509,7 +509,7 @@ export function StorefrontCheckoutClient({ settings = DEFAULT_SYSTEM_SETTINGS, e
                     <Button
                       type="submit"
                       disabled={submitting || items.length === 0}
-                      className="w-full h-14 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white font-black text-sm uppercase tracking-wider cursor-pointer shadow-xl shadow-emerald-600/25 flex items-center justify-center gap-2 rounded-xl transition-all"
+                      className="w-full h-14 bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white font-black text-sm uppercase tracking-wider cursor-pointer shadow-xl shadow-emerald-600/25 flex items-center justify-center gap-2 rounded-xl transition"
                     >
                       {submitting ? (
                         <>

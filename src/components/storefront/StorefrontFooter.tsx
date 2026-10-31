@@ -92,7 +92,7 @@ export function StorefrontFooter({ settings = DEFAULT_SYSTEM_SETTINGS }: Storefr
           </p>
 
           {settings.cuit_tax_id && (
-            <div className="text-[11px] font-mono text-zinc-500">
+            <div className="text-[11px] font-mono text-zinc-400">
               CUIT: {settings.cuit_tax_id}
             </div>
           )}
@@ -164,7 +164,7 @@ export function StorefrontFooter({ settings = DEFAULT_SYSTEM_SETTINGS }: Storefr
 
       {/* COPYRIGHT & ERP BADGE */}
       <div className="border-t border-erp-border bg-erp-bg py-4 px-4 sm:px-6">
-        <div className="container mx-auto max-w-6xl flex flex-col sm:flex-row items-center justify-between gap-2 text-[11px] text-zinc-500 font-mono">
+        <div className="container mx-auto max-w-6xl flex flex-col sm:flex-row items-center justify-between gap-2 text-[11px] text-zinc-400 font-mono">
           <div>
             © {new Date().getFullYear()} {settings.company_name || settings.trade_name}. Todos los derechos reservados.
           </div>

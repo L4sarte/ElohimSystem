@@ -8,7 +8,6 @@ import {
   Sparkles, X, Download, Printer, Share2, Check, DollarSign, Tag, Droplet, Crown 
 } from 'lucide-react';
 import { toast } from 'sonner';
-import html2canvas from 'html2canvas';
 
 interface CatalogGeneratorModalProps {
   isOpen: boolean;
@@ -37,6 +36,8 @@ export function CatalogGeneratorModal({
     toast.info('Generando imagen de catálogo...');
 
     try {
+      // Carga diferida: html2canvas (~200KB) solo se descarga al exportar.
+      const html2canvas = (await import('html2canvas')).default;
       const canvas = await html2canvas(captureRef.current, {
         scale: 2,
         useCORS: true,
@@ -65,7 +66,7 @@ export function CatalogGeneratorModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/85 backdrop-blur-md animate-in fade-in duration-200 overflow-y-auto">
-      <div className="w-[95vw] sm:max-w-3xl bg-erp-surface border border-erp-border rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 my-auto">
+      <div className="w-[95vw] sm:max-w-3xl bg-erp-surface border border-erp-border rounded-2xl shadow-xl overflow-hidden animate-in zoom-in-95 duration-200 my-auto">
         
         {/* HEADER */}
         <CardHeader className="border-b border-erp-border pb-4">
@@ -89,7 +90,7 @@ export function CatalogGeneratorModal({
               <div className="flex rounded-lg bg-erp-bg border border-erp-border p-0.5">
                 <button
                   onClick={() => setThemeMode('luxury_dark')}
-                  className={`px-2.5 py-1 rounded-md text-[11px] font-bold cursor-pointer transition-all ${
+                  className={`px-2.5 py-1 rounded-md text-[11px] font-bold cursor-pointer transition ${
                     themeMode === 'luxury_dark' ? 'bg-erp-surface text-erp-gold border border-erp-gold/30' : 'text-zinc-400'
                   }`}
                 >
@@ -97,7 +98,7 @@ export function CatalogGeneratorModal({
                 </button>
                 <button
                   onClick={() => setThemeMode('minimal_light')}
-                  className={`px-2.5 py-1 rounded-md text-[11px] font-bold cursor-pointer transition-all ${
+                  className={`px-2.5 py-1 rounded-md text-[11px] font-bold cursor-pointer transition ${
                     themeMode === 'minimal_light' ? 'bg-white text-zinc-900 border border-zinc-300' : 'text-zinc-400'
                   }`}
                 >
@@ -111,7 +112,7 @@ export function CatalogGeneratorModal({
               <div className="flex rounded-lg bg-erp-bg border border-erp-border p-0.5">
                 <button
                   onClick={() => setCurrencyMode('ARS')}
-                  className={`px-2.5 py-1 rounded-md text-[11px] font-bold cursor-pointer transition-all ${
+                  className={`px-2.5 py-1 rounded-md text-[11px] font-bold cursor-pointer transition ${
                     currencyMode === 'ARS' ? 'bg-erp-gold text-erp-bg' : 'text-zinc-400'
                   }`}
                 >
@@ -119,7 +120,7 @@ export function CatalogGeneratorModal({
                 </button>
                 <button
                   onClick={() => setCurrencyMode('USD')}
-                  className={`px-2.5 py-1 rounded-md text-[11px] font-bold cursor-pointer transition-all ${
+                  className={`px-2.5 py-1 rounded-md text-[11px] font-bold cursor-pointer transition ${
                     currencyMode === 'USD' ? 'bg-erp-gold text-erp-bg' : 'text-zinc-400'
                   }`}
                 >
@@ -136,7 +137,7 @@ export function CatalogGeneratorModal({
           <div 
             ref={captureRef}
             id="catalog-capture-area"
-            className={`p-6 rounded-2xl shadow-2xl space-y-6 border transition-all ${
+            className={`p-6 rounded-2xl shadow-xl space-y-6 border transition ${
               themeMode === 'luxury_dark'
                 ? 'bg-erp-bg text-white border-erp-border'
                 : 'bg-white text-zinc-900 border-zinc-200'
@@ -180,7 +181,7 @@ export function CatalogGeneratorModal({
                 return (
                   <div 
                     key={prod.id} 
-                    className={`p-4 rounded-xl border flex flex-col justify-between space-y-3 transition-all ${
+                    className={`p-4 rounded-xl border flex flex-col justify-between space-y-3 transition ${
                       themeMode === 'luxury_dark'
                         ? 'bg-erp-surface/80 border-erp-border'
                         : 'bg-zinc-50 border-zinc-200'

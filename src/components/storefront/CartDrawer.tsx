@@ -132,7 +132,7 @@ export function CartDrawer() {
 
                   <button
                     onClick={() => removeItem(item.id)}
-                    className="text-[11px] text-zinc-500 hover:text-rose-400 flex items-center gap-1 transition-colors cursor-pointer"
+                    className="text-[11px] text-zinc-400 hover:text-rose-400 flex items-center gap-1 transition-colors cursor-pointer"
                     title="Eliminar producto"
                   >
                     <Trash2 className="h-3 w-3" />
@@ -179,7 +179,7 @@ export function CartDrawer() {
 
               <button
                 onClick={clearCart}
-                className="w-full text-center text-[11px] text-zinc-500 hover:text-zinc-300 py-1 transition-colors cursor-pointer"
+                className="w-full text-center text-[11px] text-zinc-400 hover:text-zinc-300 py-1 transition-colors cursor-pointer"
               >
                 Vaciar Carrito
               </button>

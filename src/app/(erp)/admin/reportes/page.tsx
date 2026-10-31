@@ -45,10 +45,10 @@ const COLORS = ['#e11d48', '#8b5cf6', '#3b82f6', '#10b981', '#f59e0b', '#64748b'
 const CustomBarTooltip = ({ active, payload, label }: { active?: boolean; payload?: Array<{ value?: number; name?: string; color?: string }>; label?: string }) => {
   if (active && payload && payload.length) {
     return (
-      <div className="bg-white/95 dark:bg-erp-bg/95 border border-slate-200 dark:border-erp-border p-3 rounded-xl shadow-2xl text-xs space-y-1.5 backdrop-blur-md min-w-[220px]">
-        <p className="font-serif font-bold text-slate-900 dark:text-erp-gold border-b border-slate-200 dark:border-erp-border pb-1">{label}</p>
+      <div className="bg-erp-bg/95 border border-erp-border p-3 rounded-xl shadow-xl text-xs space-y-1.5 min-w-[220px]">
+        <p className="font-serif font-bold text-erp-gold border-b border-erp-border pb-1">{label}</p>
         {payload.map((p, i) => (
-          <div key={i} className="flex items-center justify-between gap-4 text-slate-700 dark:text-zinc-300">
+          <div key={i} className="flex items-center justify-between gap-4 text-zinc-300">
             <span className="flex items-center gap-1.5">
               <span className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: p.color || 'var(--muted-foreground)' }}></span>
               {p.name}
@@ -66,8 +66,8 @@ const CustomPieTooltip = ({ active, payload }: { active?: boolean; payload?: Arr
   if (active && payload && payload.length && payload[0]?.payload) {
     const data = payload[0].payload;
     return (
-      <div className="bg-white/95 dark:bg-erp-bg/95 border border-slate-200 dark:border-erp-border p-3 rounded-xl shadow-2xl text-xs space-y-1 backdrop-blur-md font-mono">
-        <p className="font-serif font-bold text-slate-900 dark:text-white font-sans">{data.name}</p>
+      <div className="bg-erp-bg/95 border border-erp-border p-3 rounded-xl shadow-xl text-xs space-y-1 font-mono">
+        <p className="font-serif font-bold text-white font-sans">{data.name}</p>
         <p className="text-erp-gold font-bold">${Number(data.value || 0).toLocaleString('es-AR')} ARS</p>
       </div>
     );
@@ -260,8 +260,8 @@ export default function ReportesPage() {
   // Acceso restringido para vendedores
   if (role !== 'admin') {
     return (
-      <div className="flex flex-col min-h-screen bg-slate-50 text-slate-900 dark:bg-erp-bg dark:text-zinc-50 transition-colors duration-300">
-        <header className="sticky top-0 z-40 w-full border-b border-slate-200/80 bg-white/80 backdrop-blur-md dark:border-erp-border dark:bg-erp-bg/80">
+      <div className="flex flex-col min-h-screen bg-erp-bg text-zinc-50 transition-colors duration-300">
+        <header className="sticky top-0 z-40 w-full border-b border-slate-200/80 dark:border-erp-border bg-erp-bg/95">
           <div className="container mx-auto flex h-16 items-center justify-between px-4 sm:px-6 max-w-6xl">
             <Link 
               href="/"
@@ -275,12 +275,12 @@ export default function ReportesPage() {
         </header>
 
         <main className="flex-1 flex items-center justify-center p-4">
-          <Card className="w-full max-w-md border-rose-200 dark:border-rose-900/30 bg-rose-50/20 dark:bg-rose-950/5 shadow-lg">
+          <Card className="w-full max-w-md border-rose-900/30 bg-rose-950/5 shadow-lg">
             <CardHeader className="text-center pb-2">
-              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-rose-100 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 mb-4">
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-rose-500/10 text-rose-400 mb-4">
                 <ShieldAlert className="h-6 w-6" />
               </div>
-              <CardTitle className="text-lg font-bold text-rose-800 dark:text-rose-400">Acceso Restringido</CardTitle>
+              <CardTitle className="text-lg font-bold text-rose-400">Acceso Restringido</CardTitle>
               <CardDescription className="dark:text-rose-500/80">
                 La analítica financiera y el estado de resultados son exclusivos para administradores.
               </CardDescription>
@@ -299,7 +299,7 @@ export default function ReportesPage() {
   }
 
   return (
-    <div className="flex flex-col min-h-screen bg-slate-50 text-slate-900 dark:bg-erp-bg dark:text-zinc-50 transition-colors duration-300">
+    <div className="flex flex-col min-h-screen bg-erp-bg text-zinc-50 transition-colors duration-300">
       
       {/* ESTILOS GLOBALES DE IMPRESIÓN / EXPORTACIÓN NATIVA PDF */}
       <style>{`
@@ -340,7 +340,7 @@ export default function ReportesPage() {
       `}</style>
 
       {/* NAVBAR */}
-      <header className="sticky top-0 z-40 w-full border-b border-slate-200/80 bg-white/80 backdrop-blur-md dark:border-erp-border dark:bg-erp-bg/80 print:hidden">
+      <header className="sticky top-0 z-40 w-full border-b border-slate-200/80 dark:border-erp-border bg-erp-bg/95 print:hidden">
         <div className="container mx-auto flex h-16 items-center justify-between px-4 sm:px-6 max-w-6xl">
           <div className="flex items-center gap-4">
             <Link 
@@ -350,12 +350,12 @@ export default function ReportesPage() {
               <ArrowLeft className="h-4.5 w-4.5" />
               <span>Dashboard</span>
             </Link>
-            <span className="text-slate-300 dark:text-zinc-800">|</span>
+            <span className="text-zinc-800">|</span>
             <div className="flex items-center gap-2">
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-600 text-white shadow-md shadow-emerald-500/20">
                 <BarChart3 className="h-4.5 w-4.5" />
               </div>
-              <span className="text-sm font-bold tracking-tight text-slate-800 dark:text-zinc-100 uppercase">
+              <span className="text-sm font-bold tracking-tight text-zinc-100 uppercase">
                 Estado de Resultados y Rentabilidad
               </span>
             </div>
@@ -374,10 +374,10 @@ export default function ReportesPage() {
         {/* Cabecera y Filtros */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 print:hidden">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2">
+            <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
               Analítica Financiera y Flujo de Caja
             </h1>
-            <p className="text-sm text-slate-500 dark:text-zinc-400 mt-1">
+            <p className="text-sm text-zinc-400 mt-1">
               Estado de Resultados real deduciendo COGS, Comisiones Financieras y OPEX.
             </p>
           </div>
@@ -423,13 +423,13 @@ export default function ReportesPage() {
             </Button>
 
             {/* PRESETS DE RANGO DE FECHAS */}
-            <div className="flex items-center gap-1.5 bg-slate-200/70 dark:bg-erp-surface p-1 rounded-xl border border-slate-300/60 dark:border-erp-border text-xs font-bold">
+            <div className="flex items-center gap-1.5 bg-erp-surface p-1 rounded-xl border border-erp-border text-xs font-bold">
               <button
                 onClick={() => handlePresetChange('current_month')}
                 className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer ${
                   timeRange === 'current_month'
-                    ? 'bg-white dark:bg-zinc-800 text-slate-950 dark:text-white shadow-sm'
-                    : 'text-slate-600 dark:text-zinc-400 hover:text-slate-950'
+                    ? 'bg-zinc-800 text-white shadow-sm'
+                    : 'text-zinc-400 hover:text-slate-950'
                 }`}
               >
                 Mes Actual
@@ -438,8 +438,8 @@ export default function ReportesPage() {
                 onClick={() => handlePresetChange('previous_month')}
                 className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer ${
                   timeRange === 'previous_month'
-                    ? 'bg-white dark:bg-zinc-800 text-slate-950 dark:text-white shadow-sm'
-                    : 'text-slate-600 dark:text-zinc-400 hover:text-slate-950'
+                    ? 'bg-zinc-800 text-white shadow-sm'
+                    : 'text-zinc-400 hover:text-slate-950'
                 }`}
               >
                 Mes Anterior
@@ -448,8 +448,8 @@ export default function ReportesPage() {
                 onClick={() => handlePresetChange('last_30_days')}
                 className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer ${
                   timeRange === 'last_30_days'
-                    ? 'bg-white dark:bg-zinc-800 text-slate-950 dark:text-white shadow-sm'
-                    : 'text-slate-600 dark:text-zinc-400 hover:text-slate-950'
+                    ? 'bg-zinc-800 text-white shadow-sm'
+                    : 'text-zinc-400 hover:text-slate-950'
                 }`}
               >
                 Últimos 30 días
@@ -458,8 +458,8 @@ export default function ReportesPage() {
                 onClick={() => handlePresetChange('last_90_days')}
                 className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer ${
                   timeRange === 'last_90_days'
-                    ? 'bg-white dark:bg-zinc-800 text-slate-950 dark:text-white shadow-sm'
-                    : 'text-slate-600 dark:text-zinc-400 hover:text-slate-950'
+                    ? 'bg-zinc-800 text-white shadow-sm'
+                    : 'text-zinc-400 hover:text-slate-950'
                 }`}
               >
                 Últimos 90 días
@@ -468,8 +468,8 @@ export default function ReportesPage() {
                 onClick={() => handlePresetChange('current_year')}
                 className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer ${
                   timeRange === 'current_year'
-                    ? 'bg-white dark:bg-zinc-800 text-slate-950 dark:text-white shadow-sm'
-                    : 'text-slate-600 dark:text-zinc-400 hover:text-slate-950'
+                    ? 'bg-zinc-800 text-white shadow-sm'
+                    : 'text-zinc-400 hover:text-slate-950'
                 }`}
               >
                 Año en Curso
@@ -477,8 +477,8 @@ export default function ReportesPage() {
             </div>
 
             {/* SELECTOR DE CANAL DE VENTA */}
-            <div className="flex items-center gap-1 bg-slate-200/70 dark:bg-erp-surface p-1 rounded-xl border border-slate-300/60 dark:border-erp-border text-xs font-bold">
-              <span className="text-[11px] uppercase tracking-wider text-slate-500 dark:text-zinc-400 px-2 font-mono">
+            <div className="flex items-center gap-1 bg-erp-surface p-1 rounded-xl border border-erp-border text-xs font-bold">
+              <span className="text-[11px] uppercase tracking-wider text-zinc-400 px-2 font-mono">
                 Canal:
               </span>
               {(['all', 'pos', 'storefront', 'whatsapp'] as const).map((ch) => {
@@ -494,8 +494,8 @@ export default function ReportesPage() {
                     onClick={() => setChannelFilter(ch)}
                     className={`px-2.5 py-1.5 rounded-lg transition-colors cursor-pointer ${
                       channelFilter === ch
-                        ? 'bg-white dark:bg-zinc-800 text-slate-950 dark:text-white shadow-sm'
-                        : 'text-slate-600 dark:text-zinc-400 hover:text-slate-950'
+                        ? 'bg-zinc-800 text-white shadow-sm'
+                        : 'text-zinc-400 hover:text-slate-950'
                     }`}
                   >
                     {labels[ch]}
@@ -548,7 +548,7 @@ export default function ReportesPage() {
         <div 
           id="reporte-financiero-pdf" 
           style={{ backgroundColor: '#08130E', color: '#FAFAFA', borderColor: '#1B362A' }}
-          className="space-y-6 bg-erp-bg text-foreground p-6 rounded-2xl border border-erp-border shadow-2xl"
+          className="space-y-6 bg-erp-bg text-foreground p-6 rounded-2xl border border-erp-border shadow-xl"
         >
           
           {/* LOGO EN CABECERA DEL REPORTE DE EXPORTACIÓN */}
@@ -596,12 +596,12 @@ export default function ReportesPage() {
           <div className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
-                <div key={i} className="h-28 rounded-2xl bg-slate-100 dark:bg-erp-surface animate-pulse" />
+                <div key={i} className="h-28 rounded-2xl bg-erp-surface animate-pulse" />
               ))}
             </div>
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-              <div className="lg:col-span-2 h-80 rounded-2xl bg-slate-100 dark:bg-erp-surface animate-pulse" />
-              <div className="h-80 rounded-2xl bg-slate-100 dark:bg-erp-surface animate-pulse" />
+              <div className="lg:col-span-2 h-80 rounded-2xl bg-erp-surface animate-pulse" />
+              <div className="h-80 rounded-2xl bg-erp-surface animate-pulse" />
             </div>
           </div>
         ) : error || !report ? (
@@ -616,41 +616,41 @@ export default function ReportesPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               
               {/* 1. INGRESOS BRUTOS */}
-              <Card className="border-slate-200 dark:border-erp-border bg-white dark:bg-erp-surface">
+              <Card className="border-erp-border bg-erp-surface">
                 <CardHeader className="pb-2">
                   <div className="flex items-center justify-between">
                     <CardDescription className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
                       Ingresos Brutos
                     </CardDescription>
-                    <div className="p-1.5 rounded-lg bg-emerald-100 dark:bg-emerald-500/10 text-emerald-600">
+                    <div className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-600">
                       <TrendingUp className="h-4 w-4" />
                     </div>
                   </div>
-                  <CardTitle className="text-xl font-black text-emerald-600 dark:text-emerald-400 font-mono mt-2">
+                  <CardTitle className="text-xl font-black text-emerald-400 font-mono mt-2">
                     ${report.grossRevenue.toLocaleString('es-AR')} ARS
                   </CardTitle>
                 </CardHeader>
               </Card>
 
               {/* 2. COSTO MERCADERÍA (COGS) */}
-              <Card className="border-slate-200 dark:border-erp-border bg-white dark:bg-erp-surface">
+              <Card className="border-erp-border bg-erp-surface">
                 <CardHeader className="pb-2">
                   <div className="flex items-center justify-between">
                     <CardDescription className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
                       Costo Mercadería (COGS)
                     </CardDescription>
-                    <div className="p-1.5 rounded-lg bg-indigo-100 dark:bg-indigo-500/10 text-indigo-600">
+                    <div className="p-1.5 rounded-lg bg-indigo-500/10 text-indigo-600">
                       <ShoppingBag className="h-4 w-4" />
                     </div>
                   </div>
-                  <CardTitle className="text-xl font-black text-indigo-600 dark:text-indigo-400 font-mono mt-2">
+                  <CardTitle className="text-xl font-black text-indigo-400 font-mono mt-2">
                     -${report.cogs.toLocaleString('es-AR')} ARS
                   </CardTitle>
                 </CardHeader>
               </Card>
 
               {/* 3. GANANCIA COMERCIAL REAL (LIMPIA) */}
-              <Card className="border-slate-200 dark:border-erp-border bg-white dark:bg-erp-surface border-l-4 border-l-erp-gold">
+              <Card className="border-erp-border bg-erp-surface border-l-4 border-l-erp-gold">
                 <CardHeader className="pb-2">
                   <div className="flex items-center justify-between">
                     <CardDescription className="text-[11px] font-bold uppercase tracking-wider text-erp-gold">
@@ -667,24 +667,24 @@ export default function ReportesPage() {
               </Card>
 
               {/* 4. GASTOS OPERATIVOS (OPEX) */}
-              <Card className="border-slate-200 dark:border-erp-border bg-white dark:bg-erp-surface">
+              <Card className="border-erp-border bg-erp-surface">
                 <CardHeader className="pb-2">
                   <div className="flex items-center justify-between">
                     <CardDescription className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
                       Gastos Operativos (OPEX)
                     </CardDescription>
-                    <div className="p-1.5 rounded-lg bg-rose-100 dark:bg-rose-500/10 text-rose-600">
+                    <div className="p-1.5 rounded-lg bg-rose-500/10 text-rose-600">
                       <Layers className="h-4 w-4" />
                     </div>
                   </div>
-                  <CardTitle className="text-xl font-black text-rose-600 dark:text-rose-400 font-mono mt-2">
+                  <CardTitle className="text-xl font-black text-rose-400 font-mono mt-2">
                     -${report.opex.toLocaleString('es-AR')} ARS
                   </CardTitle>
                 </CardHeader>
               </Card>
 
               {/* 5. COMISIONES PASARELAS (COSTO BANCARIO) */}
-              <Card className="border-slate-200 dark:border-erp-border bg-white dark:bg-erp-surface">
+              <Card className="border-erp-border bg-erp-surface">
                 <CardHeader className="pb-2">
                   <div className="flex items-center justify-between">
                     <CardDescription className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
@@ -701,7 +701,7 @@ export default function ReportesPage() {
               </Card>
 
               {/* 6. GANANCIA NETA FINAL */}
-              <Card className={`border-slate-200 dark:border-erp-border bg-white dark:bg-erp-surface shadow-md border-l-4 ${
+              <Card className={`border-erp-border bg-erp-surface shadow-md border-l-4 ${
                 report.netProfit >= 0 ? 'border-l-emerald-500' : 'border-l-rose-500'
               }`}>
                 <CardHeader className="pb-2">
@@ -716,7 +716,7 @@ export default function ReportesPage() {
                     </span>
                   </div>
                   <CardTitle className={`text-xl font-black font-mono mt-2 ${
-                    report.netProfit >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'
+                    report.netProfit >= 0 ? 'text-emerald-400' : 'text-rose-400'
                   }`}>
                     ${report.netProfit.toLocaleString('es-AR')} ARS
                   </CardTitle>
@@ -724,7 +724,7 @@ export default function ReportesPage() {
               </Card>
 
               {/* 7. CUENTAS POR COBRAR (DINERO EN LA CALLE) */}
-              <Card className="border-slate-200 dark:border-erp-border bg-white dark:bg-erp-surface">
+              <Card className="border-erp-border bg-erp-surface">
                 <CardHeader className="pb-2">
                   <div className="flex items-center justify-between">
                     <CardDescription className="text-[11px] font-bold uppercase tracking-wider text-erp-gold">
@@ -741,7 +741,7 @@ export default function ReportesPage() {
               </Card>
 
               {/* 8. DEVOLUCIONES Y REINTEGROS */}
-              <Card className="border-slate-200 dark:border-erp-border bg-white dark:bg-erp-surface">
+              <Card className="border-erp-border bg-erp-surface">
                 <CardHeader className="pb-2">
                   <div className="flex items-center justify-between">
                     <CardDescription className="text-[11px] font-bold uppercase tracking-wider text-rose-400">
@@ -763,9 +763,9 @@ export default function ReportesPage() {
             <div ref={chartAreaRef} className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               
               {/* GRÁFICO 1: EVOLUCIÓN TEMPORAL (BAR CHART RECHARTS) */}
-              <Card className="border-slate-200 dark:border-erp-border lg:col-span-2">
-                <CardHeader className="pb-2 border-b border-slate-100 dark:border-zinc-900">
-                  <CardTitle className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <Card className="border-erp-border lg:col-span-2">
+                <CardHeader className="pb-2 border-b border-zinc-900">
+                  <CardTitle className="text-sm font-bold text-white flex items-center gap-2">
                     <BarChart3 className="h-4.5 w-4.5 text-erp-gold" />
                     Evolución de Facturación, Ganancia Real y Margen Neto
                   </CardTitle>
@@ -795,9 +795,9 @@ export default function ReportesPage() {
               </Card>
 
               {/* GRÁFICO 2: PIE CHART DE OPEX POR CATEGORÍA */}
-              <Card className="border-slate-200 dark:border-erp-border">
-                <CardHeader className="pb-2 border-b border-slate-100 dark:border-zinc-900">
-                  <CardTitle className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <Card className="border-erp-border">
+                <CardHeader className="pb-2 border-b border-zinc-900">
+                  <CardTitle className="text-sm font-bold text-white flex items-center gap-2">
                     <PieChartIcon className="h-4.5 w-4.5 text-rose-600" />
                     Distribución de OPEX por Categoría
                   </CardTitle>
@@ -828,7 +828,7 @@ export default function ReportesPage() {
                           <Tooltip content={<CustomPieTooltip />} />
                           <Legend
                             wrapperStyle={{ fontSize: '11px' }}
-                            formatter={(value) => <span className="text-slate-700 dark:text-zinc-300">{value}</span>}
+                            formatter={(value) => <span className="text-zinc-300">{value}</span>}
                           />
                         </PieChart>
                       </ResponsiveContainer>

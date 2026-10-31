@@ -13,7 +13,7 @@ export function QuickActions() {
       
       {/* 1. NUEVA VENTA POS */}
       <Link href="/pos" className="group">
-        <div className="p-4 rounded-2xl bg-erp-surface border border-erp-gold/40 hover:border-erp-gold transition-all shadow-xl hover:shadow-erp-gold/10 flex items-center justify-between cursor-pointer">
+        <div className="p-4 rounded-2xl bg-erp-surface border border-erp-gold/40 hover:border-erp-gold transition shadow-xl hover:shadow-erp-gold/10 flex items-center justify-between cursor-pointer">
           <div className="flex items-center gap-3">
             <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-erp-gold/10 text-erp-gold border border-erp-gold/30 group-hover:scale-105 transition-transform">
               <ShoppingBag className="h-5.5 w-5.5" />
@@ -26,13 +26,13 @@ export function QuickActions() {
               <p className="text-xs text-zinc-400 mt-0.5">Facturación ágil y cobro mixto</p>
             </div>
           </div>
-          <ArrowRight className="h-4 w-4 text-erp-gold opacity-70 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
+          <ArrowRight className="h-4 w-4 text-erp-gold opacity-70 group-hover:opacity-100 group-hover:translate-x-1 transition" />
         </div>
       </Link>
 
       {/* 2. REGISTRAR GASTO OPEX (Admin) */}
       <Link href={role === 'admin' ? "/admin/gastos" : "/admin/finanzas/tesoreria"} className="group">
-        <div className="p-4 rounded-2xl bg-erp-surface border border-erp-border hover:border-rose-500/40 transition-all shadow-xl flex items-center justify-between cursor-pointer">
+        <div className="p-4 rounded-2xl bg-erp-surface border border-erp-border hover:border-rose-500/40 transition shadow-xl flex items-center justify-between cursor-pointer">
           <div className="flex items-center gap-3">
             <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-rose-500/10 text-rose-400 border border-rose-500/20 group-hover:scale-105 transition-transform">
               <DollarSign className="h-5.5 w-5.5" />
@@ -44,13 +44,13 @@ export function QuickActions() {
               <p className="text-xs text-zinc-400 mt-0.5">Control de egresos y saldos</p>
             </div>
           </div>
-          <ArrowRight className="h-4 w-4 text-rose-400 opacity-70 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
+          <ArrowRight className="h-4 w-4 text-rose-400 opacity-70 group-hover:opacity-100 group-hover:translate-x-1 transition" />
         </div>
       </Link>
 
       {/* 3. INGRESAR PRODUCTO */}
       <Link href="/productos" className="group">
-        <div className="p-4 rounded-2xl bg-erp-surface border border-erp-border hover:border-emerald-500/40 transition-all shadow-xl flex items-center justify-between cursor-pointer">
+        <div className="p-4 rounded-2xl bg-erp-surface border border-erp-border hover:border-emerald-500/40 transition shadow-xl flex items-center justify-between cursor-pointer">
           <div className="flex items-center gap-3">
             <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 group-hover:scale-105 transition-transform">
               <PackagePlus className="h-5.5 w-5.5" />
@@ -60,7 +60,7 @@ export function QuickActions() {
               <p className="text-xs text-zinc-400 mt-0.5">Catálogo y stock de perfumes</p>
             </div>
           </div>
-          <ArrowRight className="h-4 w-4 text-emerald-400 opacity-70 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
+          <ArrowRight className="h-4 w-4 text-emerald-400 opacity-70 group-hover:opacity-100 group-hover:translate-x-1 transition" />
         </div>
       </Link>
 

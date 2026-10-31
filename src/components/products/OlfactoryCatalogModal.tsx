@@ -85,7 +85,7 @@ export function OlfactoryCatalogModal({ isOpen, onClose, onRefreshForm }: Olfact
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200 overflow-y-auto">
-      <div className="w-[95vw] sm:max-w-lg bg-erp-surface border border-erp-border rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 my-auto">
+      <div className="w-[95vw] sm:max-w-lg bg-erp-surface border border-erp-border rounded-2xl shadow-xl overflow-hidden animate-in zoom-in-95 duration-200 my-auto">
         
         {/* HEADER */}
         <CardHeader className="border-b border-erp-border pb-4">
@@ -109,7 +109,7 @@ export function OlfactoryCatalogModal({ isOpen, onClose, onRefreshForm }: Olfact
           <div className="flex rounded-xl bg-erp-bg border border-erp-border p-1 gap-1">
             <button
               onClick={() => setActiveTab('families')}
-              className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+              className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer ${
                 activeTab === 'families' 
                   ? 'bg-erp-surface text-erp-gold border border-erp-gold/30 shadow-md' 
                   : 'text-zinc-400 hover:text-white'
@@ -120,7 +120,7 @@ export function OlfactoryCatalogModal({ isOpen, onClose, onRefreshForm }: Olfact
             </button>
             <button
               onClick={() => setActiveTab('notes')}
-              className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+              className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer ${
                 activeTab === 'notes' 
                   ? 'bg-erp-surface text-erp-gold border border-erp-gold/30 shadow-md' 
                   : 'text-zinc-400 hover:text-white'
@@ -156,7 +156,7 @@ export function OlfactoryCatalogModal({ isOpen, onClose, onRefreshForm }: Olfact
 
           {/* FILTRO BUSCADOR */}
           <div className="relative">
-            <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-zinc-500" />
+            <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-zinc-400" />
             <Input
               type="text"
               placeholder={`Filtrar ${activeTab === 'families' ? 'familias' : 'notas'}...`}
@@ -175,7 +175,7 @@ export function OlfactoryCatalogModal({ isOpen, onClose, onRefreshForm }: Olfact
             {loading ? (
               <div className="py-8 text-center text-xs text-zinc-400">Cargando catálogo...</div>
             ) : (activeTab === 'families' ? filteredFamilies : filteredNotes).length === 0 ? (
-              <div className="py-6 text-center text-xs text-zinc-500 bg-erp-bg/40 border border-dashed border-erp-border rounded-xl">
+              <div className="py-6 text-center text-xs text-zinc-400 bg-erp-bg/40 border border-dashed border-erp-border rounded-xl">
                 No se encontraron registros.
               </div>
             ) : (

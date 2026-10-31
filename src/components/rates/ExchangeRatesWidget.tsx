@@ -139,7 +139,7 @@ export const ExchangeRatesWidget = React.memo(function ExchangeRatesWidget() {
   }
 
   return (
-    <Card className="border border-erp-border bg-erp-surface rounded-2xl shadow-xl overflow-hidden transition-all duration-300">
+    <Card className="border border-erp-border bg-erp-surface rounded-2xl shadow-xl overflow-hidden transition duration-300">
       
       {/* HEADER DEL WIDGET */}
       <CardHeader className="pb-3 pt-4 px-5 flex flex-row items-center justify-between border-b border-erp-border/60">
@@ -157,7 +157,7 @@ export const ExchangeRatesWidget = React.memo(function ExchangeRatesWidget() {
             </CardTitle>
             {lastUpdated && (
               <p className="text-[11px] text-zinc-400 font-mono mt-0.5 flex items-center gap-1">
-                <Clock className="h-3 w-3 text-zinc-500" />
+                <Clock className="h-3 w-3 text-zinc-400" />
                 Actualizado {lastUpdated.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })} hs
               </p>
             )}
@@ -181,7 +181,7 @@ export const ExchangeRatesWidget = React.memo(function ExchangeRatesWidget() {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
           
           {/* 1. DÓLAR BLUE */}
-          <div className="p-3.5 rounded-xl bg-erp-bg border border-erp-border hover:border-erp-gold/40 transition-all">
+          <div className="p-3.5 rounded-xl bg-erp-bg border border-erp-border hover:border-erp-gold/40 transition">
             <div className="flex items-center justify-between pb-2 border-b border-erp-border/60">
               <div className="flex items-center gap-2">
                 <div className="p-1 rounded bg-emerald-500/10 text-emerald-400">
@@ -207,7 +207,7 @@ export const ExchangeRatesWidget = React.memo(function ExchangeRatesWidget() {
           </div>
 
           {/* 2. USDT BINANCE */}
-          <div className="p-3.5 rounded-xl bg-erp-bg border border-erp-border hover:border-erp-gold/40 transition-all">
+          <div className="p-3.5 rounded-xl bg-erp-bg border border-erp-border hover:border-erp-gold/40 transition">
             <div className="flex items-center justify-between pb-2 border-b border-erp-border/60">
               <div className="flex items-center gap-2">
                 <div className="p-1 rounded bg-amber-500/10 text-amber-400">
@@ -233,7 +233,7 @@ export const ExchangeRatesWidget = React.memo(function ExchangeRatesWidget() {
           </div>
 
           {/* 3. USDT LEMON CASH */}
-          <div className="p-3.5 rounded-xl bg-erp-bg border border-erp-border hover:border-erp-gold/40 transition-all">
+          <div className="p-3.5 rounded-xl bg-erp-bg border border-erp-border hover:border-erp-gold/40 transition">
             <div className="flex items-center justify-between pb-2 border-b border-erp-border/60">
               <div className="flex items-center gap-2">
                 <div className="p-1 rounded bg-lime-500/10 text-lime-400">

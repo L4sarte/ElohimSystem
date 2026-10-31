@@ -240,10 +240,10 @@ export default function POSClientWrapper() {
   }, 0);
 
   return (
-    <div className="flex flex-col min-h-screen bg-slate-50 text-slate-900 dark:bg-erp-bg dark:text-zinc-50 transition-colors duration-150">
+    <div className="flex flex-col min-h-screen bg-erp-bg text-zinc-50 transition-colors duration-150">
       
       {/* NAVBAR POS */}
-      <header className="sticky top-0 z-40 w-full border-b border-slate-200/80 bg-white/90 backdrop-blur-sm dark:border-erp-border dark:bg-erp-bg/90 will-change-transform">
+      <header className="sticky top-0 z-40 w-full border-b border-slate-200/80 dark:border-erp-border bg-erp-bg/90 will-change-transform">
         <div className="container mx-auto flex h-16 items-center justify-between px-4 sm:px-6 max-w-7xl">
           <div className="flex items-center gap-4">
             <Link 
@@ -253,12 +253,12 @@ export default function POSClientWrapper() {
               <ArrowLeft className="h-4.5 w-4.5" />
               <span>Dashboard</span>
             </Link>
-            <span className="text-slate-300 dark:text-zinc-800">|</span>
+            <span className="text-zinc-800">|</span>
             <div className="flex items-center gap-2">
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500 text-white shadow-xs">
                 <ShoppingCart className="h-4.5 w-4.5 text-white" />
               </div>
-              <span className="text-sm font-bold tracking-tight text-slate-800 dark:text-zinc-100 uppercase font-serif">
+              <span className="text-sm font-bold tracking-tight text-zinc-100 uppercase font-serif">
                 Punto de Venta (POS)
               </span>
             </div>
@@ -278,7 +278,7 @@ export default function POSClientWrapper() {
         <div className="lg:col-span-2 space-y-4 flex flex-col h-[calc(100dvh-8.5rem)] max-lg:h-auto">
           
           {/* BUSCADOR Y FILTROS */}
-          <div className="bg-white dark:bg-erp-surface p-4 rounded-xl border border-slate-200 dark:border-erp-border shadow-xs space-y-3">
+          <div className="bg-erp-surface p-4 rounded-xl border border-erp-border shadow-xs space-y-3">
             <div className="relative">
               <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
               <Input
@@ -288,7 +288,7 @@ export default function POSClientWrapper() {
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
-              <kbd className="hidden sm:inline-block absolute right-2.5 top-2 px-1.5 py-0.5 rounded bg-slate-100 dark:bg-erp-bg border border-slate-200 dark:border-erp-border text-[10px] font-mono text-slate-500 dark:text-zinc-400 pointer-events-none">
+              <kbd className="hidden sm:inline-block absolute right-2.5 top-2 px-1.5 py-0.5 rounded bg-erp-bg border border-erp-border text-[10px] font-mono text-zinc-400 pointer-events-none">
                 F2
               </kbd>
             </div>
@@ -329,7 +329,7 @@ export default function POSClientWrapper() {
             {loading ? (
               <div className="flex flex-col items-center justify-center h-full py-20 gap-3">
                 <RefreshCw className="h-8 w-8 animate-spin text-emerald-500" />
-                <span className="text-sm font-medium text-slate-500 dark:text-zinc-400">
+                <span className="text-sm font-medium text-zinc-400">
                   Cargando catálogo...
                 </span>
               </div>
@@ -384,7 +384,7 @@ export default function POSClientWrapper() {
       </main>
 
       {/* BARRA INFERIOR MÓVIL Y DRAWER AISLADO */}
-      <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40 border-t border-slate-200 dark:border-erp-border bg-white/95 dark:bg-erp-bg/95 backdrop-blur-sm shadow-md">
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40 border-t border-erp-border bg-erp-bg/95 shadow-md">
         {mobileCartExpanded ? (
           <POSCartPanel
             variant="mobile_drawer"

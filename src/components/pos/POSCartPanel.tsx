@@ -81,10 +81,10 @@ export function POSCartPanel({
           className="flex items-center gap-2 text-left cursor-pointer min-w-0"
           aria-label="Abrir detalle del carrito"
         >
-          <span className="text-xs bg-slate-200 dark:bg-zinc-800 px-2 py-0.5 rounded-full font-bold text-slate-900 dark:text-zinc-100 shrink-0">
+          <span className="text-xs bg-zinc-800 px-2 py-0.5 rounded-full font-bold text-zinc-100 shrink-0">
             {totalItemsCount} ítems
           </span>
-          <span className="text-sm font-black font-mono text-slate-950 dark:text-zinc-50 truncate">
+          <span className="text-sm font-black font-mono text-zinc-50 truncate">
             {formatArsDec(cartTotalArs)}
           </span>
           <span className="text-[11px] text-slate-400 shrink-0">Ver detalle</span>
@@ -93,7 +93,7 @@ export function POSCartPanel({
           type="button"
           onClick={onOpenCheckout}
           disabled={cart.length === 0}
-          className="bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-500 dark:hover:bg-emerald-600 text-white font-bold text-xs cursor-pointer h-9 px-4 shrink-0 shadow-sm"
+          className="hover:bg-emerald-700 bg-emerald-500 dark:hover:bg-emerald-600 text-white font-bold text-sm cursor-pointer h-12 px-4 shrink-0 shadow-sm"
         >
           Cobrar Orden
         </Button>
@@ -105,8 +105,8 @@ export function POSCartPanel({
   if (variant === 'mobile_drawer') {
     return (
       <div className="max-h-[60dvh] overflow-y-auto">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 dark:border-erp-border sticky top-0 bg-white dark:bg-erp-bg z-10">
-          <h3 className="font-bold text-slate-900 dark:text-white flex items-center gap-2 text-sm">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-erp-border sticky top-0 bg-erp-bg z-10">
+          <h3 className="font-bold text-white flex items-center gap-2 text-sm">
             <ShoppingCart className="h-4 w-4 text-erp-gold" />
             Detalle del Carrito
           </h3>
@@ -124,12 +124,12 @@ export function POSCartPanel({
           {cartItemsList}
         </div>
 
-        <div className="border-t border-slate-100 dark:border-erp-border p-3 px-4 flex items-center justify-between gap-3 sticky bottom-0 bg-white dark:bg-erp-bg">
+        <div className="border-t border-erp-border p-3 px-4 flex items-center justify-between gap-3 sticky bottom-0 bg-erp-bg">
           <div className="min-w-0">
-            <span className="block text-[11px] text-slate-500 dark:text-zinc-400 font-mono">
+            <span className="block text-[11px] text-zinc-400 font-mono">
               {formatUsd(cartTotalUsd)}
             </span>
-            <span className="block text-base font-black text-slate-950 dark:text-zinc-50 font-mono truncate">
+            <span className="block text-base font-black text-zinc-50 font-mono truncate">
               {formatArsDec(cartTotalArs)}
             </span>
           </div>
@@ -137,7 +137,7 @@ export function POSCartPanel({
             type="button"
             onClick={onOpenCheckout}
             disabled={cart.length === 0}
-            className="bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-500 dark:hover:bg-emerald-600 text-white font-bold text-xs cursor-pointer h-9 px-4 shrink-0 shadow-sm"
+            className="hover:bg-emerald-700 bg-emerald-500 dark:hover:bg-emerald-600 text-white font-bold text-sm cursor-pointer h-12 px-4 shrink-0 shadow-sm"
           >
             Cobrar Orden
           </Button>
@@ -148,15 +148,15 @@ export function POSCartPanel({
 
   // 3. Panel Desktop lateral
   return (
-    <div className="bg-white dark:bg-erp-surface border border-slate-200 dark:border-erp-border rounded-xl flex flex-col justify-between h-[calc(100dvh-8.5rem)] max-lg:hidden shadow-xs overflow-hidden">
+    <div className="bg-erp-surface border border-erp-border rounded-xl flex flex-col justify-between h-[calc(100dvh-8.5rem)] max-lg:hidden shadow-xs overflow-hidden">
       
       {/* HEADER */}
-      <div className="border-b border-slate-100 dark:border-erp-border p-4 bg-slate-50/50 dark:bg-erp-surface/50 flex items-center justify-between">
-        <h3 className="font-bold text-slate-900 dark:text-white flex items-center gap-2 text-sm font-serif">
+      <div className="border-b border-erp-border p-4 bg-erp-surface/50 flex items-center justify-between">
+        <h3 className="font-bold text-white flex items-center gap-2 text-sm font-serif">
           <ShoppingCart className="h-4.5 w-4.5 text-erp-gold" />
           Detalle del Carrito
         </h3>
-        <span className="text-xs bg-slate-200 dark:bg-zinc-800 px-2 py-0.5 rounded-full font-bold font-mono text-zinc-300">
+        <span className="text-xs bg-zinc-800 px-2 py-0.5 rounded-full font-bold font-mono text-zinc-300">
           {totalItemsCount} ítems
         </span>
       </div>
@@ -167,18 +167,18 @@ export function POSCartPanel({
       </div>
 
       {/* FOOTER TOTAL Y ACCIONES */}
-      <div className="border-t border-slate-100 dark:border-erp-border p-4 bg-slate-50/50 dark:bg-erp-surface/50 space-y-4">
+      <div className="border-t border-erp-border p-4 bg-erp-surface/50 space-y-4">
         <div className="space-y-1.5">
-          <div className="flex justify-between text-xs text-slate-500 dark:text-zinc-400 font-mono">
+          <div className="flex justify-between text-xs text-zinc-400 font-mono">
             <span>Subtotal Ref. USD:</span>
-            <span className="font-semibold text-slate-800 dark:text-zinc-200">
+            <span className="font-semibold text-zinc-200">
               {formatUsd(cartTotalUsd)}
             </span>
           </div>
           <div className="flex justify-between items-baseline">
-            <span className="text-sm font-bold text-slate-900 dark:text-white">Total Venta:</span>
+            <span className="text-sm font-bold text-white">Total Venta:</span>
             <div className="text-right">
-              <div className="text-xl font-black text-slate-950 dark:text-zinc-50 font-mono">
+              <div className="text-xl font-black text-zinc-50 font-mono">
                 {formatArsDec(cartTotalArs)}
               </div>
             </div>
@@ -191,11 +191,11 @@ export function POSCartPanel({
             variant="outline"
             onClick={clearCart}
             disabled={cart.length === 0}
-            className="w-full text-xs cursor-pointer h-9 flex items-center justify-center gap-1.5 border-erp-border text-zinc-300 hover:bg-zinc-800"
+            className="w-full text-xs cursor-pointer h-11 flex items-center justify-center gap-1.5 border-erp-border text-zinc-300 hover:bg-zinc-800"
             title="Vaciar carrito (Atajo: F8)"
           >
             <span>Vaciar</span>
-            <kbd className="px-1 py-0.5 rounded bg-slate-100 dark:bg-erp-bg border border-slate-200 dark:border-erp-border text-[10px] font-mono opacity-75">
+            <kbd className="px-1 py-0.5 rounded bg-erp-bg border border-erp-border text-[10px] font-mono opacity-75">
               F8
             </kbd>
           </Button>
@@ -204,7 +204,7 @@ export function POSCartPanel({
             type="button"
             onClick={onOpenCheckout}
             disabled={cart.length === 0}
-            className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs cursor-pointer h-9 shadow-sm shadow-emerald-900/30 flex items-center justify-center gap-1.5"
+            className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm cursor-pointer h-11 shadow-sm shadow-emerald-900/30 flex items-center justify-center gap-1.5"
             title="Abrir ventana de cobro (Atajo: F4)"
           >
             <span>Cobrar Orden</span>

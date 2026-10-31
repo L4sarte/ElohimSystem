@@ -2,7 +2,9 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { PublicProduct } from '@/lib/storefront-validation';
+import { canOptimizeImageUrl } from '@/lib/utils';
 import { SystemSettingsData, DEFAULT_SYSTEM_SETTINGS } from '@/lib/settings-validation';
 import { StorefrontHeader } from './StorefrontHeader';
 import { StorefrontFooter } from './StorefrontFooter';
@@ -99,7 +101,7 @@ export function ProductDetailClient({
             <span>Volver al Catálogo</span>
           </Link>
 
-          <span className="text-[11px] font-mono text-zinc-500">
+          <span className="text-[11px] font-mono text-zinc-400">
             SKU: {product.sku || 'N/A'}
           </span>
         </div>
@@ -111,16 +113,20 @@ export function ProductDetailClient({
           <div className="space-y-6">
             
             {/* CAJA PRINCIPAL DE LA BOTELLA / IMAGEN */}
-            <div className="relative aspect-square w-full rounded-2xl bg-gradient-to-br from-erp-surface via-erp-bg to-erp-border/40 border border-erp-border flex items-center justify-center overflow-hidden shadow-2xl">
+            <div className="relative aspect-square w-full rounded-2xl bg-gradient-to-br from-erp-surface via-erp-bg to-erp-border/40 border border-erp-border flex items-center justify-center overflow-hidden shadow-xl">
               {product.image_url ? (
-                <img
+                <Image
                   src={product.image_url}
                   alt={product.name}
+                  fill
+                  priority
+                  sizes="(max-width: 768px) 100vw, 50vw"
+                  unoptimized={!canOptimizeImageUrl(product.image_url)}
                   className="w-full h-full object-cover"
                 />
               ) : (
                 <div className="flex flex-col items-center justify-center text-center space-y-3 p-12">
-                  <div className="h-28 w-28 rounded-2xl bg-erp-surface border-2 border-erp-gold/40 flex items-center justify-center text-erp-gold shadow-2xl">
+                  <div className="h-28 w-28 rounded-2xl bg-erp-surface border-2 border-erp-gold/40 flex items-center justify-center text-erp-gold shadow-xl">
                     {isDecant ? (
                       <Droplet className="h-14 w-14 text-blue-400" />
                     ) : (
@@ -217,17 +223,18 @@ export function ProductDetailClient({
 
             {/* SELECTOR DE FORMATO */}
             <div className="space-y-3">
-              <label className="text-xs font-bold uppercase tracking-wider text-zinc-300 block">
+              <span className="text-xs font-bold uppercase tracking-wider text-zinc-300 block">
                 Selecciona Formato o Presentación:
-              </label>
+              </span>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {decantsAvailable.map((d) => (
                   <button
                     key={d.size}
                     type="button"
+                    aria-pressed={selectedFormat === d.size}
                     onClick={() => setSelectedFormat(d.size)}
-                    className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                    className={`p-3 rounded-xl border text-left transition cursor-pointer ${
                       selectedFormat === d.size
                         ? 'bg-secondary border-erp-gold text-white shadow-md'
                         : 'bg-erp-surface border-erp-border text-zinc-400 hover:border-zinc-500'
@@ -287,7 +294,7 @@ export function ProductDetailClient({
                 href={getWhatsAppDirectLink()}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-full flex items-center justify-center gap-2 h-11 rounded-xl bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 font-bold text-xs uppercase tracking-wider transition-all"
+                className="w-full flex items-center justify-center gap-2 h-11 rounded-xl bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 font-bold text-xs uppercase tracking-wider transition"
               >
                 <MessageCircle className="h-4 w-4" />
                 <span>Consultar o Encargar por WhatsApp</span>

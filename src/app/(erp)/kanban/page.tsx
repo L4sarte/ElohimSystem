@@ -127,7 +127,7 @@ export default function KanbanPage() {
     <div className="flex flex-col min-h-screen bg-erp-bg text-zinc-50 transition-colors duration-300">
       
       {/* NAVBAR */}
-      <header className="sticky top-0 z-40 w-full border-b border-erp-border bg-erp-bg/80 backdrop-blur-md">
+      <header className="sticky top-0 z-40 w-full border-b border-erp-border bg-erp-bg/95">
         <div className="container mx-auto flex h-16 items-center justify-between px-4 sm:px-6 max-w-7xl">
           <div className="flex items-center gap-4">
             <Link 
@@ -215,12 +215,12 @@ export default function KanbanPage() {
                 {/* LISTA DE TARJETAS DE PEDIDO */}
                 <div className="flex-1 space-y-3 overflow-y-auto pr-1">
                   {colOrders.length === 0 ? (
-                    <div className="py-12 text-center text-xs text-zinc-500 italic">
+                    <div className="py-12 text-center text-xs text-zinc-400 italic">
                       Sin pedidos en este estado
                     </div>
                   ) : (
                     colOrders.map((order) => (
-                      <Card key={order.id} className="border border-erp-border bg-erp-bg rounded-xl shadow-md transition-all hover:border-erp-gold/40 group space-y-2 p-3.5">
+                      <Card key={order.id} className="border border-erp-border bg-erp-bg rounded-xl shadow-md transition hover:border-erp-gold/40 group space-y-2 p-3.5">
                         
                         {/* Nombre del Cliente */}
                         <div className="flex items-center justify-between">
@@ -230,7 +230,7 @@ export default function KanbanPage() {
                           </span>
                           <button
                             onClick={() => handleDeleteOrder(order.id, order.client_name)}
-                            className="opacity-0 group-hover:opacity-100 text-zinc-500 hover:text-rose-400 transition-opacity p-1"
+                            className="opacity-0 group-hover:opacity-100 text-zinc-400 hover:text-rose-400 transition-opacity p-1"
                             title="Eliminar tarjeta"
                           >
                             <Trash2 className="h-3.5 w-3.5" />
@@ -285,7 +285,7 @@ export default function KanbanPage() {
       {/* MODAL CREAR PEDIDO DE WHATSAPP */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="w-full max-w-md bg-erp-surface border border-erp-border rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+          <div className="w-full max-w-md bg-erp-surface border border-erp-border rounded-2xl shadow-xl overflow-hidden animate-in zoom-in-95 duration-200">
             <form onSubmit={handleCreateOrder}>
               
               <CardHeader className="border-b border-erp-border pb-4">
@@ -317,10 +317,10 @@ export default function KanbanPage() {
                 )}
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold uppercase tracking-wider text-zinc-300">
+                  <label htmlFor="page-f1" className="text-xs font-bold uppercase tracking-wider text-zinc-300">
                     Nombre del Cliente *
                   </label>
-                  <Input
+                  <Input id="page-f1"
                     required
                     placeholder="Ej. Juan Pérez (WhatsApp 11-2233-4455)"
                     value={clientName}
@@ -331,10 +331,10 @@ export default function KanbanPage() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold uppercase tracking-wider text-zinc-300">
+                  <label htmlFor="page-f2" className="text-xs font-bold uppercase tracking-wider text-zinc-300">
                     Detalle de Productos / Perfumes
                   </label>
-                  <textarea
+                  <textarea id="page-f2"
                     rows={3}
                     placeholder="Ej. 1x Bleau Chanel 100ml + 1x Decant Sauvage 10ml"
                     value={productDetails}
@@ -346,10 +346,10 @@ export default function KanbanPage() {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1.5">
-                    <label className="text-xs font-bold uppercase tracking-wider text-erp-gold">
+                    <label htmlFor="page-f3" className="text-xs font-bold uppercase tracking-wider text-erp-gold">
                       Monto Total (ARS)
                     </label>
-                    <Input
+                    <Input id="page-f3"
                       type="number"
                       placeholder="Ej. 75000"
                       value={totalArs}
@@ -360,10 +360,10 @@ export default function KanbanPage() {
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="text-xs font-bold uppercase tracking-wider text-zinc-300">
+                    <label htmlFor="page-f4" className="text-xs font-bold uppercase tracking-wider text-zinc-300">
                       Estado Inicial
                     </label>
-                    <select
+                    <select id="page-f4"
                       value={status}
                       onChange={(e) => setStatus(e.target.value as KanbanOrderStatus)}
                       disabled={saving}
@@ -378,10 +378,10 @@ export default function KanbanPage() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold uppercase tracking-wider text-zinc-400">
+                  <label htmlFor="page-f5" className="text-xs font-bold uppercase tracking-wider text-zinc-400">
                     Notas adicionales / Envío
                   </label>
-                  <Input
+                  <Input id="page-f5"
                     placeholder="Ej. Pasa a retirar hoy 18hs por Palermo"
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}

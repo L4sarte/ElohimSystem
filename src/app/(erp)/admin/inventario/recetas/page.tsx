@@ -45,7 +45,7 @@ export default function RecetasPage() {
   if (role !== 'admin') {
     return (
       <div className="flex flex-col min-h-screen bg-erp-bg text-zinc-50">
-        <header className="sticky top-0 z-40 w-full border-b border-erp-border bg-erp-bg/80 backdrop-blur-md">
+        <header className="sticky top-0 z-40 w-full border-b border-erp-border bg-erp-bg/95">
           <div className="container mx-auto flex h-16 items-center justify-between px-6 max-w-6xl">
             <Link href="/" className="flex items-center gap-2 text-xs text-zinc-400 hover:text-white">
               <ArrowLeft className="h-4 w-4" />
@@ -97,7 +97,7 @@ export default function RecetasPage() {
     <div className="flex flex-col min-h-screen bg-erp-bg text-zinc-50">
       
       {/* NAVBAR */}
-      <header className="sticky top-0 z-40 w-full border-b border-erp-border bg-erp-bg/80 backdrop-blur-md">
+      <header className="sticky top-0 z-40 w-full border-b border-erp-border bg-erp-bg/95">
         <div className="container mx-auto flex h-16 items-center justify-between px-4 sm:px-6 max-w-6xl">
           <div className="flex items-center gap-4">
             <Link href="/" className="flex items-center gap-1.5 text-xs text-zinc-400 hover:text-white">
@@ -165,7 +165,7 @@ export default function RecetasPage() {
             <span className="text-xs text-zinc-400">Cargando catálogo de decants y productos...</span>
           </div>
         ) : decantProducts.length === 0 ? (
-          <div className="p-12 text-center border border-dashed border-erp-border rounded-2xl text-zinc-500 text-xs">
+          <div className="p-12 text-center border border-dashed border-erp-border rounded-2xl text-zinc-400 text-xs">
             No se encontraron productos coincidentes para armar recetas.
           </div>
         ) : (
@@ -201,7 +201,7 @@ export default function RecetasPage() {
                       <span>Precio Venta:</span>
                       <span className="text-white font-bold">${product.base_price_ars.toLocaleString('es-AR')} ARS</span>
                     </div>
-                    <div className="flex justify-between text-zinc-500 text-[11px] pt-1 border-t border-erp-border">
+                    <div className="flex justify-between text-zinc-400 text-[11px] pt-1 border-t border-erp-border">
                       <span>Margen Est.:</span>
                       <span className="text-erp-gold font-bold">
                         {product.base_price_ars > 0

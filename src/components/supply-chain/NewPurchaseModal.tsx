@@ -418,18 +418,18 @@ export function NewPurchaseModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-3 sm:p-5 overflow-y-auto animate-in fade-in duration-200">
-      <div className="relative w-full max-w-6xl rounded-2xl bg-white dark:bg-erp-surface border border-slate-200 dark:border-erp-border shadow-2xl overflow-hidden flex flex-col max-h-[92dvh] animate-in zoom-in-95 duration-200">
+      <div className="relative w-full max-w-6xl rounded-2xl bg-erp-surface border border-erp-border shadow-xl overflow-hidden flex flex-col max-h-[92dvh] animate-in zoom-in-95 duration-200">
         {/* CABECERA DEL MODAL */}
-        <div className="flex flex-wrap items-center justify-between gap-3 px-6 py-4 border-b border-slate-200 dark:border-erp-border bg-slate-50/80 dark:bg-erp-bg/80 shrink-0">
+        <div className="flex flex-wrap items-center justify-between gap-3 px-6 py-4 border-b border-erp-border bg-erp-bg/80 shrink-0">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-600 text-white shadow-lg shadow-emerald-600/20">
               <PackagePlus className="h-5 w-5" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-slate-900 dark:text-white font-serif flex items-center gap-2">
+              <h2 className="text-lg font-bold text-white font-serif flex items-center gap-2">
                 Registrar Nueva Compra B2B
               </h2>
-              <p className="text-xs text-slate-500 dark:text-zinc-400">
+              <p className="text-xs text-zinc-400">
                 Abastecimiento atómico con impacto en Kardex/PPP, Tesorería o Cuentas por Pagar (CXP).
               </p>
             </div>
@@ -449,17 +449,17 @@ export function NewPurchaseModal({
                 className="w-20 bg-zinc-900 border border-zinc-700 rounded px-2 py-0.5 text-right font-mono font-bold text-erp-gold focus:outline-none focus:border-erp-gold"
                 title="Cotización dólar blue utilizada para congelar la factura"
               />
-              <span className="text-[11px] font-mono text-zinc-500">ARS</span>
+              <span className="text-[11px] font-mono text-zinc-400">ARS</span>
             </div>
 
-            <div className="inline-flex rounded-xl border border-slate-200 dark:border-erp-border bg-slate-100 dark:bg-erp-bg p-1">
+            <div className="inline-flex rounded-xl border border-erp-border bg-erp-bg p-1">
               <button
                 type="button"
                 onClick={() => handleCurrencyChange('ARS')}
-                className={`px-3 py-1 rounded-lg text-xs font-bold cursor-pointer transition-all ${
+                className={`px-3 py-1 rounded-lg text-xs font-bold cursor-pointer transition ${
                   currency === 'ARS'
                     ? 'bg-emerald-600 text-white shadow-sm'
-                    : 'text-slate-600 dark:text-zinc-400 hover:text-white'
+                    : 'text-zinc-400 hover:text-white'
                 }`}
               >
                 Moneda ARS ($)
@@ -467,10 +467,10 @@ export function NewPurchaseModal({
               <button
                 type="button"
                 onClick={() => handleCurrencyChange('USD')}
-                className={`px-3 py-1 rounded-lg text-xs font-bold cursor-pointer transition-all ${
+                className={`px-3 py-1 rounded-lg text-xs font-bold cursor-pointer transition ${
                   currency === 'USD'
                     ? 'bg-erp-gold text-erp-bg shadow-sm'
-                    : 'text-slate-600 dark:text-zinc-400 hover:text-white'
+                    : 'text-zinc-400 hover:text-white'
                 }`}
               >
                 Moneda USD (u$s)
@@ -491,7 +491,7 @@ export function NewPurchaseModal({
         {/* CUERPO SCROLLABLE */}
         <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-6">
           {errorMsg && (
-            <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold flex items-center gap-2 dark:bg-rose-950/30 dark:border-rose-900/40 dark:text-rose-400">
+            <div className="p-3.5 rounded-xl border border-rose-200 text-rose-700 text-xs font-semibold flex items-center gap-2 bg-rose-950/30 dark:border-rose-900/40 dark:text-rose-400">
               <AlertTriangle className="h-4 w-4 shrink-0" />
               <span>{errorMsg}</span>
             </div>
@@ -500,12 +500,12 @@ export function NewPurchaseModal({
           {/* FILA SUPERIOR: PROVEEDOR + CONDICIÓN DE PAGO + CONDICIÓN DE RECEPCIÓN */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
             {/* 1. PROVEEDOR (4 cols) */}
-            <div className="lg:col-span-4 p-4 rounded-xl border border-slate-200 dark:border-erp-border bg-slate-50/50 dark:bg-erp-bg/50 space-y-3">
+            <div className="lg:col-span-4 p-4 rounded-xl border border-erp-border bg-erp-bg/50 space-y-3">
               <div className="flex items-center justify-between">
-                <label className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-zinc-300 flex items-center gap-1.5">
+                <span className="text-xs font-bold uppercase tracking-wider text-zinc-300 flex items-center gap-1.5">
                   <Building className="h-4 w-4 text-erp-gold" />
                   1. Proveedor B2B *
-                </label>
+                </span>
                 <button
                   type="button"
                   onClick={() => setShowQuickSupplier((v) => !v)}
@@ -516,7 +516,7 @@ export function NewPurchaseModal({
               </div>
 
               {showQuickSupplier ? (
-                <div className="space-y-2 p-2.5 rounded-lg bg-white dark:bg-erp-surface border border-emerald-500/30">
+                <div className="space-y-2 p-2.5 rounded-lg bg-erp-surface border border-emerald-500/30">
                   <Input
                     placeholder="Nombre o Razón Social *"
                     value={quickSupplierName}
@@ -545,7 +545,7 @@ export function NewPurchaseModal({
                 <select
                   value={selectedSupplierId}
                   onChange={(e) => setSelectedSupplierId(e.target.value)}
-                  className="w-full h-10 rounded-lg border border-slate-300 dark:border-erp-border bg-white dark:bg-erp-surface px-3 text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                  className="w-full h-10 rounded-lg border border-erp-border bg-erp-surface px-3 text-xs font-semibold text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
                 >
                   <option value="">-- Seleccionar Proveedor --</option>
                   {suppliers.map((sup) => (
@@ -557,33 +557,33 @@ export function NewPurchaseModal({
               )}
 
               <div>
-                <label className="text-[11px] font-bold uppercase text-slate-400 block mb-1">
+                <label htmlFor="newpurchasemodal-f1" className="text-[11px] font-bold uppercase text-slate-400 block mb-1">
                   Notas / Nº Factura o Remito (Opcional)
                 </label>
-                <Input
+                <Input id="newpurchasemodal-f1"
                   placeholder="Ej: Factura A #0004-1290 / Lote Árabes..."
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
-                  className="h-9 text-xs bg-white dark:bg-erp-surface"
+                  className="h-9 text-xs bg-erp-surface"
                 />
               </div>
             </div>
 
             {/* 2. SWITCH DE CONDICIÓN DE PAGO (4 cols) */}
-            <div className="lg:col-span-4 p-4 rounded-xl border border-slate-200 dark:border-erp-border bg-slate-50/50 dark:bg-erp-bg/50 space-y-3">
-              <label className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-zinc-300 flex items-center gap-1.5">
+            <div className="lg:col-span-4 p-4 rounded-xl border border-erp-border bg-erp-bg/50 space-y-3">
+              <span className="text-xs font-bold uppercase tracking-wider text-zinc-300 flex items-center gap-1.5">
                 <Wallet className="h-4 w-4 text-emerald-500" />
                 2. Condición de Pago *
-              </label>
+              </span>
 
               <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
                   onClick={() => setPaymentCondition('CONTADO')}
-                  className={`flex items-center justify-center gap-1.5 h-9 rounded-lg border text-xs font-bold cursor-pointer transition-all ${
+                  className={`flex items-center justify-center gap-1.5 h-9 rounded-lg border text-xs font-bold cursor-pointer transition ${
                     paymentCondition === 'CONTADO'
                       ? 'bg-emerald-600 border-emerald-500 text-white shadow-sm'
-                      : 'bg-white dark:bg-erp-surface border-slate-200 dark:border-erp-border text-slate-600 dark:text-zinc-400 hover:text-white'
+                      : 'bg-erp-surface border-erp-border text-zinc-400 hover:text-white'
                   }`}
                 >
                   <Check className="h-3.5 w-3.5" /> Pago Inmediato (Contado)
@@ -592,10 +592,10 @@ export function NewPurchaseModal({
                 <button
                   type="button"
                   onClick={() => setPaymentCondition('CUENTA_CORRIENTE')}
-                  className={`flex items-center justify-center gap-1.5 h-9 rounded-lg border text-xs font-bold cursor-pointer transition-all ${
+                  className={`flex items-center justify-center gap-1.5 h-9 rounded-lg border text-xs font-bold cursor-pointer transition ${
                     paymentCondition === 'CUENTA_CORRIENTE'
                       ? 'bg-amber-600 border-amber-500 text-white shadow-sm'
-                      : 'bg-white dark:bg-erp-surface border-slate-200 dark:border-erp-border text-slate-600 dark:text-zinc-400 hover:text-white'
+                      : 'bg-erp-surface border-erp-border text-zinc-400 hover:text-white'
                   }`}
                 >
                   <Clock className="h-3.5 w-3.5" /> A Pagar / Crédito (CXP)
@@ -604,13 +604,13 @@ export function NewPurchaseModal({
 
               {paymentCondition === 'CONTADO' ? (
                 <div className="space-y-1">
-                  <label className="text-[11px] font-bold uppercase text-emerald-500 block">
+                  <label htmlFor="newpurchasemodal-f2" className="text-[11px] font-bold uppercase text-emerald-500 block">
                     Cuenta de Tesorería a Debitar *
                   </label>
-                  <select
+                  <select id="newpurchasemodal-f2"
                     value={selectedTreasuryAccountId}
                     onChange={(e) => setSelectedTreasuryAccountId(e.target.value)}
-                    className="w-full h-9 rounded-lg border border-slate-300 dark:border-erp-border bg-white dark:bg-erp-surface px-2.5 text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    className="w-full h-9 rounded-lg border border-erp-border bg-erp-surface px-2.5 text-xs font-semibold text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   >
                     {treasuryAccounts.length === 0 ? (
                       <option value="">-- Sin cuentas activas --</option>
@@ -630,15 +630,15 @@ export function NewPurchaseModal({
                 </div>
               ) : (
                 <div className="space-y-1">
-                  <label className="text-[11px] font-bold uppercase text-amber-500 flex items-center gap-1">
+                  <label htmlFor="newpurchasemodal-f3" className="text-[11px] font-bold uppercase text-amber-500 flex items-center gap-1">
                     <Calendar className="h-3 w-3" /> Fecha de Vencimiento de Factura *
                   </label>
-                  <Input
+                  <Input id="newpurchasemodal-f3"
                     type="date"
                     required
                     value={paymentDueDate}
                     onChange={(e) => setPaymentDueDate(e.target.value)}
-                    className="h-9 text-xs font-mono font-bold bg-white dark:bg-erp-surface"
+                    className="h-9 text-xs font-mono font-bold bg-erp-surface"
                   />
                   <span className="text-[10px] text-zinc-400 block">
                     Se enviará a Cuentas por Pagar sin descontar dinero de Tesorería hoy.
@@ -648,20 +648,20 @@ export function NewPurchaseModal({
             </div>
 
             {/* 3. SWITCH DE RECEPCIÓN DE STOCK (4 cols) */}
-            <div className="lg:col-span-4 p-4 rounded-xl border border-slate-200 dark:border-erp-border bg-slate-50/50 dark:bg-erp-bg/50 space-y-3">
-              <label className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-zinc-300 flex items-center gap-1.5">
+            <div className="lg:col-span-4 p-4 rounded-xl border border-erp-border bg-erp-bg/50 space-y-3">
+              <span className="text-xs font-bold uppercase tracking-wider text-zinc-300 flex items-center gap-1.5">
                 <Truck className="h-4 w-4 text-indigo-400" />
                 3. Recepción de Stock *
-              </label>
+              </span>
 
               <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
                   onClick={() => setReceptionStatus('received')}
-                  className={`flex items-center justify-center gap-1.5 h-9 rounded-lg border text-xs font-bold cursor-pointer transition-all ${
+                  className={`flex items-center justify-center gap-1.5 h-9 rounded-lg border text-xs font-bold cursor-pointer transition ${
                     receptionStatus === 'received'
                       ? 'bg-emerald-600 border-emerald-500 text-white shadow-sm'
-                      : 'bg-white dark:bg-erp-surface border-slate-200 dark:border-erp-border text-slate-600 dark:text-zinc-400 hover:text-white'
+                      : 'bg-erp-surface border-erp-border text-zinc-400 hover:text-white'
                   }`}
                 >
                   <CheckCircle2 className="h-3.5 w-3.5" /> Ingreso Inmediato
@@ -670,10 +670,10 @@ export function NewPurchaseModal({
                 <button
                   type="button"
                   onClick={() => setReceptionStatus('in_transit')}
-                  className={`flex items-center justify-center gap-1.5 h-9 rounded-lg border text-xs font-bold cursor-pointer transition-all ${
+                  className={`flex items-center justify-center gap-1.5 h-9 rounded-lg border text-xs font-bold cursor-pointer transition ${
                     receptionStatus === 'in_transit'
                       ? 'bg-indigo-600 border-indigo-500 text-white shadow-sm'
-                      : 'bg-white dark:bg-erp-surface border-slate-200 dark:border-erp-border text-slate-600 dark:text-zinc-400 hover:text-white'
+                      : 'bg-erp-surface border-erp-border text-zinc-400 hover:text-white'
                   }`}
                 >
                   <Truck className="h-3.5 w-3.5" /> En Tránsito
@@ -681,31 +681,31 @@ export function NewPurchaseModal({
               </div>
 
               {receptionStatus === 'received' ? (
-                <div className="p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-[11px] text-emerald-600 dark:text-emerald-300 leading-relaxed">
+                <div className="p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-[11px] text-emerald-300 leading-relaxed">
                   <strong>Impacta Kardex y Stock ya:</strong> Suma las unidades al inventario físico y recalcula el Costo Promedio Ponderado (PPP).
                 </div>
               ) : (
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <label className="text-[10px] font-bold uppercase text-indigo-400 block mb-0.5">
+                    <label htmlFor="newpurchasemodal-f4" className="text-[10px] font-bold uppercase text-indigo-400 block mb-0.5">
                       Llegada Est. (ETA)
                     </label>
-                    <Input
+                    <Input id="newpurchasemodal-f4"
                       type="date"
                       value={expectedArrivalDate}
                       onChange={(e) => setExpectedArrivalDate(e.target.value)}
-                      className="h-8 text-xs font-mono bg-white dark:bg-erp-surface"
+                      className="h-8 text-xs font-mono bg-erp-surface"
                     />
                   </div>
                   <div>
-                    <label className="text-[10px] font-bold uppercase text-indigo-400 block mb-0.5">
+                    <label htmlFor="newpurchasemodal-f5" className="text-[10px] font-bold uppercase text-indigo-400 block mb-0.5">
                       Tracking / Guía
                     </label>
-                    <Input
+                    <Input id="newpurchasemodal-f5"
                       placeholder="DHL / Andreani..."
                       value={trackingInfo}
                       onChange={(e) => setTrackingInfo(e.target.value)}
-                      className="h-8 text-xs bg-white dark:bg-erp-surface"
+                      className="h-8 text-xs bg-erp-surface"
                     />
                   </div>
                 </div>
@@ -716,10 +716,10 @@ export function NewPurchaseModal({
           {/* GRILLA INFERIOR: BUSCADOR DE CATÁLOGO / DECANTS (6 cols) + DETALLE DE COMPRA (6 cols) */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
             {/* COLUMNA IZQUIERDA: SELECTOR DE ITEMS DE CATÁLOGO O DECANTS */}
-            <div className="lg:col-span-6 flex flex-col rounded-xl border border-slate-200 dark:border-erp-border bg-slate-50/40 dark:bg-erp-bg/40 overflow-hidden">
-              <div className="p-3.5 border-b border-slate-200 dark:border-erp-border space-y-2.5">
+            <div className="lg:col-span-6 flex flex-col rounded-xl border border-erp-border bg-erp-bg/40 overflow-hidden">
+              <div className="p-3.5 border-b border-erp-border space-y-2.5">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-zinc-300 flex items-center gap-1.5">
+                  <span className="text-xs font-bold uppercase tracking-wider text-zinc-300 flex items-center gap-1.5">
                     <Search className="h-4 w-4 text-erp-gold" />
                     Catálogo de Perfumes, Decants e Insumos
                   </span>
@@ -734,7 +734,7 @@ export function NewPurchaseModal({
                     placeholder="Buscar por SKU, nombre o marca (Ej: Lattafa, Khamrah, Frasco 5ml)..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-9 h-9 text-xs bg-white dark:bg-erp-surface"
+                    className="pl-9 h-9 text-xs bg-erp-surface"
                   />
                 </div>
 
@@ -753,7 +753,7 @@ export function NewPurchaseModal({
                       className={`px-2.5 py-1 rounded-lg text-[11px] font-bold cursor-pointer transition-colors ${
                         typeFilter === tab.id
                           ? 'bg-emerald-600 text-white'
-                          : 'bg-white dark:bg-erp-surface text-slate-500 dark:text-zinc-400 border border-slate-200 dark:border-erp-border hover:text-white'
+                          : 'bg-erp-surface text-zinc-400 border border-erp-border hover:text-white'
                       }`}
                     >
                       {tab.label}
@@ -762,14 +762,14 @@ export function NewPurchaseModal({
                 </div>
               </div>
 
-              <div className="p-3 max-h-80 overflow-y-auto divide-y divide-slate-100 dark:divide-erp-border/60">
+              <div className="p-3 max-h-80 overflow-y-auto divide-y divide-erp-border/60">
                 {loadingInit ? (
                   <div className="flex items-center justify-center py-12 gap-2 text-xs text-zinc-400">
                     <RefreshCw className="h-4 w-4 animate-spin text-emerald-500" />
                     Cargando catálogo...
                   </div>
                 ) : filteredProducts.length === 0 ? (
-                  <div className="py-12 text-center text-xs text-zinc-500">
+                  <div className="py-12 text-center text-xs text-zinc-400">
                     No se encontraron productos coincidentes.
                   </div>
                 ) : (
@@ -801,14 +801,14 @@ export function NewPurchaseModal({
                             <span className="text-[11px] font-mono text-erp-gold font-bold truncate">
                               {prod.brand}
                             </span>
-                            <span className="text-[10px] font-mono text-zinc-500">
+                            <span className="text-[10px] font-mono text-zinc-400">
                               • {prod.sku}
                             </span>
                           </div>
-                          <div className="text-xs font-bold text-slate-900 dark:text-white truncate mt-0.5">
+                          <div className="text-xs font-bold text-white truncate mt-0.5">
                             {prod.name}
                           </div>
-                          <div className="text-[11px] font-mono text-slate-500 dark:text-zinc-400 flex items-center gap-3 mt-0.5">
+                          <div className="text-[11px] font-mono text-zinc-400 flex items-center gap-3 mt-0.5">
                             <span>
                               Stock: <strong>{prod.stock_quantity}</strong> {unitLabel}
                             </span>
@@ -839,9 +839,9 @@ export function NewPurchaseModal({
             </div>
 
             {/* COLUMNA DERECHA: ÍTEMS SELECCIONADOS EN LA COMPRA */}
-            <div className="lg:col-span-6 flex flex-col rounded-xl border border-slate-200 dark:border-erp-border bg-slate-50/40 dark:bg-erp-bg/40 overflow-hidden">
-              <div className="p-3.5 border-b border-slate-200 dark:border-erp-border flex items-center justify-between">
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-zinc-300 flex items-center gap-1.5">
+            <div className="lg:col-span-6 flex flex-col rounded-xl border border-erp-border bg-erp-bg/40 overflow-hidden">
+              <div className="p-3.5 border-b border-erp-border flex items-center justify-between">
+                <span className="text-xs font-bold uppercase tracking-wider text-zinc-300 flex items-center gap-1.5">
                   <ShoppingBag className="h-4 w-4 text-emerald-500" />
                   Detalle de Factura ({cart.length} ítems / {totalUnits} uds)
                 </span>
@@ -852,10 +852,10 @@ export function NewPurchaseModal({
 
               <div className="flex-1 max-h-80 overflow-y-auto p-3 space-y-2.5">
                 {cart.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-16 text-center text-zinc-500 gap-2">
+                  <div className="flex flex-col items-center justify-center py-16 text-center text-zinc-400 gap-2">
                     <Box className="h-9 w-9 opacity-30" />
                     <p className="text-xs font-medium">No hay productos cargados en la orden.</p>
-                    <p className="text-[11px] text-zinc-500">
+                    <p className="text-[11px] text-zinc-400">
                       Selecciona perfumes, decants o insumos del panel izquierdo.
                     </p>
                   </div>
@@ -868,11 +868,11 @@ export function NewPurchaseModal({
                     return (
                       <div
                         key={item.product.id}
-                        className="p-3 rounded-xl bg-white dark:bg-erp-surface border border-slate-200 dark:border-erp-border space-y-2"
+                        className="p-3 rounded-xl bg-erp-surface border border-erp-border space-y-2"
                       >
                         <div className="flex items-start justify-between gap-2">
                           <div className="min-w-0">
-                            <div className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                            <div className="text-xs font-bold text-white truncate">
                               {item.product.name}
                             </div>
                             <div className="text-[11px] font-mono text-zinc-400">
@@ -891,10 +891,10 @@ export function NewPurchaseModal({
 
                         <div className="grid grid-cols-3 gap-2 items-end pt-1">
                           <div>
-                            <label className="text-[10px] font-bold uppercase text-zinc-400 block mb-0.5">
+                            <label htmlFor="newpurchasemodal-f6" className="text-[10px] font-bold uppercase text-zinc-400 block mb-0.5">
                               Cantidad ({item.product.type === 'decant_liquid' ? 'ml' : 'uds'})
                             </label>
-                            <Input
+                            <Input id="newpurchasemodal-f6"
                               type="number"
                               min="1"
                               value={item.quantity}
@@ -909,10 +909,10 @@ export function NewPurchaseModal({
                           </div>
 
                           <div>
-                            <label className="text-[10px] font-bold uppercase text-zinc-400 block mb-0.5">
+                            <label htmlFor="newpurchasemodal-f7" className="text-[10px] font-bold uppercase text-zinc-400 block mb-0.5">
                               Costo Unit. ({currency})
                             </label>
-                            <Input
+                            <Input id="newpurchasemodal-f7"
                               type="number"
                               min="0"
                               step="0.01"
@@ -954,18 +954,18 @@ export function NewPurchaseModal({
           </div>
 
           {/* PIE DEL MODAL CON RESUMEN MULTIMONEDA Y ACCIÓN ATÓMICA */}
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pt-4 border-t border-slate-200 dark:border-erp-border">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pt-4 border-t border-erp-border">
             <div className="flex flex-wrap items-center gap-6">
               <div>
                 <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-400 block">
                   Total Compra en Pesos (ARS)
                 </span>
-                <span className="text-2xl font-black font-mono text-slate-900 dark:text-white">
+                <span className="text-2xl font-black font-mono text-white">
                   ${totalArs.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </span>
               </div>
 
-              <div className="border-l border-slate-200 dark:border-erp-border pl-6">
+              <div className="border-l border-erp-border pl-6">
                 <span className="text-[11px] font-bold uppercase tracking-wider text-erp-gold block">
                   Contravalor Congelado (USD)
                 </span>

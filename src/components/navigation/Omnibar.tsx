@@ -284,6 +284,9 @@ export function Omnibar() {
       onClick={closeOmnibar}
     >
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Búsqueda global y comandos"
         className="w-full max-w-2xl bg-erp-surface border border-erp-border rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150"
         onClick={(e) => e.stopPropagation()}
       >
@@ -297,6 +300,12 @@ export function Omnibar() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={handleInputKeyDown}
+            aria-label="Buscar módulos, productos o clientes"
+            role="combobox"
+            aria-expanded="true"
+            aria-controls="omnibar-listbox"
+            aria-autocomplete="list"
+            aria-activedescendant={commandEntries[selectedIndex] ? `omnibar-opt-${selectedIndex}` : undefined}
             className="flex h-12 w-full bg-transparent text-sm text-erp-cream placeholder-zinc-500 focus:outline-none font-sans"
           />
           {loadingData && (
@@ -314,7 +323,8 @@ export function Omnibar() {
           <button
             type="button"
             onClick={closeOmnibar}
-            className="text-zinc-500 hover:text-white transition-colors cursor-pointer p-1 rounded-lg"
+            aria-label="Cerrar (Esc)"
+            className="text-zinc-400 hover:text-white transition-colors cursor-pointer p-1 rounded-lg"
             title="Cerrar (Esc)"
           >
             <X className="h-4 w-4" />
@@ -324,16 +334,19 @@ export function Omnibar() {
         {/* RESULTADOS UNIFICADOS CON NAVEGACIÓN POR TECLADO */}
         <div
           ref={listContainerRef}
+          id="omnibar-listbox"
+          role="listbox"
+          aria-label="Resultados"
           className="max-h-[65vh] overflow-y-auto p-2.5 space-y-4"
         >
           {/* SECCIÓN 1: MÓDULOS Y ACCIONES DEL ERP */}
           {filteredNavItems.length > 0 && (
-            <div>
+            <div role="group" aria-label="Módulos del Sistema">
               <div className="text-[10px] font-extrabold uppercase tracking-widest text-erp-gold px-3 py-1.5 flex items-center justify-between">
                 <span className="flex items-center gap-1.5">
                   <Sparkles className="h-3 w-3" /> Módulos del Sistema
                 </span>
-                <span className="font-mono text-zinc-500">{filteredNavItems.length}</span>
+                <span className="font-mono text-zinc-400">{filteredNavItems.length}</span>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 text-xs">
@@ -348,10 +361,13 @@ export function Omnibar() {
                     <button
                       key={item.id}
                       type="button"
+                      id={`omnibar-opt-${entryIdx}`}
+                      role="option"
+                      aria-selected={isSelected}
                       data-command-idx={entryIdx}
                       onMouseEnter={() => setSelectedIndex(entryIdx)}
                       onClick={() => handleNavigate(item.href)}
-                      className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-left transition-all cursor-pointer group border ${
+                      className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-left transition cursor-pointer group border ${
                         isSelected
                           ? 'bg-secondary text-erp-gold border-erp-gold/40 shadow-sm'
                           : 'text-zinc-200 border-transparent hover:bg-secondary/60'
@@ -381,7 +397,7 @@ export function Omnibar() {
           )}
 
           {/* SECCIÓN 2: CATÁLOGO DE PRODUCTOS Y DECANTS */}
-          <div>
+          <div role="group" aria-label="Catálogo Comercial">
             <div className="text-[10px] font-extrabold uppercase tracking-widest text-zinc-400 px-3 py-1.5 flex items-center justify-between">
               <span>Catálogo Comercial (Perfumes & Decants)</span>
               <span className="font-mono">{filteredProducts.length} resultados</span>
@@ -392,7 +408,7 @@ export function Omnibar() {
                 Sincronizando catálogo comercial...
               </div>
             ) : filteredProducts.length === 0 ? (
-              <div className="py-4 text-center text-xs text-zinc-500">
+              <div className="py-4 text-center text-xs text-zinc-400">
                 No se encontraron productos para &ldquo;{query}&rdquo;.
               </div>
             ) : (
@@ -410,10 +426,13 @@ export function Omnibar() {
                   return (
                     <div
                       key={product.id}
+                      id={`omnibar-opt-${entryIdx}`}
+                      role="option"
+                      aria-selected={isSelected}
                       data-command-idx={entryIdx}
                       onMouseEnter={() => setSelectedIndex(entryIdx)}
                       onClick={() => handleAddToCart(product)}
-                      className={`flex items-center justify-between p-2.5 rounded-xl border transition-all cursor-pointer ${
+                      className={`flex items-center justify-between p-2.5 rounded-xl border transition cursor-pointer ${
                         isSelected
                           ? 'bg-secondary/90 border-erp-gold/60 shadow-sm'
                           : 'bg-erp-bg/60 border-erp-border hover:border-erp-gold/40'
@@ -435,7 +454,7 @@ export function Omnibar() {
                           <div className="text-[11px] text-zinc-400 flex items-center gap-2 font-mono">
                             <span>{product.brand}</span>
                             <span>•</span>
-                            <span className="text-zinc-500">{product.sku}</span>
+                            <span className="text-zinc-400">{product.sku}</span>
                             <span>•</span>
                             <span
                               className={
@@ -456,7 +475,7 @@ export function Omnibar() {
                             {product.type === 'decant_liquid' ? '/ml' : ''}
                           </div>
                           {usdEq !== null && (
-                            <div className="text-[10px] text-zinc-500 tabular-nums">
+                            <div className="text-[10px] text-zinc-400 tabular-nums">
                               u$s {usdEq.toFixed(2)}
                             </div>
                           )}
@@ -468,7 +487,7 @@ export function Omnibar() {
                             e.stopPropagation();
                             handleAddToCart(product);
                           }}
-                          className="px-2.5 py-1.5 rounded-lg bg-erp-gold hover:bg-erp-gold-hover text-erp-bg font-extrabold text-[11px] flex items-center gap-1 cursor-pointer shadow-sm transition-all"
+                          className="px-2.5 py-1.5 rounded-lg bg-erp-gold hover:bg-erp-gold-hover text-erp-bg font-extrabold text-[11px] flex items-center gap-1 cursor-pointer shadow-sm transition"
                           title="Enviar directo al Punto de Venta (POS)"
                         >
                           <ShoppingCart className="h-3 w-3" />
@@ -484,7 +503,7 @@ export function Omnibar() {
 
           {/* SECCIÓN 3: CLIENTES CRM (CUANDO HAY BÚSQUEDA) */}
           {filteredClients.length > 0 && (
-            <div>
+            <div role="group" aria-label="Clientes CRM">
               <div className="text-[10px] font-extrabold uppercase tracking-widest text-indigo-400 px-3 py-1.5 flex items-center justify-between">
                 <span className="flex items-center gap-1.5">
                   <Users className="h-3 w-3" /> Clientes CRM & VibePoints
@@ -503,10 +522,13 @@ export function Omnibar() {
                     <button
                       key={client.id}
                       type="button"
+                      id={`omnibar-opt-${entryIdx}`}
+                      role="option"
+                      aria-selected={isSelected}
                       data-command-idx={entryIdx}
                       onMouseEnter={() => setSelectedIndex(entryIdx)}
                       onClick={() => handleNavigate('/clientes')}
-                      className={`w-full flex items-center justify-between p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                      className={`w-full flex items-center justify-between p-2.5 rounded-xl border text-left transition cursor-pointer ${
                         isSelected
                           ? 'bg-secondary/90 border-indigo-400/60'
                           : 'bg-erp-bg/60 border-erp-border hover:border-indigo-400/40'
@@ -561,7 +583,7 @@ export function Omnibar() {
           </div>
 
           <div className="flex items-center gap-2">
-            <span className="hidden sm:inline text-zinc-500">Atajos: N (POS) • I (Catálogo)</span>
+            <span className="hidden sm:inline text-zinc-400">Atajos: N (POS) • I (Catálogo)</span>
             <span>
               <kbd className="px-1.5 py-0.5 rounded bg-erp-surface border border-erp-border text-zinc-300">
                 Esc

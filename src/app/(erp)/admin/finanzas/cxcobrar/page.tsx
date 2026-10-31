@@ -316,7 +316,7 @@ export default function CxCobrarPage() {
     <div className="flex flex-col min-h-screen bg-erp-bg text-zinc-50 transition-colors duration-300">
       
       {/* NAVBAR GLASSMORPHISM */}
-      <header className="sticky top-0 z-40 w-full border-b border-erp-border bg-erp-bg/80 backdrop-blur-md">
+      <header className="sticky top-0 z-40 w-full border-b border-erp-border bg-erp-bg/95">
         <div className="container mx-auto flex h-16 items-center justify-between px-4 sm:px-6 max-w-6xl">
           <div className="flex items-center gap-4">
             <Link 
@@ -495,7 +495,7 @@ export default function CxCobrarPage() {
                           <div>{clientName}</div>
                           {item.clients?.phone && (
                             <div className="text-[11px] text-zinc-400 font-mono flex items-center gap-1 font-sans mt-0.5">
-                              <Phone className="h-3 w-3 text-zinc-500" /> {item.clients.phone}
+                              <Phone className="h-3 w-3 text-zinc-400" /> {item.clients.phone}
                             </div>
                           )}
                         </td>
@@ -553,7 +553,7 @@ export default function CxCobrarPage() {
       {/* MODAL REGISTRAR ABONO */}
       {selectedSale && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="w-full max-w-md bg-erp-surface border border-erp-border rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+          <div className="w-full max-w-md bg-erp-surface border border-erp-border rounded-2xl shadow-xl overflow-hidden animate-in zoom-in-95 duration-200">
             <form onSubmit={handleConfirmInstallment}>
               
               <CardHeader className="border-b border-erp-border pb-4">
@@ -602,12 +602,13 @@ export default function CxCobrarPage() {
 
                 {/* Input Monto del Abono Hoy */}
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold uppercase tracking-wider text-erp-gold">
+                  <label htmlFor="cxc-monto-pago-hoy" className="text-xs font-bold uppercase tracking-wider text-erp-gold">
                     Monto que Paga Hoy (ARS) *
                   </label>
                   <div className="relative">
-                    <span className="absolute left-3 top-2.5 text-xs font-bold text-zinc-500">$</span>
+                    <span className="absolute left-3 top-2.5 text-xs font-bold text-zinc-400">$</span>
                     <Input
+                      id="cxc-monto-pago-hoy"
                       required
                       type="number"
                       placeholder="Monto a ingresar hoy..."
@@ -621,10 +622,10 @@ export default function CxCobrarPage() {
 
                 {/* Selección de Método de Pago */}
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold uppercase tracking-wider text-zinc-300">
+                  <label htmlFor="page-f1" className="text-xs font-bold uppercase tracking-wider text-zinc-300">
                     Medio de Pago Recibido
                   </label>
-                  <select
+                  <select id="page-f1"
                     value={paymentMethod}
                     onChange={(e) => handlePaymentMethodChange(e.target.value)}
                     disabled={submitting}
@@ -641,10 +642,10 @@ export default function CxCobrarPage() {
                 {/* Selección de Cuenta de Tesorería Destino */}
                 {treasuryAccounts.length > 0 && (
                   <div className="space-y-1.5">
-                    <label className="text-xs font-bold uppercase tracking-wider text-erp-gold flex items-center gap-1.5">
+                    <label htmlFor="page-f2" className="text-xs font-bold uppercase tracking-wider text-erp-gold flex items-center gap-1.5">
                       <Landmark className="h-3.5 w-3.5 text-erp-gold" /> Cuenta de Tesorería Destino *
                     </label>
-                    <select
+                    <select id="page-f2"
                       value={selectedTreasuryAccountId}
                       onChange={(e) => setSelectedTreasuryAccountId(e.target.value)}
                       disabled={submitting}
@@ -662,17 +663,17 @@ export default function CxCobrarPage() {
                 {/* Histórico de Abonos Anteriores en esta Venta */}
                 {selectedSale.sale_installments && selectedSale.sale_installments.length > 0 && (
                   <div className="space-y-2 pt-2 border-t border-erp-border">
-                    <label className="text-[11px] font-extrabold uppercase tracking-widest text-zinc-400 flex items-center gap-1">
+                    <span className="text-[11px] font-extrabold uppercase tracking-widest text-zinc-400 flex items-center gap-1">
                       <History className="h-3.5 w-3.5 text-erp-gold" /> Historial de Abonos Recibidos
-                    </label>
+                    </span>
                     <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
                       {selectedSale.sale_installments.map((inst) => (
                         <div key={inst.id} className="flex justify-between items-center text-[11px] p-2 rounded-lg bg-erp-bg border border-erp-border/60 font-mono">
                           <div>
                             <span className="text-white font-bold">${inst.amount_paid_ars.toLocaleString('es-AR')} ARS</span>
-                            <span className="text-zinc-500 text-[11px] ml-1.5">({inst.payment_method})</span>
+                            <span className="text-zinc-400 text-[11px] ml-1.5">({inst.payment_method})</span>
                           </div>
-                          <span className="text-zinc-500 text-[11px]">
+                          <span className="text-zinc-400 text-[11px]">
                             {new Date(inst.created_at).toLocaleDateString('es-AR')}
                           </span>
                         </div>

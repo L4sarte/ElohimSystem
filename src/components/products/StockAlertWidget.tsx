@@ -117,7 +117,7 @@ export function StockAlertWidget() {
                       )}
                     </div>
                     <div className="text-[11px] text-zinc-400">
-                      {p.brand} • <code className="text-zinc-500">{p.sku}</code>
+                      {p.brand} • <code className="text-zinc-400">{p.sku}</code>
                     </div>
                   </div>
 
@@ -126,7 +126,7 @@ export function StockAlertWidget() {
                       <div className="text-xs font-black text-amber-400">
                         {p.stock_quantity} {isDecant ? 'ml' : 'uds'}
                       </div>
-                      <div className="text-xs text-zinc-500">
+                      <div className="text-xs text-zinc-400">
                         Min: {minLimit} {isDecant ? 'ml' : 'uds'}
                       </div>
                     </div>

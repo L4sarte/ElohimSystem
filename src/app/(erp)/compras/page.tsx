@@ -328,8 +328,8 @@ function ComprasDashboardContent() {
   // Denegar acceso para rol vendedor
   if (role !== 'admin') {
     return (
-      <div className="flex flex-col min-h-screen bg-slate-50 text-slate-900 dark:bg-erp-bg dark:text-zinc-50 transition-colors duration-300">
-        <header className="sticky top-0 z-40 w-full border-b border-slate-200/80 bg-white/80 backdrop-blur-md dark:border-erp-border dark:bg-erp-bg/80">
+      <div className="flex flex-col min-h-screen bg-erp-bg text-zinc-50 transition-colors duration-300">
+        <header className="sticky top-0 z-40 w-full border-b border-slate-200/80 dark:border-erp-border bg-erp-bg/95">
           <div className="container mx-auto flex h-16 items-center justify-between px-4 sm:px-6 max-w-6xl">
             <Link
               href="/"
@@ -343,12 +343,12 @@ function ComprasDashboardContent() {
         </header>
 
         <main className="flex-1 flex items-center justify-center p-4">
-          <Card className="w-full max-w-md border-rose-200 dark:border-rose-900/30 bg-rose-50/20 dark:bg-rose-950/5 shadow-lg">
+          <Card className="w-full max-w-md border-rose-900/30 bg-rose-950/5 shadow-lg">
             <CardHeader className="text-center pb-2">
-              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-rose-100 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400 mb-4">
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-rose-500/10 text-rose-400 mb-4">
                 <ShieldAlert className="h-6 w-6" />
               </div>
-              <CardTitle className="text-lg font-bold text-rose-800 dark:text-rose-400">
+              <CardTitle className="text-lg font-bold text-rose-400">
                 Acceso Restringido
               </CardTitle>
               <CardDescription className="dark:text-rose-500/80">
@@ -369,9 +369,9 @@ function ComprasDashboardContent() {
   }
 
   return (
-    <div className="flex flex-col min-h-screen bg-slate-50 text-slate-900 dark:bg-erp-bg dark:text-zinc-50 transition-colors duration-300">
+    <div className="flex flex-col min-h-screen bg-erp-bg text-zinc-50 transition-colors duration-300">
       {/* NAVBAR */}
-      <header className="sticky top-0 z-40 w-full border-b border-slate-200/80 bg-white/80 backdrop-blur-md dark:border-erp-border dark:bg-erp-bg/80">
+      <header className="sticky top-0 z-40 w-full border-b border-slate-200/80 dark:border-erp-border bg-erp-bg/95">
         <div className="container mx-auto flex h-16 items-center justify-between px-4 sm:px-6 max-w-7xl">
           <div className="flex items-center gap-4">
             <Link
@@ -381,12 +381,12 @@ function ComprasDashboardContent() {
               <ArrowLeft className="h-4.5 w-4.5" />
               <span>Dashboard</span>
             </Link>
-            <span className="text-slate-300 dark:text-zinc-800">|</span>
+            <span className="text-zinc-800">|</span>
             <div className="flex items-center gap-2">
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-600 text-white shadow-md shadow-emerald-500/20">
                 <PackagePlus className="h-4.5 w-4.5" />
               </div>
-              <span className="text-sm font-bold tracking-tight text-slate-800 dark:text-zinc-100 uppercase font-serif">
+              <span className="text-sm font-bold tracking-tight text-zinc-100 uppercase font-serif">
                 Compras, Proveedores & Cuentas por Pagar
               </span>
             </div>
@@ -407,10 +407,10 @@ function ComprasDashboardContent() {
             <span className="text-[11px] font-extrabold uppercase tracking-widest text-erp-gold flex items-center gap-1">
               <Sparkles className="h-3.5 w-3.5" /> Supply Chain, Tesorería & Cuentas Corrientes
             </span>
-            <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-2 font-serif mt-1">
+            <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2 font-serif mt-1">
               Gestión Integral de Compras y Cuentas por Pagar (CXP)
             </h1>
-            <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1">
+            <p className="text-xs text-zinc-400 mt-1">
               Abastecimiento B2B con descuento automático en Tesorería al contado o administración de deuda a plazo con proveedores.
             </p>
           </div>
@@ -438,7 +438,7 @@ function ComprasDashboardContent() {
         {/* TARJETAS DE RESUMEN KPI */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
           {/* KPI 1: TOTAL COMPRAS HISTÓRICAS */}
-          <Card className="border-slate-200 dark:border-erp-border bg-white dark:bg-erp-surface rounded-2xl shadow-xl">
+          <Card className="border-erp-border bg-erp-surface rounded-2xl shadow-xl">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <CardDescription className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400">
@@ -448,14 +448,14 @@ function ComprasDashboardContent() {
                   <Coins className="h-4 w-4" />
                 </div>
               </div>
-              <CardTitle className="text-2xl font-black text-slate-900 dark:text-white font-mono mt-1">
+              <CardTitle className="text-2xl font-black text-white font-mono mt-1">
                 ${totalPurchasesArs.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ARS
               </CardTitle>
               <div className="flex items-center justify-between text-xs font-mono pt-1">
                 <span className="text-erp-gold font-bold">
                   Contravalor: u$s {totalPurchasesUsd.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD
                 </span>
-                <span className="text-[11px] text-zinc-500">
+                <span className="text-[11px] text-zinc-400">
                   {purchases.length} {purchases.length === 1 ? 'operación' : 'operaciones'}
                 </span>
               </div>
@@ -463,17 +463,17 @@ function ComprasDashboardContent() {
           </Card>
 
           {/* KPI 2: DEUDA PENDIENTE (CONECTADO CON amount_remaining DE accounts_payable) */}
-          <Card className="border-slate-200 dark:border-erp-border bg-white dark:bg-erp-surface rounded-2xl shadow-xl">
+          <Card className="border-erp-border bg-erp-surface rounded-2xl shadow-xl">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
-                <CardDescription className="text-[11px] font-extrabold uppercase tracking-wider text-amber-600 dark:text-amber-400">
+                <CardDescription className="text-[11px] font-extrabold uppercase tracking-wider text-amber-400">
                   DEUDA PENDIENTE (CUENTAS POR PAGAR)
                 </CardDescription>
                 <div className="p-2 rounded-lg bg-amber-500/10 text-amber-400">
                   <CreditCard className="h-4 w-4" />
                 </div>
               </div>
-              <CardTitle className="text-2xl font-black text-amber-600 dark:text-amber-400 font-mono mt-1">
+              <CardTitle className="text-2xl font-black text-amber-400 font-mono mt-1">
                 ${totalDebtRemainingArs.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ARS
               </CardTitle>
               <div className="flex items-center justify-between text-xs font-mono pt-1">
@@ -485,7 +485,7 @@ function ComprasDashboardContent() {
                     {overdueDebtsCount} vencida(s)
                   </span>
                 ) : (
-                  <span className="text-[11px] text-zinc-500">
+                  <span className="text-[11px] text-zinc-400">
                     {activeDebtsCount} {activeDebtsCount === 1 ? 'obligación activa' : 'obligaciones activas'}
                   </span>
                 )}
@@ -494,7 +494,7 @@ function ComprasDashboardContent() {
           </Card>
 
           {/* KPI 3: PROVEEDORES B2B & FLUJO ACTIVO */}
-          <Card className="border-slate-200 dark:border-erp-border bg-white dark:bg-erp-surface rounded-2xl shadow-xl">
+          <Card className="border-erp-border bg-erp-surface rounded-2xl shadow-xl">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <CardDescription className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400">
@@ -524,7 +524,7 @@ function ComprasDashboardContent() {
         </div>
 
         {/* NAVEGACIÓN FLUIDA POR PESTAÑAS UNIFICADAS */}
-        <div className="flex flex-wrap border-b border-slate-200 dark:border-erp-border mb-6 gap-2">
+        <div className="flex flex-wrap border-b border-erp-border mb-6 gap-2">
           <button
             type="button"
             onClick={() => setActiveTab('purchases')}
@@ -588,15 +588,15 @@ function ComprasDashboardContent() {
 
         {/* CONTENIDO DE PESTAÑA 1: HISTORIAL DE COMPRAS */}
         {activeTab === 'purchases' && (
-          <Card className="border-slate-200 dark:border-erp-border rounded-2xl overflow-hidden shadow-xl">
-            <div className="p-4 border-b border-slate-200 dark:border-erp-border bg-slate-50/40 dark:bg-erp-surface/50 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <Card className="border-erp-border rounded-2xl overflow-hidden shadow-xl">
+            <div className="p-4 border-b border-erp-border bg-erp-surface/50 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div className="relative flex-1 max-w-md">
                 <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
                 <Input
                   placeholder="Filtrar compras por proveedor, producto, SKU o #ID..."
                   value={purchaseSearch}
                   onChange={(e) => setPurchaseSearch(e.target.value)}
-                  className="pl-9 h-9 text-xs bg-white dark:bg-erp-bg"
+                  className="pl-9 h-9 text-xs bg-erp-bg"
                 />
               </div>
               <Button
@@ -612,17 +612,17 @@ function ComprasDashboardContent() {
               {loading ? (
                 <div className="flex flex-col items-center justify-center py-20 gap-3">
                   <RefreshCw className="h-8 w-8 animate-spin text-emerald-500" />
-                  <span className="text-xs font-medium text-slate-500 dark:text-zinc-400">
+                  <span className="text-xs font-medium text-zinc-400">
                     Cargando historial de compras...
                   </span>
                 </div>
               ) : filteredPurchases.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-24 gap-3 text-center">
-                  <PackagePlus className="h-10 w-10 text-slate-300 dark:text-zinc-700" />
-                  <h3 className="font-bold text-slate-900 dark:text-white">
+                  <PackagePlus className="h-10 w-10 text-zinc-700" />
+                  <h3 className="font-bold text-white">
                     Sin Compras Registradas
                   </h3>
-                  <p className="text-xs text-slate-500 dark:text-zinc-400 max-w-sm">
+                  <p className="text-xs text-zinc-400 max-w-sm">
                     No se encontraron órdenes de compra con los filtros aplicados.
                   </p>
                   <Button
@@ -635,7 +635,7 @@ function ComprasDashboardContent() {
               ) : (
                 <table className="w-full text-left border-collapse">
                   <thead>
-                    <tr className="border-b border-slate-200 dark:border-erp-border bg-slate-50/50 dark:bg-erp-surface/40 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400">
+                    <tr className="border-b border-erp-border bg-erp-surface/40 text-xs font-bold uppercase tracking-wider text-zinc-400">
                       <th className="p-4 pl-6">ID / Fecha</th>
                       <th className="p-4">Proveedor</th>
                       <th className="p-4 text-center">Estado Recepción</th>
@@ -645,7 +645,7 @@ function ComprasDashboardContent() {
                       <th className="p-4 pr-6">Productos / Detalle</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100 dark:divide-zinc-900 text-sm">
+                  <tbody className="divide-y divide-zinc-900 text-sm">
                     {filteredPurchases.map((p) => {
                       const isPaid =
                         p.payment_status === 'paid_cash' || p.payment_status === 'paid';
@@ -663,7 +663,7 @@ function ComprasDashboardContent() {
                           className="hover:bg-slate-50/60 dark:hover:bg-erp-surface/30 transition-colors"
                         >
                           <td className="p-4 pl-6 font-mono text-xs whitespace-nowrap">
-                            <div className="font-bold text-slate-900 dark:text-white">
+                            <div className="font-bold text-white">
                               #{p.id.split('-')[0].toUpperCase()}
                             </div>
                             <div className="text-[11px] text-slate-400">
@@ -672,12 +672,12 @@ function ComprasDashboardContent() {
                           </td>
 
                           <td className="p-4">
-                            <div className="font-bold text-slate-800 dark:text-zinc-200 flex items-center gap-1.5">
+                            <div className="font-bold text-zinc-200 flex items-center gap-1.5">
                               <Building className="h-3.5 w-3.5 text-erp-gold shrink-0" />
                               {p.suppliers?.name || 'Proveedor N/A'}
                             </div>
                             {p.notes && (
-                              <div className="text-[11px] text-zinc-500 truncate max-w-xs mt-0.5">
+                              <div className="text-[11px] text-zinc-400 truncate max-w-xs mt-0.5">
                                 {p.notes}
                               </div>
                             )}
@@ -704,7 +704,7 @@ function ComprasDashboardContent() {
                             )}
                           </td>
 
-                          <td className="p-4 text-right font-mono font-bold text-slate-900 dark:text-white whitespace-nowrap">
+                          <td className="p-4 text-right font-mono font-bold text-white whitespace-nowrap">
                             ${Number(p.total_ars).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </td>
 
@@ -716,15 +716,15 @@ function ComprasDashboardContent() {
                           <td className="p-4 text-center whitespace-nowrap">
                             <div className="flex flex-col items-center gap-1.5">
                               {isPaid ? (
-                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-[11px] font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-400 border border-emerald-500/20">
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-[11px] font-bold text-emerald-800 bg-emerald-500/10 dark:text-emerald-400 border border-emerald-500/20">
                                   <Check className="h-3 w-3" /> Pagada (Contado / Saldada)
                                 </span>
                               ) : isPartial ? (
-                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-[11px] font-bold bg-sky-100 text-sky-800 dark:bg-sky-500/10 dark:text-sky-400 border border-sky-500/20">
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-[11px] font-bold text-sky-800 bg-sky-500/10 dark:text-sky-400 border border-sky-500/20">
                                   <Clock className="h-3 w-3" /> Pago Parcial (Resta: ${remainingArs.toLocaleString('es-AR')})
                                 </span>
                               ) : (
-                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-[11px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-500/10 dark:text-amber-400 border border-amber-500/20">
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-[11px] font-bold text-amber-800 bg-amber-500/10 dark:text-amber-400 border border-amber-500/20">
                                   <Clock className="h-3 w-3" /> Crédito Pendiente (CXP)
                                 </span>
                               )}
@@ -757,7 +757,7 @@ function ComprasDashboardContent() {
                                 p.purchase_items.map((item) => (
                                   <div
                                     key={item.id}
-                                    className="text-xs text-slate-600 dark:text-zinc-300 flex items-center justify-between gap-2"
+                                    className="text-xs text-zinc-300 flex items-center justify-between gap-2"
                                   >
                                     <span className="font-semibold truncate">
                                       {item.products?.name || 'Ítem'}
@@ -768,7 +768,7 @@ function ComprasDashboardContent() {
                                   </div>
                                 ))
                               ) : (
-                                <span className="text-xs text-zinc-500 italic">
+                                <span className="text-xs text-zinc-400 italic">
                                   Ver detalle en OC #{p.id.slice(0, 8).toUpperCase()}
                                 </span>
                               )}
@@ -786,8 +786,8 @@ function ComprasDashboardContent() {
 
         {/* CONTENIDO DE PESTAÑA 2: CUENTAS POR PAGAR (CXP) */}
         {activeTab === 'payables' && (
-          <Card className="border-slate-200 dark:border-erp-border rounded-2xl overflow-hidden shadow-xl">
-            <div className="p-4 border-b border-slate-200 dark:border-erp-border bg-slate-50/40 dark:bg-erp-surface/50 flex flex-wrap items-center justify-between gap-3">
+          <Card className="border-erp-border rounded-2xl overflow-hidden shadow-xl">
+            <div className="p-4 border-b border-erp-border bg-erp-surface/50 flex flex-wrap items-center justify-between gap-3">
               <div className="flex flex-wrap items-center gap-2">
                 {[
                   { id: 'ALL', label: `Todas (${payables.length})` },
@@ -799,10 +799,10 @@ function ComprasDashboardContent() {
                     key={f.id}
                     type="button"
                     onClick={() => setPayableFilter(f.id as any)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer transition-all ${
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer transition ${
                       payableFilter === f.id
                         ? 'bg-emerald-600 text-white shadow-sm'
-                        : 'bg-white dark:bg-erp-bg text-slate-600 dark:text-zinc-400 border border-slate-200 dark:border-erp-border hover:text-white'
+                        : 'bg-erp-bg text-zinc-400 border border-erp-border hover:text-white'
                     }`}
                   >
                     {f.label}
@@ -822,24 +822,24 @@ function ComprasDashboardContent() {
               {loading ? (
                 <div className="flex flex-col items-center justify-center py-20 gap-3">
                   <RefreshCw className="h-8 w-8 animate-spin text-emerald-500" />
-                  <span className="text-xs font-medium text-slate-500 dark:text-zinc-400">
+                  <span className="text-xs font-medium text-zinc-400">
                     Consultando Cuentas por Pagar...
                   </span>
                 </div>
               ) : filteredPayables.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-24 gap-3 text-center">
-                  <CreditCard className="h-10 w-10 text-slate-300 dark:text-zinc-700" />
-                  <h3 className="font-bold text-slate-900 dark:text-white">
+                  <CreditCard className="h-10 w-10 text-zinc-700" />
+                  <h3 className="font-bold text-white">
                     Sin Deudas en esta Vista
                   </h3>
-                  <p className="text-xs text-slate-500 dark:text-zinc-400 max-w-sm">
+                  <p className="text-xs text-zinc-400 max-w-sm">
                     No hay obligaciones pendientes de pago que coincidan con el filtro seleccionado.
                   </p>
                 </div>
               ) : (
                 <table className="w-full text-left border-collapse">
                   <thead>
-                    <tr className="border-b border-slate-200 dark:border-erp-border bg-slate-50/50 dark:bg-erp-surface/40 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400">
+                    <tr className="border-b border-erp-border bg-erp-surface/40 text-xs font-bold uppercase tracking-wider text-zinc-400">
                       <th className="p-4 pl-6">Proveedor</th>
                       <th className="p-4">Factura / PO Vinculada</th>
                       <th className="p-4 text-right">Monto Original</th>
@@ -850,7 +850,7 @@ function ComprasDashboardContent() {
                       <th className="p-4 pr-6 text-right">Acción</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100 dark:divide-zinc-900 text-sm">
+                  <tbody className="divide-y divide-zinc-900 text-sm">
                     {filteredPayables.map((cxp) => {
                       const isSettled =
                         cxp.status === 'settled' ||
@@ -871,28 +871,28 @@ function ComprasDashboardContent() {
                           }`}
                         >
                           <td className="p-4 pl-6">
-                            <div className="font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                            <div className="font-bold text-white flex items-center gap-1.5">
                               <Building className="h-3.5 w-3.5 text-erp-gold shrink-0" />
                               {cxp.suppliers?.name || 'Proveedor N/A'}
                             </div>
                             {cxp.suppliers?.phone && (
-                              <span className="text-[11px] font-mono text-zinc-500 block">
+                              <span className="text-[11px] font-mono text-zinc-400 block">
                                 Tel: {cxp.suppliers.phone}
                               </span>
                             )}
                           </td>
 
                           <td className="p-4 font-mono text-xs">
-                            <span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-erp-bg border border-slate-200 dark:border-erp-border font-bold text-indigo-400">
+                            <span className="px-2 py-0.5 rounded bg-erp-bg border border-erp-border font-bold text-indigo-400">
                               PO #{poRef}
                             </span>
-                            <span className="block text-[11px] text-zinc-500 mt-0.5">
+                            <span className="block text-[11px] text-zinc-400 mt-0.5">
                               Emitida: {new Date(cxp.created_at).toLocaleDateString('es-AR')}
                             </span>
                           </td>
 
                           <td className="p-4 text-right font-mono whitespace-nowrap">
-                            <div className="font-bold text-slate-800 dark:text-zinc-200">
+                            <div className="font-bold text-zinc-200">
                               ${cxp.amount_total.toLocaleString('es-AR', { minimumFractionDigits: 2 })} ARS
                             </div>
                             <div className="text-[11px] text-erp-gold">
@@ -925,12 +925,12 @@ function ComprasDashboardContent() {
 
                           <td className="p-4 text-xs font-mono whitespace-nowrap">
                             {cxp.due_date ? (
-                              <div className="flex items-center gap-1.5 font-semibold text-slate-700 dark:text-zinc-300">
+                              <div className="flex items-center gap-1.5 font-semibold text-zinc-300">
                                 <Calendar className="h-3.5 w-3.5 text-zinc-400" />
                                 {new Date(`${cxp.due_date.split('T')[0]}T12:00:00`).toLocaleDateString('es-AR')}
                               </div>
                             ) : (
-                              <span className="text-zinc-500 italic">Sin vencimiento</span>
+                              <span className="text-zinc-400 italic">Sin vencimiento</span>
                             )}
                           </td>
 
@@ -979,7 +979,7 @@ function ComprasDashboardContent() {
                                 <Wallet className="h-3.5 w-3.5" /> Registrar Pago
                               </Button>
                             ) : (
-                              <span className="text-xs font-mono text-zinc-500">Liquidada</span>
+                              <span className="text-xs font-mono text-zinc-400">Liquidada</span>
                             )}
                           </td>
                         </tr>
@@ -994,15 +994,15 @@ function ComprasDashboardContent() {
 
         {/* CONTENIDO DE PESTAÑA 4: PROVEEDORES B2B (DIRECTORIO Y SALDOS DEUDORES) */}
         {activeTab === 'providers' && (
-          <Card className="border-slate-200 dark:border-erp-border rounded-2xl overflow-hidden shadow-xl">
-            <div className="p-4 border-b border-slate-200 dark:border-erp-border bg-slate-50/40 dark:bg-erp-surface/50 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <Card className="border-erp-border rounded-2xl overflow-hidden shadow-xl">
+            <div className="p-4 border-b border-erp-border bg-erp-surface/50 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div className="relative flex-1 max-w-md">
                 <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
                 <Input
                   placeholder="Buscar proveedor por razón social, contacto, teléfono o email..."
                   value={providerSearch}
                   onChange={(e) => setProviderSearch(e.target.value)}
-                  className="pl-9 h-9 text-xs bg-white dark:bg-erp-bg"
+                  className="pl-9 h-9 text-xs bg-erp-bg"
                 />
               </div>
 
@@ -1019,24 +1019,24 @@ function ComprasDashboardContent() {
               {loading ? (
                 <div className="flex flex-col items-center justify-center py-20 gap-3">
                   <RefreshCw className="h-8 w-8 animate-spin text-indigo-500" />
-                  <span className="text-xs font-medium text-slate-500 dark:text-zinc-400">
+                  <span className="text-xs font-medium text-zinc-400">
                     Cargando directorio de proveedores...
                   </span>
                 </div>
               ) : enrichedSuppliers.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-24 gap-3 text-center">
-                  <Building className="h-10 w-10 text-slate-300 dark:text-zinc-700" />
-                  <h3 className="font-bold text-slate-900 dark:text-white">
+                  <Building className="h-10 w-10 text-zinc-700" />
+                  <h3 className="font-bold text-white">
                     Sin Proveedores Registrados
                   </h3>
-                  <p className="text-xs text-slate-500 dark:text-zinc-400 max-w-sm">
+                  <p className="text-xs text-zinc-400 max-w-sm">
                     Agrega distribuidores e importadores para gestionar compras y cuentas corrientes.
                   </p>
                 </div>
               ) : (
                 <table className="w-full text-left border-collapse">
                   <thead>
-                    <tr className="border-b border-slate-200 dark:border-erp-border bg-slate-50/50 dark:bg-erp-surface/40 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400">
+                    <tr className="border-b border-erp-border bg-erp-surface/40 text-xs font-bold uppercase tracking-wider text-zinc-400">
                       <th className="p-4 pl-6">Proveedor / Razón Social</th>
                       <th className="p-4">Contacto Comercial</th>
                       <th className="p-4 text-center">Órdenes Históricas</th>
@@ -1045,25 +1045,25 @@ function ComprasDashboardContent() {
                       <th className="p-4 pr-6 text-right">Acciones</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100 dark:divide-zinc-900 text-sm">
+                  <tbody className="divide-y divide-zinc-900 text-sm">
                     {enrichedSuppliers.map((sup) => (
                       <tr
                         key={sup.id}
                         className="hover:bg-slate-50/60 dark:hover:bg-erp-surface/30 transition-colors"
                       >
                         <td className="p-4 pl-6">
-                          <div className="font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                          <div className="font-bold text-white flex items-center gap-2">
                             <Building className="h-4 w-4 text-indigo-400 shrink-0" />
                             {sup.name}
                           </div>
                           {sup.notes && (
-                            <span className="text-[11px] text-zinc-500 block mt-0.5 truncate max-w-xs">
+                            <span className="text-[11px] text-zinc-400 block mt-0.5 truncate max-w-xs">
                               {sup.notes}
                             </span>
                           )}
                         </td>
 
-                        <td className="p-4 text-xs text-slate-600 dark:text-zinc-300 space-y-0.5">
+                        <td className="p-4 text-xs text-zinc-300 space-y-0.5">
                           {sup.contact_name && (
                             <div className="flex items-center gap-1.5">
                               <User className="h-3 w-3 text-zinc-400" />
@@ -1083,7 +1083,7 @@ function ComprasDashboardContent() {
                             </div>
                           )}
                           {!sup.contact_name && !sup.phone && !sup.email && (
-                            <span className="text-zinc-500 italic">Sin datos de contacto</span>
+                            <span className="text-zinc-400 italic">Sin datos de contacto</span>
                           )}
                         </td>
 
@@ -1091,7 +1091,7 @@ function ComprasDashboardContent() {
                           {sup.ordersCount} {sup.ordersCount === 1 ? 'compra' : 'compras'}
                         </td>
 
-                        <td className="p-4 text-right font-mono font-bold text-slate-900 dark:text-white">
+                        <td className="p-4 text-right font-mono font-bold text-white">
                           ${sup.totalBoughtArs.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
                         </td>
 
@@ -1172,11 +1172,11 @@ function ComprasDashboardContent() {
         {/* MODAL DE ALTA DE PROVEEDOR B2B */}
         {isSupplierModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
-            <div className="w-full max-w-md bg-white dark:bg-erp-surface border border-slate-200 dark:border-erp-border rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="w-full max-w-md bg-erp-surface border border-erp-border rounded-2xl shadow-xl overflow-hidden animate-in zoom-in-95 duration-200">
               <form onSubmit={handleCreateSupplierSubmit}>
-                <CardHeader className="border-b border-slate-100 dark:border-erp-border pb-4">
+                <CardHeader className="border-b border-erp-border pb-4">
                   <div className="flex items-center justify-between">
-                    <CardTitle className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2 font-serif">
+                    <CardTitle className="text-base font-bold text-white flex items-center gap-2 font-serif">
                       <Building className="h-5 w-5 text-indigo-400" />
                       Registrar Proveedor B2B
                     </CardTitle>
@@ -1195,10 +1195,10 @@ function ComprasDashboardContent() {
 
                 <CardContent className="space-y-3 p-6">
                   <div>
-                    <label className="text-[11px] font-bold uppercase text-zinc-400 block mb-1">
+                    <label htmlFor="page-f1" className="text-[11px] font-bold uppercase text-zinc-400 block mb-1">
                       Nombre / Razón Social *
                     </label>
-                    <Input
+                    <Input id="page-f1"
                       required
                       placeholder="Ej. Star Company / LP Import"
                       value={supName}
@@ -1206,10 +1206,10 @@ function ComprasDashboardContent() {
                     />
                   </div>
                   <div>
-                    <label className="text-[11px] font-bold uppercase text-zinc-400 block mb-1">
+                    <label htmlFor="page-f2" className="text-[11px] font-bold uppercase text-zinc-400 block mb-1">
                       Persona de Contacto
                     </label>
-                    <Input
+                    <Input id="page-f2"
                       placeholder="Ej. Roberto Gómez"
                       value={supContact}
                       onChange={(e) => setSupContact(e.target.value)}
@@ -1217,20 +1217,20 @@ function ComprasDashboardContent() {
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="text-[11px] font-bold uppercase text-zinc-400 block mb-1">
+                      <label htmlFor="page-f3" className="text-[11px] font-bold uppercase text-zinc-400 block mb-1">
                         Teléfono / WhatsApp
                       </label>
-                      <Input
+                      <Input id="page-f3"
                         placeholder="+54 9 11..."
                         value={supPhone}
                         onChange={(e) => setSupPhone(e.target.value)}
                       />
                     </div>
                     <div>
-                      <label className="text-[11px] font-bold uppercase text-zinc-400 block mb-1">
+                      <label htmlFor="page-f4" className="text-[11px] font-bold uppercase text-zinc-400 block mb-1">
                         Email
                       </label>
-                      <Input
+                      <Input id="page-f4"
                         type="email"
                         placeholder="ventas@proveedor.com"
                         value={supEmail}
@@ -1239,10 +1239,10 @@ function ComprasDashboardContent() {
                     </div>
                   </div>
                   <div>
-                    <label className="text-[11px] font-bold uppercase text-zinc-400 block mb-1">
+                    <label htmlFor="page-f5" className="text-[11px] font-bold uppercase text-zinc-400 block mb-1">
                       Notas Comerciales
                     </label>
-                    <Input
+                    <Input id="page-f5"
                       placeholder="Condiciones de cuenta corriente, marcas..."
                       value={supNotes}
                       onChange={(e) => setSupNotes(e.target.value)}
@@ -1250,7 +1250,7 @@ function ComprasDashboardContent() {
                   </div>
                 </CardContent>
 
-                <CardFooter className="border-t border-slate-100 dark:border-erp-border pt-4 flex justify-end gap-2 px-6 py-4">
+                <CardFooter className="border-t border-erp-border pt-4 flex justify-end gap-2 px-6 py-4">
                   <Button
                     type="button"
                     variant="outline"

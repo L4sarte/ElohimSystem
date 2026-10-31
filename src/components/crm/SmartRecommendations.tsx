@@ -76,10 +76,10 @@ export function SmartRecommendations({ products }: SmartRecommendationsProps) {
 
         {/* SELECTOR DE LANZAMIENTO */}
         <div className="min-w-[280px]">
-          <label className="block text-[11px] font-bold uppercase tracking-wider text-erp-gold mb-1">
+          <label htmlFor="smartrecommendations-f1" className="block text-[11px] font-bold uppercase tracking-wider text-erp-gold mb-1">
             Seleccionar Lanzamiento / Nuevo Perfume
           </label>
-          <select
+          <select id="smartrecommendations-f1"
             value={selectedProductId}
             onChange={e => setSelectedProductId(e.target.value)}
             className="w-full bg-erp-bg border border-erp-border rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-erp-gold"
@@ -97,16 +97,16 @@ export function SmartRecommendations({ products }: SmartRecommendationsProps) {
       {targetProduct && (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 bg-erp-bg border border-erp-border rounded-xl font-mono text-xs">
           <div>
-            <span className="text-[11px] uppercase font-bold text-zinc-500">Perfume Seleccionado</span>
+            <span className="text-[11px] uppercase font-bold text-zinc-400">Perfume Seleccionado</span>
             <p className="text-sm font-bold text-white">{targetProduct.name}</p>
             <p className="text-[11px] text-erp-gold">{targetProduct.brand}</p>
           </div>
           <div>
-            <span className="text-[11px] uppercase font-bold text-zinc-500">Familia Olfativa</span>
+            <span className="text-[11px] uppercase font-bold text-zinc-400">Familia Olfativa</span>
             <p className="text-sm font-bold text-emerald-400">{targetProduct.olfactory_family || 'Sin especificar'}</p>
           </div>
           <div>
-            <span className="text-[11px] uppercase font-bold text-zinc-500">Notas Olfativas Clave</span>
+            <span className="text-[11px] uppercase font-bold text-zinc-400">Notas Olfativas Clave</span>
             <p className="text-xs text-zinc-300 line-clamp-1">
               {Array.isArray(targetProduct.olfactory_notes) && targetProduct.olfactory_notes.length > 0
                 ? targetProduct.olfactory_notes.join(', ')
@@ -131,7 +131,7 @@ export function SmartRecommendations({ products }: SmartRecommendationsProps) {
             <span>Ejecutando algoritmo de Match Olfativo en historial de ventas...</span>
           </div>
         ) : recommendations.length === 0 ? (
-          <div className="p-8 text-center border border-dashed border-erp-border rounded-xl text-zinc-500 text-xs">
+          <div className="p-8 text-center border border-dashed border-erp-border rounded-xl text-zinc-400 text-xs">
             No se encontraron clientes anteriores con coincidencia directa de notas para este producto.
           </div>
         ) : (
@@ -172,7 +172,7 @@ export function SmartRecommendations({ products }: SmartRecommendationsProps) {
                 {/* NOTAS COINCIDENTES TAGS */}
                 {rec.matchingNotes.length > 0 && (
                   <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
-                    <span className="text-zinc-500 text-[11px] font-bold uppercase">Notas de Match:</span>
+                    <span className="text-zinc-400 text-[11px] font-bold uppercase">Notas de Match:</span>
                     {rec.matchingNotes.map((note, nIdx) => (
                       <span key={nIdx} className="px-2 py-0.5 rounded bg-erp-surface text-amber-300 border border-erp-border font-mono">
                         {note}

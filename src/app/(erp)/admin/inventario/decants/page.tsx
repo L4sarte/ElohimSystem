@@ -3,7 +3,6 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUserStore } from '@/hooks/use-user-store';
-import { useExchangeRate } from '@/hooks/use-exchange-rate';
 import { getProducts } from '@/app/actions/products';
 import { getFractionationLogs, FractionationLogRecord } from '@/app/actions/inventory';
 import { Product } from '@/types';
@@ -20,11 +19,11 @@ import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { toast } from 'sonner';
 import { DecantYieldWidget } from '@/components/analytics/DecantYieldWidget';
+import { DecantHealthStrip } from '@/components/decants/DecantDashboard';
 
 export default function DecantsHubPage() {
   const router = useRouter();
   const role = useUserStore((state) => state.role);
-  const { rate: exchangeRate } = useExchangeRate();
 
   const [products, setProducts] = useState<Product[]>([]);
   const [fractionationLogs, setFractionationLogs] = useState<FractionationLogRecord[]>([]);
@@ -65,7 +64,7 @@ export default function DecantsHubPage() {
   if (role !== 'admin') {
     return (
       <div className="flex flex-col min-h-screen bg-erp-bg text-zinc-50">
-        <header className="sticky top-0 z-40 w-full border-b border-erp-border bg-erp-bg/80 backdrop-blur-md">
+        <header className="sticky top-0 z-40 w-full border-b border-erp-border bg-erp-bg/95">
           <div className="container mx-auto flex h-16 items-center justify-between px-6 max-w-6xl">
             <Link href="/" className="flex items-center gap-2 text-xs text-zinc-400 hover:text-white">
               <ArrowLeft className="h-4 w-4" />
@@ -114,8 +113,6 @@ export default function DecantsHubPage() {
 
   // 4. Métricas Totales del Hub
   const totalLiquidMl = decantLiquids.reduce((acc, d) => acc + Number(d.stock_quantity || 0), 0);
-  const totalInmovilizadoArs = decantLiquids.reduce((acc, d) => acc + (Number(d.stock_quantity || 0) * Number(d.base_cost_ars || 0)), 0);
-  const totalInmovilizadoUsd = exchangeRate ? totalInmovilizadoArs / exchangeRate : 0;
 
   // 5. Simulación de Rendimiento y Cuellos de Botella
   const max5mlFromLiquid = Math.floor(totalLiquidMl / 5);
@@ -152,7 +149,7 @@ export default function DecantsHubPage() {
     <div className="flex flex-col min-h-screen bg-erp-bg text-zinc-50 font-sans">
       
       {/* NAVBAR */}
-      <header className="sticky top-0 z-40 w-full border-b border-erp-border bg-erp-bg/80 backdrop-blur-md">
+      <header className="sticky top-0 z-40 w-full border-b border-erp-border bg-erp-bg/95">
         <div className="container mx-auto flex h-16 items-center justify-between px-4 sm:px-6 max-w-7xl">
           <div className="flex items-center gap-4">
             <Link 
@@ -230,33 +227,16 @@ export default function DecantsHubPage() {
           </div>
         </div>
 
-        {/* METRICAS KPI SUPERIORES */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-erp-surface/80 border border-erp-border rounded-2xl p-4 shadow-xl space-y-1">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-400">Total Líquido en Proceso</span>
-            <div className="flex items-baseline gap-2">
-              <span className="text-2xl font-mono font-black text-cyan-400">{totalLiquidMl.toLocaleString('es-AR')}</span>
-              <span className="text-xs font-mono text-zinc-500">ml disponibles</span>
-            </div>
-            <p className="text-[11px] text-zinc-400">En {decantLiquids.length} fragancia(s) activas</p>
-          </div>
+        {/* RADAR DE SALUD DEL GRANEL (KPIs consolidados) */}
+        <DecantHealthStrip decantLiquids={decantLiquids} />
 
-          <div className="bg-erp-surface/80 border border-erp-border rounded-2xl p-4 shadow-xl space-y-1">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-400">Valor en Granel Inmovilizado</span>
-            <div className="flex items-baseline gap-2">
-              <span className="text-2xl font-mono font-black text-emerald-400">
-                ${totalInmovilizadoArs.toLocaleString('es-AR')}
-              </span>
-              <span className="text-xs font-mono text-zinc-500">ARS</span>
-            </div>
-            <p className="text-[11px] text-zinc-400">~ u$s {totalInmovilizadoUsd.toFixed(1)} USD a reposición</p>
-          </div>
-
+        {/* POTENCIAL DE PRODUCCIÓN JIT (limitado por packaging) */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="bg-erp-surface/80 border border-erp-border rounded-2xl p-4 shadow-xl space-y-1">
             <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-400">Potencial Envasable Hoy (5ml)</span>
             <div className="flex items-baseline gap-2">
               <span className="text-2xl font-mono font-black text-erp-gold">{actionable5ml}</span>
-              <span className="text-xs font-mono text-zinc-500">muestras listas</span>
+              <span className="text-xs font-mono text-zinc-400">muestras listas</span>
             </div>
             <p className="text-[11px] text-zinc-400">
               Limitado por: <span className="font-semibold text-amber-400">{stock5ml < max5mlFromLiquid ? 'Frascos 5ml' : 'Líquido'}</span>
@@ -267,7 +247,7 @@ export default function DecantsHubPage() {
             <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-400">Potencial Envasable Hoy (10ml)</span>
             <div className="flex items-baseline gap-2">
               <span className="text-2xl font-mono font-black text-indigo-400">{actionable10ml}</span>
-              <span className="text-xs font-mono text-zinc-500">muestras listas</span>
+              <span className="text-xs font-mono text-zinc-400">muestras listas</span>
             </div>
             <p className="text-[11px] text-zinc-400">
               Limitado por: <span className="font-semibold text-amber-400">{stock10ml < max10mlFromLiquid ? 'Frascos 10ml' : 'Líquido'}</span>
@@ -305,7 +285,7 @@ export default function DecantsHubPage() {
             </div>
 
             {loading ? (
-              <div className="py-16 text-center text-zinc-500 flex flex-col items-center justify-center gap-3">
+              <div className="py-16 text-center text-zinc-400 flex flex-col items-center justify-center gap-3">
                 <RefreshCw className="h-8 w-8 animate-spin text-erp-gold" />
                 <span className="text-xs font-mono">Cargando monitor de decants...</span>
               </div>
@@ -313,7 +293,7 @@ export default function DecantsHubPage() {
               <div className="p-12 text-center border border-dashed border-erp-border rounded-2xl bg-erp-surface/30 space-y-3">
                 <Droplet className="h-10 w-10 mx-auto text-zinc-600" />
                 <h3 className="text-sm font-bold text-zinc-300">No hay líquidos a granel registrados</h3>
-                <p className="text-xs text-zinc-500 max-w-sm mx-auto">
+                <p className="text-xs text-zinc-400 max-w-sm mx-auto">
                   Abre una botella comercial sellada con el botón "Fraccionar Botella Sellada" para iniciar el stock de decants.
                 </p>
                 <Button
@@ -351,7 +331,7 @@ export default function DecantsHubPage() {
                   return (
                     <div 
                       key={liquid.id}
-                      className="bg-erp-surface/90 border border-erp-border hover:border-erp-gold/50 transition-all rounded-2xl p-5 shadow-xl space-y-4 relative overflow-hidden"
+                      className="bg-erp-surface/90 border border-erp-border hover:border-erp-gold/50 transition rounded-2xl p-5 shadow-xl space-y-4 relative overflow-hidden"
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div>
@@ -359,7 +339,7 @@ export default function DecantsHubPage() {
                             {liquid.brand}
                           </span>
                           <h3 className="text-sm font-bold text-white line-clamp-1">{liquid.name}</h3>
-                          <span className="text-[11px] font-mono text-zinc-500">SKU: {liquid.sku}</span>
+                          <span className="text-[11px] font-mono text-zinc-400">SKU: {liquid.sku}</span>
                         </div>
 
                         <span className={`px-2 py-0.5 rounded-full text-[11px] font-bold border ${statusBadge}`}>
@@ -377,7 +357,7 @@ export default function DecantsHubPage() {
                         </div>
                         <div className="w-full bg-erp-bg h-2.5 rounded-full overflow-hidden border border-erp-border">
                           <div 
-                            className={`h-full transition-all duration-500 ${barColor}`}
+                            className={`h-full transition duration-500 ${barColor}`}
                             style={{ width: `${percent}%` }}
                           />
                         </div>
@@ -401,13 +381,13 @@ export default function DecantsHubPage() {
 
                       <div className="grid grid-cols-2 gap-2 text-[11px] font-mono">
                         <div>
-                          <span className="text-[11px] text-zinc-500 block">Costo Inmovilizado:</span>
+                          <span className="text-[11px] text-zinc-400 block">Costo Inmovilizado:</span>
                           <span className="text-emerald-400 font-bold">
                             ${Math.round(totalVal).toLocaleString('es-AR')} ARS
                           </span>
                         </div>
                         <div className="text-right">
-                          <span className="text-[11px] text-zinc-500 block">Potencial Venta:</span>
+                          <span className="text-[11px] text-zinc-400 block">Potencial Venta:</span>
                           <span className="text-cyan-400 font-bold">
                             ${Math.round(totalSaleVal).toLocaleString('es-AR')} ARS
                           </span>
@@ -464,7 +444,7 @@ export default function DecantsHubPage() {
                 <div className="flex items-center justify-between p-3 rounded-xl bg-erp-bg/60 border border-erp-border">
                   <div>
                     <h4 className="text-xs font-bold text-white">Frascos Vacíos 5ml</h4>
-                    <span className="text-[11px] font-mono text-zinc-500">Insumo vial para decants</span>
+                    <span className="text-[11px] font-mono text-zinc-400">Insumo vial para decants</span>
                   </div>
                   <div className="text-right">
                     <span className={`font-mono text-sm font-black ${stock5ml < 10 ? 'text-rose-400' : 'text-emerald-400'}`}>
@@ -482,7 +462,7 @@ export default function DecantsHubPage() {
                 <div className="flex items-center justify-between p-3 rounded-xl bg-erp-bg/60 border border-erp-border">
                   <div>
                     <h4 className="text-xs font-bold text-white">Frascos Vacíos 10ml</h4>
-                    <span className="text-[11px] font-mono text-zinc-500">Insumo vial para decants</span>
+                    <span className="text-[11px] font-mono text-zinc-400">Insumo vial para decants</span>
                   </div>
                   <div className="text-right">
                     <span className={`font-mono text-sm font-black ${stock10ml < 10 ? 'text-rose-400' : 'text-emerald-400'}`}>
@@ -500,7 +480,7 @@ export default function DecantsHubPage() {
                 <div className="flex items-center justify-between p-3 rounded-xl bg-erp-bg/60 border border-erp-border">
                   <div>
                     <h4 className="text-xs font-bold text-white">Válvulas Spray / Atomizadores</h4>
-                    <span className="text-[11px] font-mono text-zinc-500">Dispensadores de muestra</span>
+                    <span className="text-[11px] font-mono text-zinc-400">Dispensadores de muestra</span>
                   </div>
                   <div className="text-right">
                     <span className={`font-mono text-sm font-black ${totalAtomizers < 15 ? 'text-amber-400' : 'text-emerald-400'}`}>
@@ -513,7 +493,7 @@ export default function DecantsHubPage() {
                 <div className="flex items-center justify-between p-3 rounded-xl bg-erp-bg/60 border border-erp-border">
                   <div>
                     <h4 className="text-xs font-bold text-white">Etiquetas Impresas</h4>
-                    <span className="text-[11px] font-mono text-zinc-500">Identificación de fragancia</span>
+                    <span className="text-[11px] font-mono text-zinc-400">Identificación de fragancia</span>
                   </div>
                   <div className="text-right">
                     <span className={`font-mono text-sm font-black ${totalLabels < 20 ? 'text-amber-400' : 'text-emerald-400'}`}>
@@ -582,7 +562,7 @@ export default function DecantsHubPage() {
           </div>
 
           {fractionationLogs.length === 0 ? (
-            <div className="py-8 text-center text-zinc-500 text-xs">
+            <div className="py-8 text-center text-zinc-400 text-xs">
               Aún no se han asentado trasvasados en el registro de auditoría.
             </div>
           ) : (
@@ -613,7 +593,7 @@ export default function DecantsHubPage() {
                       </td>
                       <td className="py-2.5 px-3 font-bold text-white">
                         {log.source_bottle_name}
-                        <span className="block text-[11px] text-zinc-500 font-normal">SKU: {log.source_bottle_sku}</span>
+                        <span className="block text-[11px] text-zinc-400 font-normal">SKU: {log.source_bottle_sku}</span>
                       </td>
                       <td className="py-2.5 px-3 text-cyan-400">
                         {log.target_liquid_name}

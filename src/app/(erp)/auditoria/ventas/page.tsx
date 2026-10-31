@@ -185,7 +185,7 @@ export default function HistorialVentasPage() {
     <div className="flex flex-col min-h-screen bg-erp-bg text-zinc-50 transition-colors duration-300">
       
       {/* NAVBAR GLASSMORPHISM */}
-      <header className="sticky top-0 z-40 w-full border-b border-erp-border bg-erp-bg/80 backdrop-blur-md">
+      <header className="sticky top-0 z-40 w-full border-b border-erp-border bg-erp-bg/95">
         <div className="container mx-auto flex h-16 items-center justify-between px-4 sm:px-6 max-w-6xl">
           <div className="flex items-center gap-4">
             <Link 
@@ -345,7 +345,7 @@ export default function HistorialVentasPage() {
                         {/* Total ARS */}
                         <td className={`p-4 text-right font-mono font-bold ${
                           isVoided 
-                            ? 'line-through text-zinc-500 opacity-50' 
+                            ? 'line-through text-zinc-400 opacity-50' 
                             : 'text-emerald-400'
                         }`}>
                           ${Number(s.total_ars).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
@@ -354,7 +354,7 @@ export default function HistorialVentasPage() {
                         {/* Equiv. USD */}
                         <td className={`p-4 text-right font-mono text-xs font-bold ${
                           isVoided 
-                            ? 'line-through text-zinc-500 opacity-50' 
+                            ? 'line-through text-zinc-400 opacity-50' 
                             : 'text-indigo-400'
                         }`}>
                           u$s {Number(s.total_usd_equivalent || 0).toFixed(2)}
@@ -418,7 +418,7 @@ export default function HistorialVentasPage() {
       {/* MODAL DE REIMPRESIÓN DE TICKET */}
       {isPrintModalOpen && selectedSale && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="w-full max-w-md bg-erp-bg border border-erp-border rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+          <div className="w-full max-w-md bg-erp-bg border border-erp-border rounded-2xl shadow-xl overflow-hidden animate-in zoom-in-95 duration-200">
             
             <CardHeader className="border-b border-erp-border pb-4">
               <div className="flex items-center justify-between">
@@ -505,7 +505,7 @@ export default function HistorialVentasPage() {
       {/* MODAL DE CONFIRMACIÓN CRÍTICA DE ANULACIÓN (ALERT DIALOG) */}
       {isVoidModalOpen && saleToVoid && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="w-full max-w-md bg-erp-bg border border-rose-900/50 rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+          <div className="w-full max-w-md bg-erp-bg border border-rose-900/50 rounded-2xl shadow-xl overflow-hidden animate-in zoom-in-95 duration-200">
             
             <CardHeader className="border-b border-rose-900/30 bg-rose-950/20 pb-4">
               <div className="flex items-center justify-between">

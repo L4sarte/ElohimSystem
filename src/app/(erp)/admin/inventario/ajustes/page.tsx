@@ -131,7 +131,7 @@ export default function AjustesInventarioPage() {
     <div className="flex flex-col min-h-screen bg-erp-bg text-zinc-50 transition-colors duration-300">
       
       {/* NAVBAR GLASSMORPHISM */}
-      <header className="sticky top-0 z-40 w-full border-b border-erp-border bg-erp-bg/80 backdrop-blur-md">
+      <header className="sticky top-0 z-40 w-full border-b border-erp-border bg-erp-bg/95">
         <div className="container mx-auto flex h-16 items-center justify-between px-4 sm:px-6 max-w-6xl">
           <div className="flex items-center gap-4">
             <Link 
@@ -216,12 +216,12 @@ export default function AjustesInventarioPage() {
                 
                 {/* BUSCADOR Y SELECCIÓN DE PRODUCTO */}
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold uppercase tracking-wider text-amber-400">
+                  <label htmlFor="page-f1" className="text-xs font-bold uppercase tracking-wider text-amber-400">
                     1. Seleccionar Producto *
                   </label>
                   
                   <div className="space-y-2">
-                    <Input
+                    <Input id="page-f1"
                       placeholder="Buscar por nombre, marca o SKU..."
                       value={searchProduct}
                       onChange={(e) => setSearchProduct(e.target.value)}
@@ -258,10 +258,10 @@ export default function AjustesInventarioPage() {
                   
                   {/* Tipo de Ajuste */}
                   <div className="space-y-1.5">
-                    <label className="text-xs font-bold uppercase tracking-wider text-amber-400">
+                    <label htmlFor="page-f2" className="text-xs font-bold uppercase tracking-wider text-amber-400">
                       2. Tipo de Ajuste / Motivo Comercial *
                     </label>
-                    <select
+                    <select id="page-f2"
                       value={adjType}
                       onChange={(e) => setAdjType(e.target.value)}
                       disabled={submitting}
@@ -275,11 +275,11 @@ export default function AjustesInventarioPage() {
 
                   {/* Cantidad de Ajuste */}
                   <div className="space-y-1.5">
-                    <label className="text-xs font-bold uppercase tracking-wider text-amber-400 flex items-center justify-between">
+                    <label htmlFor="page-f3" className="text-xs font-bold uppercase tracking-wider text-amber-400 flex items-center justify-between">
                       <span>3. Cantidad a Ajustar *</span>
-                      <span className="text-[11px] text-zinc-500 font-normal">Negativo = Restar, Positivo = Sumar</span>
+                      <span className="text-[11px] text-zinc-400 font-normal">Negativo = Restar, Positivo = Sumar</span>
                     </label>
-                    <Input
+                    <Input id="page-f3"
                       required
                       type="number"
                       step="any"
@@ -297,10 +297,10 @@ export default function AjustesInventarioPage() {
 
               {/* MOTIVO DETALLADO */}
               <div className="space-y-1.5 pt-2">
-                <label className="text-xs font-bold uppercase tracking-wider text-zinc-400">
+                <label htmlFor="page-f4" className="text-xs font-bold uppercase tracking-wider text-zinc-400">
                   Observaciones / Detalle del Ajuste
                 </label>
-                <textarea
+                <textarea id="page-f4"
                   rows={2}
                   placeholder="Ej. Se rompió frasco de 100ml durante empaque o derrame accidental al fraccionar decant"
                   value={reason}
@@ -390,7 +390,7 @@ export default function AjustesInventarioPage() {
                         {/* Producto */}
                         <td className="p-4">
                           <div className="font-bold text-white font-serif">{item.products?.name || 'Producto'}</div>
-                          <div className="text-[11px] text-zinc-500 font-mono">
+                          <div className="text-[11px] text-zinc-400 font-mono">
                             {item.products?.brand} • {item.products?.sku}
                           </div>
                         </td>

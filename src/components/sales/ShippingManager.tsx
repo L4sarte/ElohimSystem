@@ -108,10 +108,10 @@ export function ShippingManager({
           <div className="grid gap-3 sm:grid-cols-2">
             {/* PROVEEDOR LOGÍSTICO */}
             <div className="space-y-1">
-              <label className="text-[11px] font-extrabold uppercase tracking-wider text-zinc-400">
+              <label htmlFor="shippingmanager-f1" className="text-[11px] font-extrabold uppercase tracking-wider text-zinc-400">
                 Empresa de Transporte
               </label>
-              <select
+              <select id="shippingmanager-f1"
                 value={provider}
                 onChange={(e) => setProvider(e.target.value)}
                 disabled={saving}
@@ -126,10 +126,10 @@ export function ShippingManager({
 
             {/* ESTADO DEL ENVÍO */}
             <div className="space-y-1">
-              <label className="text-[11px] font-extrabold uppercase tracking-wider text-zinc-400">
+              <label htmlFor="shippingmanager-f2" className="text-[11px] font-extrabold uppercase tracking-wider text-zinc-400">
                 Estado del Envío
               </label>
-              <select
+              <select id="shippingmanager-f2"
                 value={status}
                 onChange={(e) => setStatus(e.target.value as 'pending' | 'shipped' | 'delivered')}
                 disabled={saving}
@@ -144,10 +144,10 @@ export function ShippingManager({
 
           {/* CÓDIGO DE SEGUIMIENTO */}
           <div className="space-y-1">
-            <label className="text-[11px] font-extrabold uppercase tracking-wider text-zinc-400">
+            <label htmlFor="shippingmanager-f3" className="text-[11px] font-extrabold uppercase tracking-wider text-zinc-400">
               Número de Seguimiento (Tracking ID)
             </label>
-            <Input
+            <Input id="shippingmanager-f3"
               type="text"
               placeholder="Ej: AND123456789AR"
               value={trackingNumber}
@@ -164,7 +164,7 @@ export function ShippingManager({
                 href={trackingUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center justify-center gap-2 w-full px-3 py-2 rounded-xl bg-indigo-500/10 border border-indigo-500/30 text-indigo-400 hover:bg-indigo-500/20 text-xs font-bold transition-all"
+                className="inline-flex items-center justify-center gap-2 w-full px-3 py-2 rounded-xl bg-indigo-500/10 border border-indigo-500/30 text-indigo-400 hover:bg-indigo-500/20 text-xs font-bold transition"
               >
                 <ExternalLink className="h-3.5 w-3.5" />
                 Rastrear Encomienda en {provider || 'Línea'}

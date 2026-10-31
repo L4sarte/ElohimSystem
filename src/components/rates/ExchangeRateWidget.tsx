@@ -90,7 +90,7 @@ export const ExchangeRateWidget = React.memo(function ExchangeRateWidget({ role,
       <div 
         onClick={() => role === 'admin' && setIsOpen(!isOpen)}
         className={cn(
-          "flex items-center gap-2.5 rounded-full border px-3.5 py-1.5 transition-all select-none backdrop-blur-sm",
+          "flex items-center gap-2.5 rounded-full border px-3.5 py-1.5 transition select-none backdrop-blur-sm",
           role === 'admin' ? "cursor-pointer hover:border-slate-300 dark:hover:border-erp-border hover:bg-slate-50/50 dark:hover:bg-erp-surface/50" : "",
           isManual 
             ? "border-amber-200 bg-amber-50/30 text-amber-800 dark:border-amber-900/30 dark:bg-amber-950/15 dark:text-amber-400"
@@ -103,7 +103,7 @@ export const ExchangeRateWidget = React.memo(function ExchangeRateWidget({ role,
         )} />
         
         <div className="flex flex-col text-left leading-none">
-          <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-500">
+          <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-400">
             Dólar Blue
           </span>
           <span className="text-sm font-black tracking-tight mt-0.5">
@@ -119,7 +119,7 @@ export const ExchangeRateWidget = React.memo(function ExchangeRateWidget({ role,
           </span>
         </div>
 
-        <div className="flex items-center gap-1.5 pl-1.5 border-l border-slate-200 dark:border-erp-border">
+        <div className="flex items-center gap-1.5 pl-1.5 border-l border-erp-border">
           <span className={cn(
             "text-xs font-bold uppercase px-1.5 py-0.5 rounded",
             isManual 
@@ -137,33 +137,34 @@ export const ExchangeRateWidget = React.memo(function ExchangeRateWidget({ role,
 
       {/* PANEL POPUP DE AJUSTE (Solo Admin) */}
       {isOpen && role === 'admin' && (
-        <div className="absolute right-0 mt-2.5 w-72 z-50 rounded-xl border border-slate-200 bg-white p-4 shadow-xl dark:border-erp-border dark:bg-erp-bg animate-in fade-in slide-in-from-top-2 duration-200">
+        <div className="absolute right-0 mt-2.5 w-72 z-50 rounded-xl border border-slate-200 p-4 shadow-xl dark:border-erp-border bg-erp-bg animate-in fade-in slide-in-from-top-2 duration-200">
           <form onSubmit={handleOverride} className="space-y-4">
             
-            <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-zinc-900">
-              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-white flex items-center gap-1.5">
+            <div className="flex items-center justify-between pb-2 border-b border-zinc-900">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-white flex items-center gap-1.5">
                 <Sliders className="h-3.5 w-3.5 text-erp-gold" />
                 Ajuste cambiario
               </h4>
-              <span className="text-[11px] rounded bg-violet-100 px-1.5 py-0.5 font-bold text-violet-800 dark:bg-erp-gold/10 dark:text-erp-gold uppercase">
+              <span className="text-[11px] rounded px-1.5 py-0.5 font-bold text-violet-800 bg-erp-gold/10 dark:text-erp-gold uppercase">
                 Admin
               </span>
             </div>
 
             {saveError && (
-              <div className="flex gap-2 rounded-lg bg-rose-50 dark:bg-rose-950/20 border border-rose-200/50 dark:border-rose-900/30 p-2.5 text-[11px] text-rose-600 dark:text-rose-400">
+              <div className="flex gap-2 rounded-lg bg-rose-950/20 border border-rose-900/30 p-2.5 text-[11px] text-rose-400">
                 <AlertCircle className="h-4 w-4 shrink-0" />
                 <span>{saveError}</span>
               </div>
             )}
 
             <div className="space-y-1.5">
-              <label className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400">
+              <label htmlFor="cotizacion-manual-ars" className="text-[11px] font-bold uppercase tracking-wider text-zinc-400">
                 Cotización Manual (ARS)
               </label>
               <div className="relative">
                 <span className="absolute left-3 top-2 text-sm text-slate-400 font-semibold">$</span>
                 <Input
+                  id="cotizacion-manual-ars"
                   type="number"
                   placeholder="Ej. 1350"
                   required
@@ -183,7 +184,7 @@ export const ExchangeRateWidget = React.memo(function ExchangeRateWidget({ role,
                 type="submit"
                 disabled={saving}
                 size="sm"
-                className="w-full bg-erp-gold hover:bg-erp-gold-hover text-erp-bg font-extrabold shadow-md shadow-erp-gold/20 dark:bg-violet-500 dark:hover:bg-erp-gold text-erp-bg cursor-pointer justify-center text-xs font-semibold"
+                className="w-full hover:bg-erp-gold-hover text-erp-bg font-extrabold shadow-md shadow-erp-gold/20 bg-violet-500 dark:hover:bg-erp-gold text-erp-bg cursor-pointer justify-center text-xs font-semibold"
               >
                 {saving ? (
                   <RefreshCw className="mr-1.5 h-3.5 w-3.5 animate-spin" />
@@ -200,7 +201,7 @@ export const ExchangeRateWidget = React.memo(function ExchangeRateWidget({ role,
                   disabled={saving}
                   onClick={handleRelease}
                   size="sm"
-                  className="w-full text-xs font-semibold justify-center cursor-pointer border-slate-200 hover:bg-slate-50 dark:border-erp-border dark:hover:bg-erp-surface"
+                  className="w-full text-xs font-semibold justify-center cursor-pointer hover:bg-slate-50 border-erp-border dark:hover:bg-erp-surface"
                 >
                   <Globe className="mr-1.5 h-3.5 w-3.5 text-emerald-500" />
                   Volver a Dólar en Vivo

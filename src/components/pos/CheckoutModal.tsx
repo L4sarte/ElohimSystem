@@ -331,7 +331,7 @@ export function CheckoutModal({
 
             {/* SELECCIÓN DE CLIENTE + BADGE Y CANJE DE VIBEPOINTS */}
             <div className="space-y-1.5">
-              <label className="text-xs font-bold uppercase tracking-wider text-zinc-300">
+              <label htmlFor="venta-cliente-select" className="text-xs font-bold uppercase tracking-wider text-zinc-300">
                 Cliente de la Venta
               </label>
               {loadingClients ? (
@@ -341,6 +341,7 @@ export function CheckoutModal({
                 </div>
               ) : (
                 <select
+                  id="venta-cliente-select"
                   value={clientId}
                   onChange={(e) => setClientId(e.target.value)}
                   className="flex h-9 w-full rounded-lg border border-erp-border bg-erp-bg px-3 py-1 text-xs text-white focus:outline-none focus:ring-1 focus:ring-erp-gold"
@@ -456,14 +457,14 @@ export function CheckoutModal({
               variant="outline"
               onClick={onClose}
               disabled={loading}
-              className="border-erp-border bg-erp-surface text-zinc-300 hover:bg-zinc-800"
+              className="h-12 border-erp-border bg-erp-surface text-zinc-300 hover:bg-zinc-800 px-4"
             >
               Cancelar
             </Button>
             <Button
               type="submit"
               disabled={loading || !totals.canProceed}
-              className="bg-erp-gold hover:bg-erp-gold-hover text-erp-bg font-extrabold text-xs shadow-md shadow-erp-gold/20 cursor-pointer"
+              className="h-12 bg-erp-gold hover:bg-erp-gold-hover text-erp-bg font-extrabold text-sm shadow-md shadow-erp-gold/20 cursor-pointer px-4"
             >
               {loading ? (
                 <>

@@ -89,7 +89,7 @@ export function OrderConfirmationClient({ order }: OrderConfirmationClientProps)
       <main className="flex-1 container mx-auto max-w-4xl px-4 sm:px-6 py-10 space-y-8">
         
         {/* ENCABEZADO DE ÉXITO */}
-        <div className="text-center space-y-3 bg-erp-surface p-6 sm:p-8 rounded-3xl border border-erp-border shadow-2xl animate-in zoom-in-95 duration-300">
+        <div className="text-center space-y-3 bg-erp-surface p-6 sm:p-8 rounded-3xl border border-erp-border shadow-xl animate-in zoom-in-95 duration-300">
           <div className="h-16 w-16 rounded-full bg-emerald-500/10 border-2 border-emerald-500/40 text-emerald-400 flex items-center justify-center mx-auto shadow-lg shadow-emerald-500/10">
             <CheckCircle2 className="h-9 w-9" />
           </div>
@@ -117,7 +117,7 @@ export function OrderConfirmationClient({ order }: OrderConfirmationClientProps)
               href={getWhatsAppConfirmationLink()}
               target="_blank"
               rel="noopener noreferrer"
-              className="w-full flex items-center justify-center gap-2.5 h-13 py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs uppercase tracking-wider shadow-lg shadow-emerald-600/20 transition-all cursor-pointer"
+              className="w-full flex items-center justify-center gap-2.5 h-13 py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs uppercase tracking-wider shadow-lg shadow-emerald-600/20 transition cursor-pointer"
             >
               <MessageCircle className="h-5 w-5 fill-current" />
               <span>Abrir Conversación en WhatsApp 📲</span>

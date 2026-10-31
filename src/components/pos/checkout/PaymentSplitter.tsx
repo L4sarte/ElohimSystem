@@ -100,10 +100,10 @@ export function PaymentSplitter({
       {/* SELECCIÓN DE CUENTAS DE DESTINO EN TESORERÍA (MULTI-CUENTA) */}
       <div className="space-y-2 pt-1 rounded-xl bg-erp-bg/80 p-3 border border-erp-border">
         <div className="flex items-center justify-between">
-          <label className="text-xs font-bold uppercase tracking-wider text-erp-gold flex items-center gap-1.5">
+          <span className="text-xs font-bold uppercase tracking-wider text-erp-gold flex items-center gap-1.5">
             <Landmark className="h-3.5 w-3.5 text-erp-gold" />
             Cuentas de Tesorería Destino *
-          </label>
+          </span>
           {isSplitPayment && (
             <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
               Pago Dividido / Multi-Cuenta
@@ -114,11 +114,11 @@ export function PaymentSplitter({
         <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
           {/* CUENTA PARA EFECTIVO */}
           <div className="space-y-1">
-            <label className="text-[11px] font-semibold text-zinc-300 flex items-center gap-1">
+            <label htmlFor="paymentsplitter-f1" className="text-[11px] font-semibold text-zinc-300 flex items-center gap-1">
               <DollarSign className="h-3 w-3 text-erp-gold" />
               Cuenta Efectivo (Caja)
             </label>
-            <select
+            <select id="paymentsplitter-f1"
               value={selectedCashAccountId}
               onChange={(e) => {
                 onCashAccountIdChange(e.target.value);
@@ -138,11 +138,11 @@ export function PaymentSplitter({
 
           {/* CUENTA PARA DIGITAL / TRANSFERENCIA */}
           <div className="space-y-1">
-            <label className="text-[11px] font-semibold text-zinc-300 flex items-center gap-1">
+            <label htmlFor="paymentsplitter-f2" className="text-[11px] font-semibold text-zinc-300 flex items-center gap-1">
               <Landmark className="h-3 w-3 text-indigo-400" />
               Cuenta Digital / Transferencia
             </label>
-            <select
+            <select id="paymentsplitter-f2"
               value={selectedDigitalAccountId}
               onChange={(e) => {
                 onDigitalAccountIdChange(e.target.value);
@@ -164,11 +164,11 @@ export function PaymentSplitter({
         {/* CUENTA PARA DÓLARES (SI SE INGRESA EFECTIVO USD) */}
         {hasCashUsd && (
           <div className="space-y-1 pt-1 border-t border-erp-border/60">
-            <label className="text-[11px] font-semibold text-emerald-400 flex items-center gap-1">
+            <label htmlFor="paymentsplitter-f3" className="text-[11px] font-semibold text-emerald-400 flex items-center gap-1">
               <CreditCard className="h-3 w-3 text-emerald-400" />
               Cuenta Destino Dólares Billete
             </label>
-            <select
+            <select id="paymentsplitter-f3"
               value={selectedUsdAccountId || selectedCashAccountId}
               onChange={(e) => onUsdAccountIdChange?.(e.target.value)}
               className="flex h-8 w-full rounded-lg border border-erp-border bg-erp-surface px-2 py-1 text-xs font-bold text-white focus:outline-none focus:ring-1 focus:ring-emerald-400"
@@ -185,7 +185,7 @@ export function PaymentSplitter({
 
       {/* SELECCIÓN DE PASARELA / MÉTODO DIGITAL DINÁMICO */}
       <div className="space-y-1.5 pt-1">
-        <label className="text-xs font-bold uppercase tracking-wider text-zinc-300 flex items-center justify-between">
+        <label htmlFor="paymentsplitter-f4" className="text-xs font-bold uppercase tracking-wider text-zinc-300 flex items-center justify-between">
           <span>Pasarela Digital / Cuotas</span>
           {feePercent > 0 && (
             <span className="text-erp-gold font-extrabold text-[11px]">
@@ -194,7 +194,7 @@ export function PaymentSplitter({
           )}
         </label>
 
-        <select
+        <select id="paymentsplitter-f4"
           value={selectedMethodId}
           onChange={(e) => onMethodIdChange(e.target.value)}
           className="flex h-9 w-full rounded-lg border border-erp-border bg-erp-bg px-3 py-1 text-xs font-bold text-white focus:outline-none focus:ring-1 focus:ring-erp-gold"
@@ -269,7 +269,7 @@ export function PaymentSplitter({
 
         <div className="flex justify-between items-center pt-2 border-t border-erp-border">
           <div>
-            <span className="text-[11px] font-extrabold uppercase tracking-widest text-zinc-500 block">
+            <span className="text-[11px] font-extrabold uppercase tracking-widest text-zinc-400 block">
               Total Final a Cobrar (ARS)
             </span>
             <div className="text-2xl font-black text-white font-serif">
@@ -278,7 +278,7 @@ export function PaymentSplitter({
           </div>
 
           <div className="text-right">
-            <span className="text-[11px] font-extrabold uppercase tracking-widest text-zinc-500 block">
+            <span className="text-[11px] font-extrabold uppercase tracking-widest text-zinc-400 block">
               Equiv. USD
             </span>
             <div className="text-xl font-black text-indigo-400 font-mono">
@@ -291,7 +291,7 @@ export function PaymentSplitter({
       {/* INPUT MONTO ABONADO HOY & ADVERTENCIA PAGO PARCIAL */}
       <div className="space-y-1.5 p-3.5 rounded-xl bg-erp-bg border border-erp-border">
         <div className="flex items-center justify-between">
-          <label className="text-xs font-bold uppercase tracking-wider text-zinc-300">
+          <label htmlFor="split-monto-abonado-hoy" className="text-xs font-bold uppercase tracking-wider text-zinc-300">
             Monto Abonado Hoy (ARS)
           </label>
           <span className="text-[11px] text-zinc-400">
@@ -300,8 +300,9 @@ export function PaymentSplitter({
         </div>
         
         <div className="relative">
-          <span className="absolute left-3 top-2.5 text-xs font-bold text-zinc-500">$</span>
+          <span className="absolute left-3 top-2.5 text-xs font-bold text-zinc-400">$</span>
           <Input
+            id="split-monto-abonado-hoy"
             type="number"
             placeholder={`$${finalTotalArsToCharge.toLocaleString('es-AR')}`}
             value={amountPaidTodayInput}
@@ -327,9 +328,9 @@ export function PaymentSplitter({
       {/* ENTRADAS DE MÉTODOS DE PAGO + ATAJOS RÁPIDOS F1-F4 */}
       <div className="space-y-2.5">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <label className="text-xs font-bold uppercase tracking-wider text-zinc-300">
+          <span className="text-xs font-bold uppercase tracking-wider text-zinc-300">
             Ingreso de Valores Recibidos
-          </label>
+          </span>
           <div className="flex flex-wrap items-center gap-1.5">
             <button
               type="button"
@@ -387,11 +388,11 @@ export function PaymentSplitter({
         <div className="grid grid-cols-3 gap-3">
           {/* EFECTIVO ARS */}
           <div className="space-y-1">
-            <label className="flex items-center gap-1 text-[11px] font-semibold text-zinc-400">
+            <label htmlFor="paymentsplitter-f5" className="flex items-center gap-1 text-[11px] font-semibold text-zinc-400">
               <DollarSign className="h-3.5 w-3.5 text-erp-gold" />
               Efectivo ARS
             </label>
-            <Input
+            <Input id="paymentsplitter-f5"
               type="number"
               placeholder="ARS"
               value={cashArs}
@@ -402,11 +403,11 @@ export function PaymentSplitter({
 
           {/* DIGITAL / TARJETA ARS */}
           <div className="space-y-1">
-            <label className="flex items-center gap-1 text-[11px] font-semibold text-zinc-400">
+            <label htmlFor="paymentsplitter-f6" className="flex items-center gap-1 text-[11px] font-semibold text-zinc-400">
               <Landmark className="h-3.5 w-3.5 text-indigo-400" />
               Digital / Tarjeta
             </label>
-            <Input
+            <Input id="paymentsplitter-f6"
               type="number"
               placeholder="ARS"
               value={digitalArs}
@@ -417,11 +418,11 @@ export function PaymentSplitter({
 
           {/* EFECTIVO USD */}
           <div className="space-y-1">
-            <label className="flex items-center gap-1 text-[11px] font-semibold text-zinc-400">
+            <label htmlFor="paymentsplitter-f7" className="flex items-center gap-1 text-[11px] font-semibold text-zinc-400">
               <CreditCard className="h-3.5 w-3.5 text-emerald-400" />
               Dólares Billete
             </label>
-            <Input
+            <Input id="paymentsplitter-f7"
               type="number"
               placeholder="USD"
               value={cashUsd}
@@ -450,7 +451,7 @@ export function PaymentSplitter({
             <div className={`text-base font-black font-mono ${differenceArs >= 0 ? 'text-emerald-400' : 'text-amber-400'}`}>
               ${Math.abs(differenceArs).toLocaleString('es-AR')} ARS
             </div>
-            <div className="text-[11px] text-zinc-500">
+            <div className="text-[11px] text-zinc-400">
               o u$s {Math.abs(differenceArs / exchangeRate).toFixed(2)} USD
             </div>
           </div>
