@@ -112,6 +112,30 @@ export default function DashboardPage() {
     });
   }, [activeStoreRate]);
 
+  /**
+   * División de utilidades (Reparto & Retiros): sincronizar con Configuración
+   * del Sistema. Sin esta carga, la tarjeta muestra el default 30% ignorando
+   * el personal_payout_rate guardado (getSystemSettings estaba importado pero
+   * nunca invocado).
+   */
+  useEffect(() => {
+    let cancelled = false;
+    getSystemSettings()
+      .then((res) => {
+        if (cancelled || !res.success || !res.data) return;
+        const rate = Number(res.data.personal_payout_rate);
+        if (Number.isFinite(rate) && rate >= 0 && rate <= 100) {
+          setPersonalPayoutRate(rate);
+        }
+      })
+      .catch(() => {
+        // Ante fallo se conserva el valor por defecto (30%)
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   return (
     <div className="flex flex-col min-h-screen bg-erp-bg text-zinc-50 transition-colors duration-300">
       
